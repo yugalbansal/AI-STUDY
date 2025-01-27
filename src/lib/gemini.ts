@@ -6,13 +6,15 @@ export async function getChatResponse(prompt: string, context: string) {
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
     
-    // Enhanced context matching
+    // Enhanced context matching with link support
     let relevantContext = '';
     if (context) {
       const contextSections = context.split('\n\n');
       const relevantSections = contextSections.filter(section => {
         const keywords = prompt.toLowerCase().split(' ').filter(word => word.length > 3);
-        return keywords.some(keyword => section.toLowerCase().includes(keyword));
+        const isRelevant = keywords.some(keyword => section.toLowerCase().includes(keyword));
+        const isLink = section.startsWith('Link:');
+        return isRelevant || isLink;
       });
       relevantContext = relevantSections.join('\n\n');
     }
@@ -22,7 +24,8 @@ export async function getChatResponse(prompt: string, context: string) {
     2. Never use LaTeX or mathematical symbols like $x$ or $$
     3. Write mathematical expressions in plain text (e.g., "x squared" instead of "x²")
     4. Keep responses concise and well-structured
-    5. If the answer is in the following context, use it. Otherwise, use your knowledge:
+    5. If relevant links are provided in the context, mention them in your response
+    6. If the answer is in the following context, use it. Otherwise, use your knowledge:
     
     ${relevantContext || 'No context available'}`;
 
