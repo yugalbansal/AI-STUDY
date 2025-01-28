@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { FileText, MessageSquare, Users, RefreshCw } from 'lucide-react';
+import { FileText, MessageSquare, Users, RefreshCw, Trash2 } from 'lucide-react';
 
 interface User {
   id: string;
@@ -9,6 +9,7 @@ interface User {
   full_name: string;
   last_seen: string;
   is_online: boolean;
+  role: string;
 }
 
 export default function Dashboard() {
@@ -40,16 +41,39 @@ export default function Dashboard() {
 
       // Admin-specific data
       if (isAdmin) {
-        const { count: userCount, data: userData } = await supabase
+        // Get users data directly from the users table
+        const { data: usersData, error: usersError } = await supabase
           .from('users')
-          .select('*', { count: 'exact' });
+          .select('*');
 
-        setStats({
-          documentCount: documentsResponse.count || 0,
-          chatCount: chatResponse.count || 0,
-          userCount: userCount || 0,
-        });
-        setUsers(userData || []);
+        if (usersError) {
+          console.error('Error fetching users:', usersError);
+          return;
+        }
+
+        // Get total counts for admin
+        const [{ count: totalDocs }, { count: totalChats }] = await Promise.all([
+          supabase.from('documents').select('*', { count: 'exact' }),
+          supabase.from('chat_history').select('*', { count: 'exact' }),
+        ]);
+
+        if (usersData) {
+          const formattedUsers = usersData.map(userData => ({
+            id: userData.id,
+            email: userData.email || '',
+            full_name: userData.full_name || userData.email?.split('@')[0] || 'Unknown',
+            last_seen: userData.last_seen || null,
+            is_online: userData.is_online || false,
+            role: userData.role || 'user',
+          }));
+
+          setStats({
+            documentCount: totalDocs || 0,
+            chatCount: totalChats || 0,
+            userCount: usersData.length,
+          });
+          setUsers(formattedUsers);
+        }
       } else {
         setStats({
           documentCount: documentsResponse.count || 0,
@@ -93,6 +117,24 @@ export default function Dashboard() {
       setSelectedUser(userId);
     } catch (error) {
       console.error('Error fetching user chats:', error);
+    }
+  };
+
+  const deleteUserChat = async (chatId: string) => {
+    try {
+      const { error } = await supabase
+        .from('chat_history')
+        .delete()
+        .eq('id', chatId);
+
+      if (error) throw error;
+      
+      // Refresh the chat list
+      if (selectedUser) {
+        await fetchUserChats(selectedUser);
+      }
+    } catch (error) {
+      console.error('Error deleting chat:', error);
     }
   };
 
@@ -182,7 +224,13 @@ export default function Dashboard() {
                         <div>
                           <div className="font-medium">{u.full_name || u.email}</div>
                           <div className="text-sm text-gray-500">
-                            Last seen: {new Date(u.last_seen).toLocaleString()}
+                            {u.email}
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            Role: {u.role}
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            Last seen: {u.last_seen ? new Date(u.last_seen).toLocaleString() : 'Never'}
                           </div>
                         </div>
                         <div className={`h-2 w-2 rounded-full ${u.is_online ? 'bg-green-500' : 'bg-gray-300'}`} />
@@ -207,19 +255,33 @@ export default function Dashboard() {
                     <div className="space-y-4 max-h-[600px] overflow-y-auto">
                       {userChats.map((chat) => (
                         <div key={chat.id} className="border rounded-lg p-4">
-                          <div className="mb-2">
-                            <span className="font-medium">User:</span>
-                            <p className="ml-2 text-gray-700">{chat.message}</p>
-                          </div>
-                          <div>
-                            <span className="font-medium">AI:</span>
-                            <p className="ml-2 text-gray-700">{chat.response}</p>
-                          </div>
-                          <div className="mt-2 text-sm text-gray-500">
-                            {new Date(chat.created_at).toLocaleString()}
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex-1">
+                              <div className="mb-2">
+                                <span className="font-medium">User:</span>
+                                <p className="ml-2 text-gray-700">{chat.message}</p>
+                              </div>
+                              <div>
+                                <span className="font-medium">AI:</span>
+                                <p className="ml-2 text-gray-700">{chat.response}</p>
+                              </div>
+                              <div className="mt-2 text-sm text-gray-500">
+                                {new Date(chat.created_at).toLocaleString()}
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => deleteUserChat(chat.id)}
+                              className="ml-2 text-red-600 hover:text-red-800 p-1"
+                              title="Delete chat"
+                            >
+                              <Trash2 size={16} />
+                            </button>
                           </div>
                         </div>
                       ))}
+                      {userChats.length === 0 && (
+                        <p className="text-gray-500 text-center">No chat history available</p>
+                      )}
                     </div>
                   </>
                 ) : (

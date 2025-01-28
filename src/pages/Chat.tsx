@@ -11,6 +11,7 @@ export default function Chat() {
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const [isTyping, setIsTyping] = useState(false);
 
   useEffect(() => {
     fetchChatHistory();
@@ -18,7 +19,7 @@ export default function Chat() {
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatHistory]);
+  }, [chatHistory, isTyping]);
 
   async function fetchChatHistory() {
     try {
@@ -35,13 +36,14 @@ export default function Chat() {
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(e?: React.FormEvent) {
+    e?.preventDefault();
     if (!message.trim() || loading) return;
 
     setLoading(true);
     const userMessage = message;
     setMessage('');
+    setIsTyping(true);
 
     try {
       const { data: documents } = await supabase
@@ -70,36 +72,51 @@ export default function Chat() {
       console.error('Error processing message:', error);
     } finally {
       setLoading(false);
+      setIsTyping(false);
     }
   }
 
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="bg-white rounded-lg shadow-lg h-[calc(100vh-12rem)] flex flex-col">
-        <div className="flex-1 overflow-y-auto p-4">
+    <div className="max-w-4xl mx-auto h-[calc(100vh-4rem)]">
+      <div className="flex flex-col h-full bg-white">
+        <div className="flex-1 overflow-y-auto py-4">
           {chatHistory.map((chat, index) => (
             <div key={index}>
               <ChatMessage content={chat.message} isUser={true} />
               <ChatMessage content={chat.response} isUser={false} />
             </div>
           ))}
+          {isTyping && <ChatMessage content="" isUser={false} isTyping={true} />}
           <div ref={chatEndRef} />
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 border-t">
-          <div className="flex space-x-4">
-            <input
-              type="text"
+        <div className="border-t p-4">
+          <form onSubmit={handleSubmit} className="flex space-x-4">
+            <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
               placeholder="Ask a question..."
-              className="flex-1 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              rows={1}
+              className="flex-1 resize-none rounded-lg border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 min-h-[2.5rem] max-h-32"
               disabled={loading}
+              style={{
+                height: 'auto',
+                minHeight: '2.5rem',
+                maxHeight: '8rem',
+              }}
             />
             <button
               type="submit"
-              disabled={loading}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              disabled={loading || !message.trim()}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed h-10 self-end transition-colors"
             >
               {loading ? (
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
@@ -107,8 +124,8 @@ export default function Chat() {
                 <Send className="h-5 w-5" />
               )}
             </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );
