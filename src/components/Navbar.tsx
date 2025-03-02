@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { BookOpen, MessageSquare, LayoutDashboard, LogOut, Menu, X } from 'lucide-react';
+import { BookOpen, MessageSquare, LayoutDashboard, LogOut, Menu, X, Image } from 'lucide-react';
 
 export default function Navbar() {
   const { user, signOut } = useAuth();
@@ -60,6 +60,13 @@ export default function Navbar() {
               <MessageSquare className="h-5 w-5 mr-1" />
               Chat
             </Link>
+            <Link
+              to="/images"
+              className="flex items-center px-3 py-2 text-gray-700 hover:text-blue-600"
+            >
+              <Image className="h-5 w-5 mr-1" />
+              Images
+            </Link>
             <button
               onClick={handleSignOut}
               className="flex items-center px-3 py-2 text-gray-700 hover:text-red-600"
@@ -97,6 +104,14 @@ export default function Navbar() {
           >
             <MessageSquare className="h-5 w-5 mr-2" />
             Chat
+          </Link>
+          <Link
+            to="/images"
+            className="flex items-center px-4 py-2 text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+            onClick={() => setIsMenuOpen(false)}
+          >
+            <Image className="h-5 w-5 mr-2" />
+            Images
           </Link>
           <button
             onClick={handleSignOut}

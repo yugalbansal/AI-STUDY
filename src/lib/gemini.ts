@@ -1,10 +1,17 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+// Initialize the API with a fallback for missing key
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+const genAI = new GoogleGenerativeAI(API_KEY);
 
 export async function getChatResponse(prompt: string, context: string) {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    // Check if API key is available
+    if (!API_KEY) {
+      return "Error: Gemini API key is missing. Please add VITE_GEMINI_API_KEY to your .env file.";
+    }
+    
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
     
     // Enhanced context matching with link support
     let relevantContext = '';
@@ -29,27 +36,36 @@ export async function getChatResponse(prompt: string, context: string) {
     
     ${relevantContext || 'No context available'}`;
 
-    const chat = model.startChat({
-      history: [
-        {
-          role: 'user',
-          parts: systemPrompt,
+    try {
+      const chat = model.startChat({
+        history: [
+          {
+            role: 'user',
+            parts: [{ text: systemPrompt }],
+          },
+          {
+            role: 'model',
+            parts: [{ text: 'I understand and will follow these rules.' }],
+          },
+        ],
+        generationConfig: {
+          maxOutputTokens: 1000,
         },
-        {
-          role: 'model',
-          parts: 'I understand and will follow these rules.',
-        },
-      ],
-    });
+      });
 
-    const result = await chat.sendMessage(prompt);
-    const response = await result.response;
-    
-    return relevantContext
-      ? `[From Documents]\n\n${response.text()}`
-      : `[AI Response]\n\n${response.text()}`;
+      const result = await chat.sendMessage([{ text: prompt }]);
+      const response = await result.response;
+      const text = response.text();
+      
+      return relevantContext
+        ? `[From Documents]\n\n${text}`
+        : `[AI Response]\n\n${text}`;
+    } catch (modelError: any) {
+      console.error('Model error:', modelError);
+      return `I apologize, but I encountered an error with the AI model: ${modelError.message || 'Unknown error'}. Please try again.`;
+    }
   } catch (error: any) {
     console.error('Error getting chat response:', error);
-    return `I apologize, but I encountered an error: ${error.message}. Please try again.`;
+    return `I apologize, but I encountered an error: ${error.message || 'Unknown error'}. Please try again.`;
   }
 }

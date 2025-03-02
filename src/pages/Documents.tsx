@@ -15,18 +15,59 @@ export default function Documents() {
   const [title, setTitle] = useState('');
 
   useEffect(() => {
-    fetchDocuments();
-  }, []);
+    if (user?.id) {
+      // Ensure user exists in users table before fetching documents
+      ensureUserExists().then(() => {
+        fetchDocuments();
+      });
+    }
+  }, [user]);
+
+  async function ensureUserExists() {
+    if (!user?.id) return;
+    
+    try {
+      // Check if user exists in users table
+      const { data, error } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', user.id)
+        .single();
+        
+      if (error && error.code === 'PGRST116') {
+        // User doesn't exist, create them
+        const { error: insertError } = await supabase
+          .from('users')
+          .insert({
+            id: user.id,
+            email: user.email,
+            role: user.email === 'studyai.platform@gmail.com' ? 'admin' : 'user',
+            last_seen: new Date().toISOString()
+          });
+          
+        if (insertError) {
+          console.error('Error creating user record:', insertError);
+        }
+      }
+    } catch (error) {
+      console.error('Error ensuring user exists:', error);
+    }
+  }
 
   async function fetchDocuments() {
     try {
+      setLoading(true);
       const { data, error } = await supabase
         .from('documents')
         .select('*')
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching documents:', error);
+        throw error;
+      }
+      
       setDocuments(data || []);
     } catch (error) {
       console.error('Error fetching documents:', error);
@@ -43,6 +84,9 @@ export default function Documents() {
     setIsUploading(true);
 
     try {
+      // Ensure user exists in users table before uploading
+      await ensureUserExists();
+      
       const content = await parseDocument(file);
       
       const { error } = await supabase
@@ -54,7 +98,11 @@ export default function Documents() {
           user_id: user.id
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error inserting document:', error);
+        throw error;
+      }
+      
       await fetchDocuments();
     } catch (error: any) {
       console.error('Error uploading document:', error);
@@ -83,7 +131,11 @@ export default function Documents() {
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error deleting document:', error);
+        throw error;
+      }
+      
       setDocuments(documents.filter(doc => doc.id !== id));
     } catch (error) {
       console.error('Error deleting document:', error);
@@ -98,6 +150,9 @@ export default function Documents() {
     setIsUploading(true);
 
     try {
+      // Ensure user exists in users table before adding link
+      await ensureUserExists();
+      
       const { error } = await supabase
         .from('documents')
         .insert({
@@ -108,7 +163,11 @@ export default function Documents() {
           user_id: user.id
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error adding link:', error);
+        throw error;
+      }
+      
       await fetchDocuments();
       setUrl('');
       setTitle('');

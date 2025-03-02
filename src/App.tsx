@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Chat from './pages/Chat';
 import Documents from './pages/Documents';
+import ImageGen from './pages/ImageGen';
 import { AuthProvider } from './contexts/AuthContext';
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/chat" element={<Chat />} />
             <Route path="/documents" element={<Documents />} />
+            <Route path="/images" element={<ImageGen />} />
           </Routes>
         </div>
       </BrowserRouter>

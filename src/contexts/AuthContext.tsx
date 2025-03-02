@@ -34,13 +34,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const { data } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', userId)
-      .single();
+    try {
+      // Special case for the admin email - check auth user first
+      const { data: authUser } = await supabase.auth.getUser();
+      if (authUser?.user?.email === 'studyai.platform@gmail.com') {
+        setIsAdmin(true);
+        
+        // Ensure user record exists in users table
+        await ensureUserExists(userId, authUser.user.email, true);
+        return;
+      }
 
-    setIsAdmin(data?.role === 'admin');
+      // Check if user exists in the users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', userId)
+        .single();
+
+      if (userError) {
+        console.error('Error fetching user role:', userError);
+        
+        // If user doesn't exist in the users table, create them
+        if (userError.code === 'PGRST116') {
+          await ensureUserExists(userId, authUser?.user?.email || '', false);
+          setIsAdmin(false);
+        } else {
+          setIsAdmin(false);
+        }
+        return;
+      }
+
+      setIsAdmin(userData?.role === 'admin');
+    } catch (error) {
+      console.error('Error in checkUserRole:', error);
+      setIsAdmin(false);
+    }
+  }
+
+  async function ensureUserExists(userId: string, email: string, isAdmin: boolean) {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .upsert({
+          id: userId,
+          email: email,
+          role: isAdmin ? 'admin' : 'user',
+          last_seen: new Date().toISOString()
+        });
+        
+      if (error) {
+        console.error('Error ensuring user exists:', error);
+      }
+    } catch (error) {
+      console.error('Error in ensureUserExists:', error);
+    }
   }
 
   async function signIn(email: string, password: string) {

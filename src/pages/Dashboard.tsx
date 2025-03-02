@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { FileText, MessageSquare, Users, RefreshCw, Trash2 } from 'lucide-react';
+import { FileText, MessageSquare, Users, RefreshCw, Trash2, Image } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface User {
   id: string;
@@ -152,7 +153,7 @@ export default function Dashboard() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-8">
         <div className="bg-white overflow-hidden shadow rounded-lg">
           <div className="p-5">
             <div className="flex items-center">
@@ -166,6 +167,11 @@ export default function Dashboard() {
                 </dl>
               </div>
             </div>
+          </div>
+          <div className="bg-gray-50 px-5 py-3">
+            <Link to="/documents" className="text-sm font-medium text-blue-600 hover:text-blue-800">
+              View all documents
+            </Link>
           </div>
         </div>
 
@@ -183,20 +189,46 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+          <div className="bg-gray-50 px-5 py-3">
+            <Link to="/chat" className="text-sm font-medium text-blue-600 hover:text-blue-800">
+              Start a new chat
+            </Link>
+          </div>
+        </div>
+
+        <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <Image className="h-6 w-6 text-gray-400" />
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">AI Images</dt>
+                  <dd className="text-3xl font-semibold text-gray-900">
+                    <span className="text-blue-600">New!</span>
+                  </dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+          <div className="bg-gray-50 px-5 py-3">
+            <Link to="/images" className="text-sm font-medium text-blue-600 hover:text-blue-800">
+              Generate images
+            </Link>
+          </div>
         </div>
 
         {isAdmin && (
-          <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="bg-white overflow-hidden shadow rounded-lg lg:col-span-3">
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <Users className="h-6 w-6 text-gray-400" />
                 </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Total Users</dt>
-                    <dd className="text-3xl font-semibold text-gray-900">{stats.userCount}</dd>
-                  </dl>
+                <div className="ml-5">
+                  <h3 className="text-lg font-medium text-gray-900">Total Users</h3>
+                  <p className="text-3xl font-semibold text-gray-900">{stats.userCount}</p>
                 </div>
               </div>
             </div>

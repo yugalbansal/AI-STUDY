@@ -10,52 +10,122 @@ export default function Chat() {
   const [message, setMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [isTyping, setIsTyping] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchChatHistory();
-  }, []);
+    if (user?.id) {
+      // Ensure user exists in users table before fetching chat history
+      ensureUserExists().then(() => {
+        fetchChatHistory();
+      });
+    } else {
+      setInitialLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory, isTyping]);
 
+  async function ensureUserExists() {
+    if (!user?.id) return;
+    
+    try {
+      // Check if user exists in users table
+      const { data, error } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', user.id)
+        .single();
+        
+      if (error && error.code === 'PGRST116') {
+        // User doesn't exist, create them
+        const { error: insertError } = await supabase
+          .from('users')
+          .insert({
+            id: user.id,
+            email: user.email,
+            role: user.email === 'studyai.platform@gmail.com' ? 'admin' : 'user',
+            last_seen: new Date().toISOString()
+          });
+          
+        if (insertError) {
+          console.error('Error creating user record:', insertError);
+        }
+      }
+    } catch (error) {
+      console.error('Error ensuring user exists:', error);
+    }
+  }
+
   async function fetchChatHistory() {
     try {
+      setInitialLoading(true);
       const { data, error } = await supabase
         .from('chat_history')
         .select('*')
         .eq('user_id', user?.id)
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching chat history:', error);
+        throw error;
+      }
+      
       setChatHistory(data || []);
     } catch (error) {
       console.error('Error fetching chat history:', error);
+      setError('Failed to load chat history. Please try refreshing the page.');
+    } finally {
+      setInitialLoading(false);
     }
   }
 
   async function handleSubmit(e?: React.FormEvent) {
     e?.preventDefault();
-    if (!message.trim() || loading) return;
+    if (!message.trim() || loading || !user?.id) return;
 
     setLoading(true);
+    setError(null);
     const userMessage = message;
     setMessage('');
+    
+    // Optimistically add user message to chat
+    const tempId = Date.now().toString();
+    setChatHistory(prev => [...prev, { 
+      id: tempId, 
+      user_id: user.id, 
+      message: userMessage, 
+      response: '', 
+      created_at: new Date().toISOString() 
+    }]);
+    
     setIsTyping(true);
 
     try {
-      const { data: documents } = await supabase
+      // Ensure user exists in users table before adding chat
+      await ensureUserExists();
+      
+      // Fetch documents for context
+      const { data: documents, error: docError } = await supabase
         .from('documents')
         .select('content')
         .eq('user_id', user?.id);
 
+      if (docError) {
+        console.error('Error fetching documents:', docError);
+      }
+
       const context = documents?.map(doc => doc.content).join('\n') || '';
       
+      // Get response from Gemini API
       const response = await getChatResponse(userMessage, context);
 
-      const { error } = await supabase
+      // Save to database
+      const { data, error } = await supabase
         .from('chat_history')
         .insert([
           {
@@ -63,13 +133,25 @@ export default function Chat() {
             message: userMessage,
             response,
           },
-        ]);
+        ])
+        .select();
 
-      if (error) throw error;
-      
-      await fetchChatHistory();
-    } catch (error) {
+      if (error) {
+        console.error('Error saving chat:', error);
+        throw error;
+      }
+
+      // Remove temporary message and add the real one from the database
+      setChatHistory(prev => {
+        const filtered = prev.filter(item => item.id !== tempId);
+        return [...filtered, ...(data || [])];
+      });
+    } catch (error: any) {
       console.error('Error processing message:', error);
+      setError(`Failed to get response: ${error.message || 'Unknown error'}`);
+      
+      // Remove the temporary message if there was an error
+      setChatHistory(prev => prev.filter(item => item.id !== tempId));
     } finally {
       setLoading(false);
       setIsTyping(false);
@@ -83,17 +165,41 @@ export default function Chat() {
     }
   };
 
+  if (initialLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto h-[calc(100vh-4rem)]">
       <div className="flex flex-col h-full bg-white">
         <div className="flex-1 overflow-y-auto py-4">
-          {chatHistory.map((chat, index) => (
-            <div key={index}>
-              <ChatMessage content={chat.message} isUser={true} />
-              <ChatMessage content={chat.response} isUser={false} />
+          {chatHistory.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center p-8 max-w-md">
+                <h2 className="text-xl font-semibold text-gray-700 mb-2">Welcome to AI Chat</h2>
+                <p className="text-gray-500 mb-4">
+                  Ask questions about your documents or any topic you'd like to learn about.
+                </p>
+              </div>
             </div>
-          ))}
+          ) : (
+            chatHistory.map((chat, index) => (
+              <div key={chat.id || index}>
+                <ChatMessage content={chat.message} isUser={true} />
+                <ChatMessage content={chat.response} isUser={false} />
+              </div>
+            ))
+          )}
           {isTyping && <ChatMessage content="" isUser={false} isTyping={true} />}
+          {error && (
+            <div className="mx-4 p-4 bg-red-50 text-red-700 rounded-md mb-4">
+              {error}
+            </div>
+          )}
           <div ref={chatEndRef} />
         </div>
 
