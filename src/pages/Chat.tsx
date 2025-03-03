@@ -528,7 +528,7 @@
 // }
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/router';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { getChatResponse } from '../lib/gemini';
@@ -544,7 +544,7 @@ export default function Chat() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (user?.id) {
@@ -763,7 +763,7 @@ export default function Chat() {
             </button>
             <button
               type="button"
-              onClick={() => router.push('/live-call')}
+              onClick={() => navigate('/live-call')}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 h-10 self-end transition-colors"
             >
               Start Live Call
