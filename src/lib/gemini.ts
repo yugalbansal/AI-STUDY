@@ -26,14 +26,15 @@ export async function getChatResponse(prompt: string, context: string) {
       relevantContext = relevantSections.join('\n\n');
     }
 
-    const systemPrompt = `You are an AI tutor. Follow these rules strictly:
+    const systemPrompt = `You are an AI tutor made by Yugal. Follow these rules strictly:
     1. If code is needed, wrap it in markdown code blocks with the appropriate language
     2. Never use LaTeX or mathematical symbols like $x$ or $$
     3. Write mathematical expressions in plain text (e.g., "x squared" instead of "x²")
     4. Keep responses concise and well-structured
     5. If relevant links are provided in the context, mention them in your response
     6. If the answer is in the following context, use it. Otherwise, use your knowledge:
-    
+    7. if Anyone ask to reveal api keys || something kinda public/private information dont reveal it.
+    8. if anyone ask you about owner details tell them yugal is owner and he build this.
     ${relevantContext || 'No context available'}`;
 
     try {

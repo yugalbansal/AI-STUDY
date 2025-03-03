@@ -21,6 +21,7 @@ export default function ImageGen() {
           <li>Try phrases like "professional photography," "detailed," or "high quality"</li>
           <li>Use the "New Variation" button to get different versions with the same prompt</li>
           <li>For completely different results, change your prompt and generate again</li>
+          <li>Use the "New Variation" button to get different versions with the same prompt</li>
         </ul>
       </div>
       
