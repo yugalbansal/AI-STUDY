@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Chat from './pages/Chat';
 import Documents from './pages/Documents';
 import ImageGen from './pages/ImageGen';
+import Livecall from './pages/Livecall';
 import { AuthProvider } from './contexts/AuthContext';
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
             <Route path="/chat" element={<Chat />} />
             <Route path="/documents" element={<Documents />} />
             <Route path="/images" element={<ImageGen />} />
+            <Route path="/livecall" element={<Livecall />} />
           </Routes>
         </div>
       </BrowserRouter>
