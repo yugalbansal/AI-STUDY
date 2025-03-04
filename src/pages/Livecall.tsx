@@ -372,7 +372,7 @@ export default function LiveCall() {
     }
   };
 
-  // Speak text using Web Speech API
+  // Speak text using Web Speech API - FIXED VERSION
   const speakText = async (text: string): Promise<void> => {
     return new Promise((resolve, reject) => {
       try {
@@ -386,7 +386,7 @@ export default function LiveCall() {
         }
         
         setIsSpeaking(true);
-        addDebugInfo('Starting speech synthesis');
+        addDebugInfo('Starting speech synthesis for: ' + text.substring(0, 30) + '...');
         
         // Create utterance with improved settings
         const utterance = new SpeechSynthesisUtterance(text);
@@ -451,7 +451,6 @@ export default function LiveCall() {
         };
         
         // Break text into smaller chunks if it's too long
-        // This helps with speech synthesis reliability
         if (text.length > 200) {
           const chunks = splitTextIntoChunks(text);
           addDebugInfo(`Text split into ${chunks.length} chunks for better speech synthesis`);
@@ -512,7 +511,7 @@ export default function LiveCall() {
         } else {
           // For shorter text, just speak it directly
           window.speechSynthesis.speak(utterance);
-          addDebugInfo('Speech synthesis speak() called');
+          addDebugInfo('Speech synthesis speak() called with text: ' + text.substring(0, 30) + '...');
         }
         
         // Chrome has a bug where it stops speaking after ~15 seconds
@@ -610,17 +609,20 @@ export default function LiveCall() {
             testUtterance.voice = selectedVoice;
           }
           testUtterance.onstart = () => addDebugInfo('Test speech started (audible)');
-          testUtterance.onend = () => addDebugInfo('Test speech ended (audible)');
+          testUtterance.onend = () => {
+            addDebugInfo('Test speech ended (audible)');
+            // Start recognition after the welcome message
+            setTimeout(() => startRecognition(), 500);
+          };
           testUtterance.onerror = (e) => addDebugInfo(`Test speech error: ${e.error}`);
           
           window.speechSynthesis.speak(testUtterance);
           addDebugInfo('Audible test speech initiated');
         } catch (e) {
           addDebugInfo(`Audible test speech failed: ${e}`);
+          // Start recognition anyway if the welcome message fails
+          setTimeout(() => startRecognition(), 500);
         }
-        
-        // Start recognition
-        await startRecognition();
         
         setLiveCallEnabled(true);
         addDebugInfo('Live call enabled');
