@@ -29,25 +29,67 @@ export default function LiveCall() {
   const [transcript, setTranscript] = useState('');
   const [isActive, setIsActive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const resumeTimerRef = useRef<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   
   // Debug state
   const [debugInfo, setDebugInfo] = useState<string>('');
-  const [showDebug, setShowDebug] = useState(false);
+  const [showDebug, setShowDebug] = useState(true); // Set to true by default to help debug
 
   // Load voices and initialize audio
   useEffect(() => {
+    // Initialize audio context
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) {
+        audioContextRef.current = new AudioContext();
+        addDebugInfo(`Audio context created: ${audioContextRef.current.state}`);
+        
+        // Try to resume the audio context
+        if (audioContextRef.current.state === 'suspended') {
+          audioContextRef.current.resume().then(() => {
+            addDebugInfo(`Audio context resumed: ${audioContextRef.current.state}`);
+          }).catch(err => {
+            addDebugInfo(`Failed to resume audio context: ${err}`);
+          });
+        }
+      } else {
+        addDebugInfo('AudioContext not supported in this browser');
+      }
+    } catch (e) {
+      addDebugInfo(`Error creating audio context: ${e}`);
+    }
+
     // Function to load and set available voices
     const loadVoices = () => {
       try {
         const availableVoices = window.speechSynthesis.getVoices();
+        
         if (availableVoices.length > 0) {
-          setVoices(availableVoices);
-          const voiceInfo = availableVoices.map(v => `${v.name} (${v.lang})`).join(', ');
-          addDebugInfo(`Loaded ${availableVoices.length} voices: ${voiceInfo}`);
+          // Look for an Indian voice first
+          let voice = availableVoices.find(v => 
+            (v.lang.includes('en-IN') || v.name.toLowerCase().includes('indian'))
+          );
+          
+          // If no Indian voice, try any English voice
+          if (!voice) {
+            voice = availableVoices.find(v => v.lang.includes('en'));
+          }
+          
+          // If still no voice, use the first available
+          if (!voice) {
+            voice = availableVoices[0];
+          }
+          
+          setSelectedVoice(voice);
+          addDebugInfo(`Selected voice: ${voice.name} (${voice.lang})`);
+          
+          // Log all available voices for debugging
+          const voiceList = availableVoices.map(v => `${v.name} (${v.lang})`).join('\n');
+          addDebugInfo(`Available voices (${availableVoices.length}):\n${voiceList}`);
         } else {
           addDebugInfo('No voices available yet');
         }
@@ -74,6 +116,14 @@ export default function LiveCall() {
         clearInterval(resumeTimerRef.current);
       }
       window.speechSynthesis.cancel();
+      
+      if (audioContextRef.current) {
+        audioContextRef.current.close().then(() => {
+          addDebugInfo('Audio context closed');
+        }).catch(err => {
+          addDebugInfo(`Error closing audio context: ${err}`);
+        });
+      }
     };
   }, []);
 
@@ -86,30 +136,38 @@ export default function LiveCall() {
   // Unlock audio context on page load
   const unlockAudio = () => {
     try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) {
-        addDebugInfo('AudioContext not supported');
-        return;
+      // Create a short sound and play it to unlock audio
+      if (audioContextRef.current) {
+        const oscillator = audioContextRef.current.createOscillator();
+        const gainNode = audioContextRef.current.createGain();
+        
+        // Set gain to 0 (silent)
+        gainNode.gain.value = 0;
+        
+        // Connect and start
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContextRef.current.destination);
+        oscillator.start(0);
+        oscillator.stop(0.1);
+        
+        addDebugInfo(`Audio unlocking attempted: ${audioContextRef.current.state}`);
+        
+        // Try to resume the context
+        audioContextRef.current.resume().then(() => {
+          addDebugInfo(`Audio context resumed: ${audioContextRef.current.state}`);
+        }).catch(err => {
+          addDebugInfo(`Failed to resume audio context: ${err}`);
+        });
+      } else {
+        addDebugInfo('No audio context available for unlocking');
       }
-
-      const tempContext = new AudioContext();
-      tempContext.resume().then(() => {
-        addDebugInfo('Audio context unlocked');
-        
-        // Create a silent sound to unlock audio
-        const buffer = tempContext.createBuffer(1, 1, 22050);
-        const source = tempContext.createBufferSource();
-        source.buffer = buffer;
-        source.connect(tempContext.destination);
-        source.start(0);
-        
-        // Close this temporary context after a moment
-        setTimeout(() => {
-          tempContext.close().then(() => {
-            addDebugInfo('Temporary audio context closed');
-          });
-        }, 1000);
-      });
+      
+      // Also try to unlock Web Speech API
+      const utterance = new SpeechSynthesisUtterance('');
+      utterance.volume = 0;
+      window.speechSynthesis.speak(utterance);
+      
+      addDebugInfo('Audio unlock attempted via silent utterance');
     } catch (e) {
       addDebugInfo(`Error unlocking audio: ${e}`);
     }
@@ -121,15 +179,17 @@ export default function LiveCall() {
       // Cancel any ongoing speech
       window.speechSynthesis.cancel();
       
-      // Create a silent utterance
-      const utterance = new SpeechSynthesisUtterance('');
-      utterance.volume = 0;
-      utterance.onend = () => addDebugInfo('Test speech synthesis completed');
-      utterance.onerror = (e) => addDebugInfo(`Test speech synthesis error: ${e.error}`);
+      // Create a test utterance with a short text
+      const utterance = new SpeechSynthesisUtterance('Test');
+      utterance.volume = 0.1; // Very quiet but not silent
       
-      // Speak the silent utterance
+      utterance.onstart = () => addDebugInfo('Test speech started');
+      utterance.onend = () => addDebugInfo('Test speech completed');
+      utterance.onerror = (e) => addDebugInfo(`Test speech error: ${e.error}`);
+      
+      // Speak the test utterance
       window.speechSynthesis.speak(utterance);
-      addDebugInfo('Test speech synthesis started');
+      addDebugInfo('Test speech synthesis initiated');
     } catch (e) {
       addDebugInfo(`Speech synthesis test failed: ${e}`);
     }
@@ -321,23 +381,16 @@ export default function LiveCall() {
         setIsSpeaking(true);
         addDebugInfo('Starting speech synthesis');
         
-        // Get available voices
-        const availableVoices = window.speechSynthesis.getVoices();
-        
-        // Find a good English voice
-        const preferredVoice = availableVoices.find(voice => 
-          voice.lang.includes('en') && 
-          (voice.name.includes('Google') || voice.name.includes('Natural') || voice.name.includes('Premium'))
-        ) || availableVoices.find(voice => voice.lang.includes('en-US')) || availableVoices[0];
-        
-        addDebugInfo(`Using voice: ${preferredVoice ? preferredVoice.name : 'Default voice'}`);
-        
         // Create utterance with improved settings
         const utterance = new SpeechSynthesisUtterance(text);
         utteranceRef.current = utterance;
         
-        if (preferredVoice) {
-          utterance.voice = preferredVoice;
+        // Set the selected voice if available
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+          addDebugInfo(`Using voice: ${selectedVoice.name} (${selectedVoice.lang})`);
+        } else {
+          addDebugInfo('No voice selected, using default voice');
         }
         
         utterance.lang = 'en-US';
@@ -392,6 +445,7 @@ export default function LiveCall() {
         
         // Speak the text
         window.speechSynthesis.speak(utterance);
+        addDebugInfo('Speech synthesis speak() called');
         
         // Chrome has a bug where it stops speaking after ~15 seconds
         // This is a workaround to keep it going
@@ -448,6 +502,22 @@ export default function LiveCall() {
         
         // Unlock audio again just to be safe
         unlockAudio();
+        
+        // Test speech synthesis with audible sound
+        try {
+          const testUtterance = new SpeechSynthesisUtterance("Live call started");
+          if (selectedVoice) {
+            testUtterance.voice = selectedVoice;
+          }
+          testUtterance.onstart = () => addDebugInfo('Test speech started (audible)');
+          testUtterance.onend = () => addDebugInfo('Test speech ended (audible)');
+          testUtterance.onerror = (e) => addDebugInfo(`Test speech error: ${e.error}`);
+          
+          window.speechSynthesis.speak(testUtterance);
+          addDebugInfo('Audible test speech initiated');
+        } catch (e) {
+          addDebugInfo(`Audible test speech failed: ${e}`);
+        }
         
         // Start recognition
         await startRecognition();
