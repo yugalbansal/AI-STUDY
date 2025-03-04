@@ -39,6 +39,12 @@ export default function LiveCall() {
   const [debugInfo, setDebugInfo] = useState<string>('');
   const [showDebug, setShowDebug] = useState(true); // Set to true by default to help debug
 
+  // Add debug information
+  const addDebugInfo = (info: string) => {
+    console.log(info);
+    setDebugInfo(prev => `${new Date().toLocaleTimeString()}: ${info}\n${prev}`);
+  };
+
   // Load voices and initialize audio
   useEffect(() => {
     // Initialize audio context
@@ -126,12 +132,6 @@ export default function LiveCall() {
       }
     };
   }, []);
-
-  // Add debug information
-  const addDebugInfo = (info: string) => {
-    console.log(info);
-    setDebugInfo(prev => `${new Date().toLocaleTimeString()}: ${info}\n${prev}`);
-  };
 
   // Unlock audio context on page load
   const unlockAudio = () => {
@@ -332,7 +332,14 @@ export default function LiveCall() {
   
       // Handle speech synthesis if not muted
       if (liveCallEnabled && !isMuted) {
-        await speakText(response);
+        // Force a small delay before speaking to ensure the speech synthesis system is ready
+        setTimeout(async () => {
+          try {
+            await speakText(response);
+          } catch (err) {
+            addDebugInfo(`Error in delayed speech: ${err}`);
+          }
+        }, 500);
       } else {
         addDebugInfo('Speech synthesis skipped (muted or live call disabled)');
         // If muted, still need to restart recognition
@@ -367,7 +374,7 @@ export default function LiveCall() {
 
   // Speak text using Web Speech API
   const speakText = async (text: string): Promise<void> => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       try {
         // Cancel any ongoing speech
         window.speechSynthesis.cancel();
@@ -440,12 +447,73 @@ export default function LiveCall() {
             setTimeout(() => startRecognition(), 1000);
           }
           
-          resolve();
+          reject(new Error(`Speech synthesis error: ${event.error}`));
         };
         
-        // Speak the text
-        window.speechSynthesis.speak(utterance);
-        addDebugInfo('Speech synthesis speak() called');
+        // Break text into smaller chunks if it's too long
+        // This helps with speech synthesis reliability
+        if (text.length > 200) {
+          const chunks = splitTextIntoChunks(text);
+          addDebugInfo(`Text split into ${chunks.length} chunks for better speech synthesis`);
+          
+          // Speak the first chunk immediately
+          utterance.text = chunks[0];
+          window.speechSynthesis.speak(utterance);
+          addDebugInfo(`Speaking first chunk: "${chunks[0].substring(0, 30)}..."`);
+          
+          // Set up a chain of utterances for the remaining chunks
+          let currentChunk = 1;
+          
+          utterance.onend = () => {
+            if (currentChunk < chunks.length) {
+              const nextUtterance = new SpeechSynthesisUtterance(chunks[currentChunk]);
+              if (selectedVoice) nextUtterance.voice = selectedVoice;
+              nextUtterance.lang = 'en-US';
+              nextUtterance.rate = 1.0;
+              nextUtterance.pitch = 1.0;
+              nextUtterance.volume = 1.0;
+              
+              addDebugInfo(`Speaking chunk ${currentChunk + 1}/${chunks.length}`);
+              
+              // Last chunk should have the final onend handler
+              if (currentChunk === chunks.length - 1) {
+                nextUtterance.onend = () => {
+                  addDebugInfo('Final speech chunk ended');
+                  setIsSpeaking(false);
+                  
+                  // Resume listening after speech ends
+                  setTimeout(() => {
+                    if (liveCallEnabled && !isProcessing) {
+                      startRecognition();
+                    }
+                  }, 1000);
+                  
+                  resolve();
+                };
+              }
+              
+              window.speechSynthesis.speak(nextUtterance);
+              currentChunk++;
+            } else {
+              // This should only happen if there's just one chunk
+              addDebugInfo('Speech ended (single chunk)');
+              setIsSpeaking(false);
+              
+              // Resume listening after speech ends
+              setTimeout(() => {
+                if (liveCallEnabled && !isProcessing) {
+                  startRecognition();
+                }
+              }, 1000);
+              
+              resolve();
+            }
+          };
+        } else {
+          // For shorter text, just speak it directly
+          window.speechSynthesis.speak(utterance);
+          addDebugInfo('Speech synthesis speak() called');
+        }
         
         // Chrome has a bug where it stops speaking after ~15 seconds
         // This is a workaround to keep it going
@@ -471,9 +539,41 @@ export default function LiveCall() {
           setTimeout(() => startRecognition(), 1000);
         }
         
-        resolve();
+        reject(error);
       }
     });
+  };
+
+  // Helper function to split text into smaller chunks at sentence boundaries
+  const splitTextIntoChunks = (text: string, maxChunkLength = 150): string[] => {
+    // Split by sentence endings (., !, ?)
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+    const chunks: string[] = [];
+    let currentChunk = '';
+    
+    for (const sentence of sentences) {
+      // If adding this sentence would make the chunk too long, start a new chunk
+      if (currentChunk.length + sentence.length > maxChunkLength && currentChunk.length > 0) {
+        chunks.push(currentChunk.trim());
+        currentChunk = sentence;
+      } else {
+        currentChunk += sentence;
+      }
+    }
+    
+    // Add the last chunk if it's not empty
+    if (currentChunk.trim().length > 0) {
+      chunks.push(currentChunk.trim());
+    }
+    
+    // If we couldn't split by sentences (no punctuation), split by length
+    if (chunks.length === 0) {
+      for (let i = 0; i < text.length; i += maxChunkLength) {
+        chunks.push(text.substring(i, i + maxChunkLength));
+      }
+    }
+    
+    return chunks;
   };
 
   // Toggle mute
@@ -556,6 +656,30 @@ export default function LiveCall() {
     }
   };
 
+  // Force speak a test message
+  const forceSpeak = () => {
+    const testMessage = "This is a test message to verify that speech synthesis is working correctly. If you can hear this, the system is functioning properly.";
+    addDebugInfo('Forcing test speech...');
+    
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+    
+    // Create a new utterance
+    const utterance = new SpeechSynthesisUtterance(testMessage);
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+    }
+    utterance.volume = 1.0; // Maximum volume
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    
+    utterance.onstart = () => addDebugInfo('Force test speech started');
+    utterance.onend = () => addDebugInfo('Force test speech ended');
+    utterance.onerror = (e) => addDebugInfo(`Force test speech error: ${e.error}`);
+    
+    window.speechSynthesis.speak(utterance);
+  };
+
   return (
     <div className="livecall-container">
       <div className="content-wrapper">
@@ -584,6 +708,12 @@ export default function LiveCall() {
           <div className="debug-panel bg-gray-800 text-green-400 p-4 rounded-md mb-4 overflow-auto max-h-40">
             <h3 className="text-white mb-2">Debug Info:</h3>
             <pre className="text-xs whitespace-pre-wrap">{debugInfo}</pre>
+            <button 
+              onClick={forceSpeak}
+              className="mt-2 p-1 bg-blue-600 text-white text-xs rounded"
+            >
+              Force Test Speech
+            </button>
           </div>
         )}
         
