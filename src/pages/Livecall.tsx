@@ -34,28 +34,39 @@ export default function LiveCall() {
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const resumeTimerRef = useRef<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const [speechRate, setSpeechRate] = useState(1.2); // Default to slightly faster speech
-  
-  // Debug state
-  const [debugInfo, setDebugInfo] = useState<string>('');
-  const [showDebug, setShowDebug] = useState(true); // Set to true by default to help debug
+  const [speechRate, setSpeechRate] = useState(1.2);
 
-  // Add debug information
+  const [debugInfo, setDebugInfo] = useState<string>('');
+  const [showDebug, setShowDebug] = useState(true);
+  const debugTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const addDebugInfo = (info: string) => {
     console.log(info);
     setDebugInfo(prev => `${new Date().toLocaleTimeString()}: ${info}\n${prev}`);
+    
+    if (debugTimeoutRef.current) {
+      clearTimeout(debugTimeoutRef.current);
+    }
+    debugTimeoutRef.current = setTimeout(() => {
+      setDebugInfo('');
+    }, 4000);
   };
 
-  // Load voices and initialize audio
   useEffect(() => {
-    // Initialize audio context
+    return () => {
+      if (debugTimeoutRef.current) {
+        clearTimeout(debugTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (AudioContext) {
         audioContextRef.current = new AudioContext();
         addDebugInfo(`Audio context created: ${audioContextRef.current.state}`);
         
-        // Try to resume the audio context
         if (audioContextRef.current.state === 'suspended') {
           audioContextRef.current.resume().then(() => {
             addDebugInfo(`Audio context resumed: ${audioContextRef.current.state}`);
@@ -70,23 +81,19 @@ export default function LiveCall() {
       addDebugInfo(`Error creating audio context: ${e}`);
     }
 
-    // Function to load and set available voices
     const loadVoices = () => {
       try {
         const availableVoices = window.speechSynthesis.getVoices();
         
         if (availableVoices.length > 0) {
-          // Look for an Indian voice first
           let voice = availableVoices.find(v => 
             (v.lang.includes('en-IN') || v.name.toLowerCase().includes('indian'))
           );
           
-          // If no Indian voice, try any English voice
           if (!voice) {
             voice = availableVoices.find(v => v.lang.includes('en'));
           }
           
-          // If still no voice, use the first available
           if (!voice) {
             voice = availableVoices[0];
           }
@@ -94,7 +101,6 @@ export default function LiveCall() {
           setSelectedVoice(voice);
           addDebugInfo(`Selected voice: ${voice.name} (${voice.lang})`);
           
-          // Log all available voices for debugging
           const voiceList = availableVoices.map(v => `${v.name} (${v.lang})`).join('\n');
           addDebugInfo(`Available voices (${availableVoices.length}):\n${voiceList}`);
         } else {
@@ -105,19 +111,14 @@ export default function LiveCall() {
       }
     };
 
-    // Try to load voices immediately
     loadVoices();
 
-    // Set up event for when voices change/load
     window.speechSynthesis.onvoiceschanged = loadVoices;
 
-    // Unlock audio on page load
     unlockAudio();
 
-    // Test speech synthesis
     testSpeechSynthesis();
 
-    // Cleanup function
     return () => {
       if (resumeTimerRef.current) {
         clearInterval(resumeTimerRef.current);
@@ -134,18 +135,14 @@ export default function LiveCall() {
     };
   }, []);
 
-  // Unlock audio context on page load
   const unlockAudio = () => {
     try {
-      // Create a short sound and play it to unlock audio
       if (audioContextRef.current) {
         const oscillator = audioContextRef.current.createOscillator();
         const gainNode = audioContextRef.current.createGain();
         
-        // Set gain to 0 (silent)
         gainNode.gain.value = 0;
         
-        // Connect and start
         oscillator.connect(gainNode);
         gainNode.connect(audioContextRef.current.destination);
         oscillator.start(0);
@@ -153,7 +150,6 @@ export default function LiveCall() {
         
         addDebugInfo(`Audio unlocking attempted: ${audioContextRef.current.state}`);
         
-        // Try to resume the context
         audioContextRef.current.resume().then(() => {
           addDebugInfo(`Audio context resumed: ${audioContextRef.current.state}`);
         }).catch(err => {
@@ -163,7 +159,6 @@ export default function LiveCall() {
         addDebugInfo('No audio context available for unlocking');
       }
       
-      // Also try to unlock Web Speech API
       const utterance = new SpeechSynthesisUtterance('');
       utterance.volume = 0;
       window.speechSynthesis.speak(utterance);
@@ -174,22 +169,18 @@ export default function LiveCall() {
     }
   };
 
-  // Test speech synthesis
   const testSpeechSynthesis = () => {
     try {
-      // Cancel any ongoing speech
       window.speechSynthesis.cancel();
       
-      // Create a test utterance with a short text
       const utterance = new SpeechSynthesisUtterance('Test');
-      utterance.volume = 0.1; // Very quiet but not silent
-      utterance.rate = speechRate; // Use faster speech rate
+      utterance.volume = 0.1;
+      utterance.rate = speechRate;
       
       utterance.onstart = () => addDebugInfo('Test speech started');
       utterance.onend = () => addDebugInfo('Test speech completed');
       utterance.onerror = (e) => addDebugInfo(`Test speech error: ${e.error}`);
       
-      // Speak the test utterance
       window.speechSynthesis.speak(utterance);
       addDebugInfo('Test speech synthesis initiated');
     } catch (e) {
@@ -197,12 +188,10 @@ export default function LiveCall() {
     }
   };
 
-  // Scroll to bottom when chat updates
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory]);
 
-  // Initialize speech recognition
   useEffect(() => {
     if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
       setError('Speech recognition is not supported in your browser.');
@@ -244,7 +233,6 @@ export default function LiveCall() {
         setIsActive(false);
         addDebugInfo('Speech recognition ended');
         
-        // Only restart if enabled and not speaking/processing
         if (liveCallEnabled && !isSpeaking && !isProcessing) {
           setTimeout(() => {
             startRecognition();
@@ -255,7 +243,6 @@ export default function LiveCall() {
       recognition.current.onerror = (event: any) => {
         addDebugInfo(`Speech recognition error: ${event.error}`);
         
-        // Don't show error for "no-speech" as it's common
         if (event.error !== 'no-speech') {
           setError(`Speech recognition error: ${event.error}`);
         }
@@ -280,7 +267,6 @@ export default function LiveCall() {
     };
   }, [liveCallEnabled, isSpeaking, isProcessing]);
 
-  // Start speech recognition
   const startRecognition = async () => {
     if (!recognition.current || isProcessing || isSpeaking) return;
     
@@ -294,7 +280,6 @@ export default function LiveCall() {
     }
   };
 
-  // Handle user message and get AI response
   const handleResponse = async (text: string) => {
     if (!text.trim() || loading || !user?.id) return;
   
@@ -332,19 +317,16 @@ export default function LiveCall() {
       setChatHistory(prev => [...prev, aiMessage]);
       addDebugInfo('Added AI response to chat history');
   
-      // Handle speech synthesis if not muted
       if (liveCallEnabled && !isMuted) {
-        // Force a small delay before speaking to ensure the speech synthesis system is ready
         setTimeout(async () => {
           try {
             await speakText(response);
           } catch (err) {
             addDebugInfo(`Error in delayed speech: ${err}`);
           }
-        }, 300); // Reduced delay for faster response
+        }, 300);
       } else {
         addDebugInfo('Speech synthesis skipped (muted or live call disabled)');
-        // If muted, still need to restart recognition
         if (liveCallEnabled) {
           setTimeout(() => {
             if (!isProcessing) startRecognition();
@@ -352,7 +334,6 @@ export default function LiveCall() {
         }
       }
   
-      // Save to database
       await supabase.from('chat_history').insert([{
         user_id: user.id,
         message: text,
@@ -365,7 +346,6 @@ export default function LiveCall() {
       setError(error.message || 'Error processing message');
       setIsSpeaking(false);
       
-      // Restart recognition even if there was an error
       if (liveCallEnabled && !isProcessing) {
         setTimeout(() => startRecognition(), 1000);
       }
@@ -374,14 +354,11 @@ export default function LiveCall() {
     }
   };
 
-  // Speak text using Web Speech API - IMPROVED VERSION
   const speakText = async (text: string): Promise<void> => {
     return new Promise((resolve, reject) => {
       try {
-        // Cancel any ongoing speech
         window.speechSynthesis.cancel();
         
-        // Clear any existing resume timer
         if (resumeTimerRef.current) {
           clearInterval(resumeTimerRef.current);
           resumeTimerRef.current = null;
@@ -390,24 +367,20 @@ export default function LiveCall() {
         setIsSpeaking(true);
         addDebugInfo('Starting speech synthesis for: ' + text.substring(0, 30) + '...');
         
-        // Break text into smaller chunks for better reliability
-        // Using smaller chunks (100 chars) to ensure more consistent speech
         const chunks = splitTextIntoChunks(text, 100);
         addDebugInfo(`Text split into ${chunks.length} chunks for better speech synthesis`);
         
-        // Set up a queue of utterances
         let currentChunk = 0;
         const speakNextChunk = () => {
           if (currentChunk >= chunks.length) {
             addDebugInfo('All chunks spoken');
             setIsSpeaking(false);
             
-            // Resume listening after speech ends
             setTimeout(() => {
               if (liveCallEnabled && !isProcessing) {
                 startRecognition();
               }
-            }, 500); // Reduced delay
+            }, 500);
             
             resolve();
             return;
@@ -416,13 +389,12 @@ export default function LiveCall() {
           const chunk = chunks[currentChunk];
           const utterance = new SpeechSynthesisUtterance(chunk);
           
-          // Set the selected voice if available
           if (selectedVoice) {
             utterance.voice = selectedVoice;
           }
           
           utterance.lang = 'en-US';
-          utterance.rate = speechRate; // Use faster speech rate
+          utterance.rate = speechRate;
           utterance.pitch = 1.0;
           utterance.volume = 1.0;
           
@@ -436,14 +408,12 @@ export default function LiveCall() {
           
           utterance.onerror = (event) => {
             addDebugInfo(`Speech error on chunk ${currentChunk + 1}: ${event.error}`);
-            // Continue to next chunk even if there's an error
             currentChunk++;
             speakNextChunk();
           };
           
           window.speechSynthesis.speak(utterance);
           
-          // Chrome bug workaround - reset speech synthesis every 5 seconds
           if (currentChunk === 0) {
             resumeTimerRef.current = window.setInterval(() => {
               if (!window.speechSynthesis.speaking) {
@@ -459,7 +429,6 @@ export default function LiveCall() {
           }
         };
         
-        // Start speaking the first chunk
         speakNextChunk();
         
       } catch (error: any) {
@@ -467,7 +436,6 @@ export default function LiveCall() {
         setError(`Failed to speak: ${error.message}`);
         setIsSpeaking(false);
         
-        // Resume listening even after error
         if (liveCallEnabled && !isProcessing) {
           setTimeout(() => startRecognition(), 500);
         }
@@ -477,15 +445,12 @@ export default function LiveCall() {
     });
   };
 
-  // Helper function to split text into smaller chunks at sentence boundaries
   const splitTextIntoChunks = (text: string, maxChunkLength = 100): string[] => {
-    // Split by sentence endings (., !, ?)
     const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
     const chunks: string[] = [];
     let currentChunk = '';
     
     for (const sentence of sentences) {
-      // If adding this sentence would make the chunk too long, start a new chunk
       if (currentChunk.length + sentence.length > maxChunkLength && currentChunk.length > 0) {
         chunks.push(currentChunk.trim());
         currentChunk = sentence;
@@ -494,12 +459,10 @@ export default function LiveCall() {
       }
     }
     
-    // Add the last chunk if it's not empty
     if (currentChunk.trim().length > 0) {
       chunks.push(currentChunk.trim());
     }
     
-    // If we couldn't split by sentences (no punctuation), split by length
     if (chunks.length === 0) {
       for (let i = 0; i < text.length; i += maxChunkLength) {
         chunks.push(text.substring(i, i + maxChunkLength));
@@ -509,50 +472,41 @@ export default function LiveCall() {
     return chunks;
   };
 
-  // Toggle mute
   const toggleMute = () => {
     setIsMuted(!isMuted);
     addDebugInfo(`Audio ${!isMuted ? 'muted' : 'unmuted'}`);
     
-    // If currently speaking and muting, stop speech
     if (isSpeaking && !isMuted) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
       
-      // Resume listening
       if (liveCallEnabled && !isProcessing) {
         setTimeout(() => startRecognition(), 500);
       }
     }
   };
 
-  // Change speech rate
   const changeSpeechRate = (newRate: number) => {
     setSpeechRate(newRate);
     addDebugInfo(`Speech rate changed to ${newRate}`);
   };
 
-  // Toggle live call on/off
   const toggleLiveCall = async () => {
     try {
       if (!liveCallEnabled) {
-        // Reset state
         setError(null);
         
-        // Unlock audio again just to be safe
         unlockAudio();
         
-        // Test speech synthesis with audible sound
         try {
           const testUtterance = new SpeechSynthesisUtterance("Live call started");
           if (selectedVoice) {
             testUtterance.voice = selectedVoice;
           }
-          testUtterance.rate = speechRate; // Use faster speech rate
+          testUtterance.rate = speechRate;
           testUtterance.onstart = () => addDebugInfo('Test speech started (audible)');
           testUtterance.onend = () => {
             addDebugInfo('Test speech ended (audible)');
-            // Start recognition after the welcome message
             setTimeout(() => startRecognition(), 500);
           };
           testUtterance.onerror = (e) => addDebugInfo(`Test speech error: ${e.error}`);
@@ -561,14 +515,12 @@ export default function LiveCall() {
           addDebugInfo('Audible test speech initiated');
         } catch (e) {
           addDebugInfo(`Audible test speech failed: ${e}`);
-          // Start recognition anyway if the welcome message fails
           setTimeout(() => startRecognition(), 500);
         }
         
         setLiveCallEnabled(true);
         addDebugInfo('Live call enabled');
       } else {
-        // Stop speech recognition
         if (recognition.current) {
           try {
             recognition.current.stop();
@@ -577,10 +529,8 @@ export default function LiveCall() {
           }
         }
         
-        // Cancel any ongoing speech
         window.speechSynthesis.cancel();
         
-        // Clear any existing resume timer
         if (resumeTimerRef.current) {
           clearInterval(resumeTimerRef.current);
           resumeTimerRef.current = null;
@@ -599,21 +549,18 @@ export default function LiveCall() {
     }
   };
 
-  // Force speak a test message
   const forceSpeak = () => {
     const testMessage = "This is a test message to verify that speech synthesis is working correctly. If you can hear this, the system is functioning properly.";
     addDebugInfo('Forcing test speech...');
     
-    // Cancel any ongoing speech
     window.speechSynthesis.cancel();
     
-    // Create a new utterance
     const utterance = new SpeechSynthesisUtterance(testMessage);
     if (selectedVoice) {
       utterance.voice = selectedVoice;
     }
-    utterance.volume = 1.0; // Maximum volume
-    utterance.rate = speechRate; // Use faster speech rate
+    utterance.volume = 1.0;
+    utterance.rate = speechRate;
     utterance.pitch = 1.0;
     
     utterance.onstart = () => addDebugInfo('Force test speech started');
@@ -646,6 +593,28 @@ export default function LiveCall() {
             </button>
           </div>
         </div>
+
+        <div className="flex justify-center space-x-2 my-4">
+          <span className="text-white">Speech Rate:</span>
+          <button 
+            onClick={() => changeSpeechRate(1.0)}
+            className={`p-2 rounded ${speechRate === 1.0 ? 'bg-green-600' : 'bg-gray-600'} text-white`}
+          >
+            Normal
+          </button>
+          <button 
+            onClick={() => changeSpeechRate(1.2)}
+            className={`p-2 rounded ${speechRate === 1.2 ? 'bg-green-600' : 'bg-gray-600'} text-white`}
+          >
+            Fast
+          </button>
+          <button 
+            onClick={() => changeSpeechRate(1.5)}
+            className={`p-2 rounded ${speechRate === 1.5 ? 'bg-green-600' : 'bg-gray-600'} text-white`}
+          >
+            Faster
+          </button>
+        </div>
         
         {showDebug && (
           <div className="debug-panel bg-gray-800 text-green-400 p-4 rounded-md mb-4 overflow-auto max-h-40">
@@ -658,31 +627,10 @@ export default function LiveCall() {
               >
                 Force Test Speech
               </button>
-              <div className="flex items-center space-x-2">
-                <span className="text-white text-xs">Speed:</span>
-                <button 
-                  onClick={() => changeSpeechRate(1.0)}
-                  className={`p-1 text-white text-xs rounded ${speechRate === 1.0 ? 'bg-green-600' : 'bg-gray-600'}`}
-                >
-                  Normal
-                </button>
-                <button 
-                  onClick={() => changeSpeechRate(1.2)}
-                  className={`p-1 text-white text-xs rounded ${speechRate === 1.2 ? 'bg-green-600' : 'bg-gray-600'}`}
-                >
-                  Fast
-                </button>
-                <button 
-                  onClick={() => changeSpeechRate(1.5)}
-                  className={`p-1 text-white text-xs rounded ${speechRate === 1.5 ? 'bg-green-600' : 'bg-gray-600'}`}
-                >
-                  Faster
-                </button>
-              </div>
             </div>
           </div>
         )}
-        
+
         <div className="globe-container">
           <div className={`globe ${isActive ? 'listening' : ''}`}></div>
           <div className="globe-ring"></div>
