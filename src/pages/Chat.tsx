@@ -781,7 +781,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { getChatResponse } from '../lib/gemini';
-import { Send, Plus, Edit2, Trash2, MoreVertical, MessageSquare, Mic } from 'lucide-react';
+import { Send, Plus, Edit2, Trash2, MoreVertical, MessageSquare, Mic, X, Menu } from 'lucide-react';
 import ChatMessage from '../components/ChatMessage';
 
 interface Chat {
@@ -1103,13 +1103,22 @@ export default function Chat() {
   return (
     <div className="flex h-[calc(100vh-4rem)]">
       <div className={`fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 w-64 bg-white border-r transition-transform duration-200 ease-in-out z-30`}>
-        <div className="p-4">
+        <div className="flex items-center justify-between p-4">
           <button
-            onClick={createNewChat}
-            className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            onClick={() => {
+              createNewChat();
+              setIsSidebarOpen(false);
+            }}
+            className="flex-1 flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             <Plus className="w-5 h-5 mr-2" />
             New Chat
+          </button>
+          <button
+            onClick={() => setIsSidebarOpen(false)}
+            className="lg:hidden ml-2 p-2 hover:bg-gray-100 rounded-lg"
+          >
+            <X className="w-5 h-5" />
           </button>
         </div>
         <div className="overflow-y-auto h-full pb-20">
@@ -1170,7 +1179,7 @@ export default function Chat() {
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             className="p-2 hover:bg-gray-100 rounded-lg"
           >
-            <MoreVertical className="w-6 h-6" />
+            <Menu className="w-6 h-6" />
           </button>
           <h2 className="font-semibold">
             {currentChat ? chats.find(c => c.id === currentChat)?.title : 'Select a chat'}
