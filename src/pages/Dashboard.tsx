@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { FileText, MessageSquare, Users, RefreshCw, Trash2, Image } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { Card } from '../components/ui/card';
 
 interface User {
   id: string;
@@ -142,7 +143,7 @@ export default function Dashboard() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="bg-white/10 backdrop-blur-md overflow-hidden shadow rounded-lg border border-white/10">
+        <Card>
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -161,9 +162,9 @@ export default function Dashboard() {
               View all documents
             </Link>
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white/10 backdrop-blur-md overflow-hidden shadow rounded-lg border border-white/10">
+        <Card>
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -182,9 +183,9 @@ export default function Dashboard() {
               Start a new chat
             </Link>
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white/10 backdrop-blur-md overflow-hidden shadow rounded-lg border border-white/10">
+        <Card>
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -205,10 +206,10 @@ export default function Dashboard() {
               Generate images
             </Link>
           </div>
-        </div>
+        </Card>
 
         {isAdmin && (
-          <div className="bg-white/10 backdrop-blur-md overflow-hidden shadow rounded-lg border border-white/10 lg:col-span-3">
+          <Card className="lg:col-span-3">
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -220,7 +221,7 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-          </div>
+          </Card>
         )}
       </div>
 
