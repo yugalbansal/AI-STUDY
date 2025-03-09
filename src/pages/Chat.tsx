@@ -332,12 +332,12 @@ export default function Chat() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden"> {/* Remove the calc and set to h-screen */}
+    <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
       {/* Sidebar */}
       <div 
         className={`fixed inset-y-0 left-0 transform ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } lg:relative lg:translate-x-0 w-64 bg-white border-r transition-transform duration-200 ease-in-out z-50 h-[calc(100vh-4rem)] top-16`}
+        } lg:relative lg:translate-x-0 w-64 bg-white border-r transition-transform duration-200 ease-in-out z-20 h-[calc(100vh-4rem)] top-16`}
       >
         <div className="flex items-center justify-between p-4 border-b">
           <button
@@ -414,7 +414,7 @@ export default function Chat() {
       </div>
 
       {/* Main chat area */}
-      <div className="flex-1 flex flex-col bg-gray-50 h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col bg-gray-50 h-full overflow-hidden">
         {/* Mobile header */}
         <div className="lg:hidden flex items-center justify-between p-4 bg-white border-b">
           <button
@@ -430,7 +430,7 @@ export default function Chat() {
         </div>
 
         {/* Messages container */}
-        <div className="flex-1 overflow-y-auto px-4 pb-0"> {/* Adjust padding */}
+        <div className="flex-1 overflow-y-auto p-4 relative">
           {currentChat ? (
             chatHistory.length === 0 ? (
               <div className="flex items-center justify-center h-full">
@@ -474,7 +474,7 @@ export default function Chat() {
 
         {/* Input area */}
         {currentChat && (
-          <div className="border-t bg-white p-4 sticky bottom-0">
+          <div className="border-t p-4 bg-white">
             <form onSubmit={handleSubmit} className="flex space-x-4">
               <textarea
                 value={message}
@@ -533,14 +533,14 @@ export default function Chat() {
           </button>
         </div>
       )}
-    </div>
 
-    {/* Move overlay outside main container */}
-    {isSidebarOpen && (
-      <div 
-        className="fixed inset-0 bg-black bg-opacity-50 lg:hidden z-40"
-        onClick={() => setIsSidebarOpen(false)}
-      />
-    )}
+      {/* Mobile sidebar overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 lg:hidden z-10"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+    </div>
   );
 }
