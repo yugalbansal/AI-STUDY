@@ -332,7 +332,7 @@
 //   }
 
 //   return (
-//     <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
+//     <div className="flex h-[calc(100vh-4rem)] overflow-hidden bg-gray-100">
 //       {/* Sidebar */}
 //       <div 
 //         className={`fixed inset-y-0 left-0 transform ${
@@ -897,7 +897,7 @@ export default function Chat() {
   return (
     <>
       {/* Use your own background and layout */}
-      <div className="flex h-screen overflow-hidden bg-gray-100">
+      <div className="flex h-[calc(100vh-4rem)] overflow-hidden bg-gray-100">
         {/* Sidebar */}
         <div 
           className={`relative inset-y-0 left-0 transform  ${

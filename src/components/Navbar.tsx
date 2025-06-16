@@ -61,6 +61,13 @@ export default function Navbar() {
               Chat
             </Link>
             <Link
+              to="/livecall"
+              className="flex items-center px-3 py-2 text-white hover:text-blue-400"
+            >
+              <MessageSquare className="h-5 w-5 mr-1" />
+              Live Call
+            </Link>
+            <Link
               to="/images"
               className="flex items-center px-3 py-2 text-white hover:text-blue-400"
             >

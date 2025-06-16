@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { generateImageUrl, inferModelFromPrompt, generateRandomSeed, enhancePrompt } from '../lib/imageGeneration';
-import { Wand2, Download, RefreshCw, Copy } from 'lucide-react';
+import { Wand2, Download, RefreshCw, Copy, Loader2 } from 'lucide-react';
 
 interface ImageGeneratorProps {
   initialPrompt?: string;
@@ -13,6 +13,7 @@ export default function ImageGenerator({ initialPrompt = '' }: ImageGeneratorPro
   const [seed, setSeed] = useState<number>(generateRandomSeed());
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [imageLoading, setImageLoading] = useState(false);
 
   const generateImage = async () => {
     if (!prompt.trim()) {
@@ -22,6 +23,7 @@ export default function ImageGenerator({ initialPrompt = '' }: ImageGeneratorPro
 
     setError(null);
     setIsGenerating(true);
+    setImageLoading(false); // Reset before generating
     
     try {
       // Enhance the prompt if it's too short
@@ -43,6 +45,7 @@ export default function ImageGenerator({ initialPrompt = '' }: ImageGeneratorPro
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       setImageUrl(url);
+      setImageLoading(true); // Start loading when URL is set
     } catch (err) {
       console.error('Error generating image:', err);
       setError('Failed to generate image. Please try again.');
@@ -151,12 +154,19 @@ export default function ImageGenerator({ initialPrompt = '' }: ImageGeneratorPro
       
       {imageUrl && (
         <div className="space-y-4">
-          <div className="relative border border-gray-200 rounded-lg overflow-hidden">
+          <div className="relative border border-gray-200 rounded-lg overflow-hidden min-h-[256px] flex items-center justify-center bg-gray-50">
+            {imageLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
+                <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+              </div>
+            )}
             <img 
               src={imageUrl} 
               alt={prompt} 
-              className="w-full h-auto object-contain"
+              className={`w-full h-auto object-contain transition-opacity duration-300 ${imageLoading ? 'opacity-0' : 'opacity-100'}`}
               style={{ maxHeight: '512px' }}
+              onLoad={() => setImageLoading(false)}
+              onError={() => setImageLoading(false)}
             />
             
             <div className="absolute bottom-0 right-0 p-2 flex space-x-2">

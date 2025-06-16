@@ -5,6 +5,7 @@ interface AuthContextType {
   user: any;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+    signUp: (email: string, password: string) => Promise<void>; // <-- Add this
   isAdmin: boolean;
 }
 
@@ -104,10 +105,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   }
 
+  async function signUp(email: string, password: string) {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: window.location.origin + '/Login', // Redirect after email verification
+      },
+    });
+    if (error) throw error;
+  }
+
   const value = {
     user,
     signIn,
     signOut,
+    signUp, // <-- Add this
     isAdmin,
   };
 
