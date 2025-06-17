@@ -4,6 +4,7 @@ import { useMediaQuery } from 'react-responsive';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Chat from './pages/Chat';
+import Navbar from './components/Navbar';
 import Documents from './pages/Documents';
 import ImageGen from './pages/ImageGen';
 import Livecall from './pages/Livecall';
