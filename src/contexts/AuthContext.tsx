@@ -1,136 +1,128 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useMediaQuery } from 'react-responsive';
+import Navbar from './components/Navbar';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import Chat from './pages/Chat';
+import Documents from './pages/Documents';
+import ImageGen from './pages/ImageGen';
+import Livecall from './pages/Livecall';
+import Landing from './pages/landing';
+import MobileBlocker from './components/MobileBlocker';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { Boxes } from './components/ui/background-boxes';
 
-interface AuthContextType {
-  user: any;
-  signIn: (email: string, password: string) => Promise<void>;
-  signOut: () => Promise<void>;
-    signUp: (email: string, password: string) => Promise<void>; // <-- Add this
-  isAdmin: boolean;
+// Component to handle protected routes
+function ProtectedRoute({ children }) {
+  const { user } = useAuth();
+
+  return user ? children : <Navigate to="/login" replace />;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Component to handle public routes (redirect to dashboard if logged in)
+function PublicRoute({ children }) {
+  const { user } = useAuth();
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<any>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      checkUserRole(session?.user?.id);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      checkUserRole(session?.user?.id);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  async function checkUserRole(userId: string | undefined) {
-    if (!userId) {
-      setIsAdmin(false);
-      return;
-    }
-
-    try {
-      // Special case for the admin email - check auth user first
-      const { data: authUser } = await supabase.auth.getUser();
-      if (authUser?.user?.email === 'studyai.platform@gmail.com') {
-        setIsAdmin(true);
-        
-        // Ensure user record exists in users table
-        await ensureUserExists(userId, authUser.user.email, true);
-        return;
-      }
-
-      // Check if user exists in the users table
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', userId)
-        .single();
-
-      if (userError) {
-        console.error('Error fetching user role:', userError);
-        
-        // If user doesn't exist in the users table, create them
-        if (userError.code === 'PGRST116') {
-          await ensureUserExists(userId, authUser?.user?.email || '', false);
-          setIsAdmin(false);
-        } else {
-          setIsAdmin(false);
-        }
-        return;
-      }
-
-      setIsAdmin(userData?.role === 'admin');
-    } catch (error) {
-      console.error('Error in checkUserRole:', error);
-      setIsAdmin(false);
-    }
-  }
-
-  async function ensureUserExists(userId: string, email: string, isAdmin: boolean) {
-    try {
-      const { error } = await supabase
-        .from('users')
-        .upsert({
-          id: userId,
-          email: email,
-          role: isAdmin ? 'admin' : 'user',
-          last_seen: new Date().toISOString()
-        });
-        
-      if (error) {
-        console.error('Error ensuring user exists:', error);
-      }
-    } catch (error) {
-      console.error('Error in ensureUserExists:', error);
-    }
-  }
-
-  async function signIn(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) throw error;
-  }
-
-  async function signOut() {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-  }
-
-  async function signUp(email: string, password: string) {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: window.location.origin + '/Login', // Redirect after email verification
-      },
-    });
-    if (error) throw error;
-  }
-
-  const value = {
-    user,
-    signIn,
-    signOut,
-    signUp, // <-- Add this
-    isAdmin,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return !user ? children : <Navigate to="/dashboard" replace />;
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+// Main App Routes component
+function AppRoutes() {
+  return (
+    <Routes>
+      {/* Public routes - redirect to dashboard if logged in */}
+      <Route 
+        path="/" 
+        element={
+          <PublicRoute>
+            <Landing />
+          </PublicRoute>
+        } 
+      />
+      <Route 
+        path="/login" 
+        element={
+          <PublicRoute>
+            <Login />
+          </PublicRoute>
+        } 
+      />
+      
+      {/* Protected routes - require authentication */}
+      <Route 
+        path="/dashboard" 
+        element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/chat" 
+        element={
+          <ProtectedRoute>
+            <Chat />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/documents" 
+        element={
+          <ProtectedRoute>
+            <Documents />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/images" 
+        element={
+          <ProtectedRoute>
+            <ImageGen />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/livecall" 
+        element={
+          <ProtectedRoute>
+            <Livecall />
+          </ProtectedRoute>
+        } 
+      />
+    </Routes>
+  );
 }
+
+function App() {
+  // Check if the device is mobile (screens smaller than 768px)
+  const isMobile = useMediaQuery({ maxWidth: 767 });
+
+  // If mobile, show the mobile blocker
+  if (isMobile) {
+    return <MobileBlocker />;
+  }
+
+  // Desktop view - your original app
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <div className="min-h-screen bg-slate-900 relative overflow-hidden">
+          {/* Background */}
+          <div className="fixed inset-0 w-full h-full">
+            <div className="absolute inset-0 w-full h-full bg-slate-900 z-20 [mask-image:radial-gradient(transparent,white)] pointer-events-none" />
+            <Boxes className="!fixed inset-0" />
+          </div>
+
+          {/* Content */}
+          <div className="relative z-10">
+            <Navbar />
+            <AppRoutes />
+          </div>
+        </div>
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}
+
+export default App;
