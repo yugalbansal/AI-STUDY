@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useMediaQuery } from 'react-responsive';
 import Navbar from './components/Navbar';
 import Login from './pages/Login';
@@ -116,9 +116,9 @@ function App() {
   // Desktop view - your original app
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <HashRouter>
         <AppContent />
-      </BrowserRouter>
+      </HashRouter>
     </AuthProvider>
   );
 }
