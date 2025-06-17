@@ -13,22 +13,20 @@ import MobileBlocker from './components/MobileBlocker';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Boxes } from './components/ui/background-boxes';
 
-// Component to handle protected routes
-function ProtectedRoute({ children }) {
-  const { user } = useAuth();
-
-  return user ? children : <Navigate to="/login" replace />;
-}
-
-// Component to handle public routes (redirect to dashboard if logged in)
-function PublicRoute({ children }) {
-  const { user } = useAuth();
-
-  return !user ? children : <Navigate to="/dashboard" replace />;
-}
-
-// Main App Routes component
+// Main App Routes component that uses auth context
 function AppRoutes() {
+  // Component to handle protected routes
+  function ProtectedRoute({ children }) {
+    const { user } = useAuth();
+    return user ? children : <Navigate to="/login" replace />;
+  }
+
+  // Component to handle public routes (redirect to dashboard if logged in)
+  function PublicRoute({ children }) {
+    const { user } = useAuth();
+    return !user ? children : <Navigate to="/dashboard" replace />;
+  }
+
   return (
     <Routes>
       {/* Public routes - redirect to dashboard if logged in */}
