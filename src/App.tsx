@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useMediaQuery } from 'react-responsive';
 import Navbar from './components/Navbar';
 import Login from './pages/Login';
@@ -10,8 +10,89 @@ import ImageGen from './pages/ImageGen';
 import Livecall from './pages/Livecall';
 import Landing from './pages/landing';
 import MobileBlocker from './components/MobileBlocker';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Boxes } from './components/ui/background-boxes';
+
+// Component to handle protected routes
+function ProtectedRoute({ children }) {
+  const { user } = useAuth();
+
+  return user ? children : <Navigate to="/login" replace />;
+}
+
+// Component to handle public routes (redirect to dashboard if logged in)
+function PublicRoute({ children }) {
+  const { user } = useAuth();
+
+  return !user ? children : <Navigate to="/dashboard" replace />;
+}
+
+// Main App Routes component
+function AppRoutes() {
+  return (
+    <Routes>
+      {/* Public routes - redirect to dashboard if logged in */}
+      <Route 
+        path="/" 
+        element={
+          <PublicRoute>
+            <Landing />
+          </PublicRoute>
+        } 
+      />
+      <Route 
+        path="/login" 
+        element={
+          <PublicRoute>
+            <Login />
+          </PublicRoute>
+        } 
+      />
+      
+      {/* Protected routes - require authentication */}
+      <Route 
+        path="/dashboard" 
+        element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/chat" 
+        element={
+          <ProtectedRoute>
+            <Chat />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/documents" 
+        element={
+          <ProtectedRoute>
+            <Documents />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/images" 
+        element={
+          <ProtectedRoute>
+            <ImageGen />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/livecall" 
+        element={
+          <ProtectedRoute>
+            <Livecall />
+          </ProtectedRoute>
+        } 
+      />
+    </Routes>
+  );
+}
 
 function App() {
   // Check if the device is mobile (screens smaller than 768px)
@@ -36,15 +117,7 @@ function App() {
           {/* Content */}
           <div className="relative z-10">
             <Navbar />
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/chat" element={<Chat />} />
-              <Route path="/documents" element={<Documents />} />
-              <Route path="/images" element={<ImageGen />} />
-              <Route path="/livecall" element={<Livecall />} />
-            </Routes>
+            <AppRoutes />
           </div>
         </div>
       </BrowserRouter>
