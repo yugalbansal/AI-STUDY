@@ -36,7 +36,7 @@ export default function Dashboard() {
           .select('id', { count: 'exact' })
           .eq('user_id', user?.id),
         supabase
-          .from('chat_history')
+          .from('chat_messages')
           .select('id', { count: 'exact' })
           .eq('user_id', user?.id),
       ]);
@@ -56,7 +56,7 @@ export default function Dashboard() {
         // Get total counts for admin
         const [{ count: totalDocs }, { count: totalChats }] = await Promise.all([
           supabase.from('documents').select('*', { count: 'exact' }),
-          supabase.from('chat_history').select('*', { count: 'exact' }),
+          supabase.from('chat_messages').select('*', { count: 'exact' }),
         ]);
 
         if (usersData) {
@@ -110,7 +110,7 @@ export default function Dashboard() {
   const fetchUserChats = async (userId: string) => {
     try {
       const { data } = await supabase
-        .from('chat_history')
+        .from('chat_messages')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });

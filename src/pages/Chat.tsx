@@ -886,7 +886,6 @@ export default function Chat() {
   if (initialLoading) {
     return (
       <>
-        <Navbar />
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
@@ -1024,7 +1023,7 @@ export default function Chat() {
             ) : (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center p-8">
-                  <h2 className="text-xl font-semibold text-gray-700 mb-2">Welcome to AI Chat</h2>
+                  <h2 className="text-xl font-semibold text-gray-700 mb-2">Welcome to AI Chat created by YUGAL. </h2>
                   <p className="text-gray-500">Select a chat or create a new one to get started.</p>
                 </div>
               </div>

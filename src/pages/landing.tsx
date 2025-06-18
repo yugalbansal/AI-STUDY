@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HeroGeometric } from '../components/ui/shape-landing-hero';
 import { ElegantShape } from '../components/ui/elegant-shape';
+import { motion } from "framer-motion";
 
 export default function Landing() {
     const navigate = useNavigate();
@@ -26,6 +27,15 @@ export default function Landing() {
           Get Started
         </button>
       </div>
+      <motion.div
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 1, ease: "easeOut" }}
+  className="fixed bottom-4 right-4 z-10 text-white text-xl font-semibold flex items-center"
+>
+  Created with <span className="text-red-500 text-2xl ml-1">❤️</span> by Yugal
+</motion.div>
+
 
       {/* Shapes section */}
       <div className="relative w-full flex items-center justify-center mt-[100vh]">
