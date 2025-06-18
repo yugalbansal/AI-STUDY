@@ -440,6 +440,8 @@ const VoiceChat = () => {
           <h1 className="text-4xl font-bold text-white">AI Voice Assistant</h1>
           <p className="text-slate-300">Have a natural conversation with AI</p>
           <p className="text-slate-300">Built with Love from Yugal</p>
+          <p className="text-slate-300">If it stucks press Restart button</p>
+          <p className="text-slate-300">Bot gets stucks in Noisy Surrounding, So please be in quiet place or use Headphones</p>
           {!echoSuppressionRef.current && isConnected && (
             <p className="text-yellow-400 text-sm">
               💡 For best results, use headphones to prevent echo
