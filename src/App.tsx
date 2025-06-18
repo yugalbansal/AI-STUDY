@@ -41,6 +41,7 @@
           <Navbar />
           <Routes>
             {/* Public routes - redirect to dashboard if logged in */}
+            <Route path="/auth-redirect" element={<AuthRedirect />} />
             <Route 
               path="/" 
               element={
@@ -57,7 +58,7 @@
                 </PublicRoute>
               } 
             />
-              <Route path="/auth" element={<AuthRedirect />} />  {/* ✅ Add this line */}
+              
             {/* Protected routes - require authentication */}
             <Route 
               path="/dashboard" 

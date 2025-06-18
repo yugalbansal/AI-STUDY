@@ -8,17 +8,33 @@ const AuthRedirect = () => {
 
   useEffect(() => {
     const handleAuth = async () => {
-      const { data, error } = await supabase.auth.getSession();
+      // Extract the hash parameters from the URL
+      const hash = window.location.hash.substring(1);
+      const params = new URLSearchParams(hash);
 
-      if (error) {
-        console.error('Error getting session:', error.message);
-        navigate('/login'); // fallback if session is not valid
-      }
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+      const expiresIn = params.get('expires_in');
+      const tokenType = params.get('token_type');
 
-      if (data?.session) {
-        navigate('/dashboard'); // redirect to a protected route
+      if (accessToken && refreshToken) {
+        // Set the session in Supabase
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+
+        if (error) {
+          console.error('Error setting session:', error.message);
+          navigate('/login');
+          return;
+        }
+
+        // Redirect to the dashboard after successful authentication
+        navigate('/dashboard');
       } else {
-        navigate('/login'); // fallback if not authenticated
+        // Fallback if no tokens are found
+        navigate('/login');
       }
     };
 
