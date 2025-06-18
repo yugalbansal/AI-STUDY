@@ -113,16 +113,17 @@ export default function Documents() {
   }, [user]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'application/pdf': ['.pdf'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'text/plain': ['.txt'],
-      'text/markdown': ['.md']
-    },
-    multiple: false,
-    disabled: isUploading
-  });
+  onDrop,
+  accept: {
+    // 'application/pdf': ['.pdf'],
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+    'text/plain': ['.txt'],
+    'text/markdown': ['.md']
+  },
+  multiple: false,
+  disabled: isUploading
+});
 
   async function deleteDocument(id: string) {
     try {
@@ -208,7 +209,10 @@ export default function Documents() {
                 "Drag 'n' drop a file here, or click to select"}
             </p>
             <p className="mt-1 text-sm text-gray-500">
-              Supported formats: PDF, DOCX, TXT, MD
+              Supported formats: PPTX, DOCX, TXT, MD
+            </p>
+            <p className="mt-1 text-sm text-gray-500">
+              Important Tip: Convert your documents to Word file if desired format not supported.
             </p>
           </div>
         </div>

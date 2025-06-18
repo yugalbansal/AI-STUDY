@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Phone, PhoneOff, Settings } from 'lucide-react';
+import { Phone, PhoneOff, Settings, AlertCircle, Volume2, VolumeX } from 'lucide-react';
 import { toast } from 'sonner';
 import AudioVisualizer from './AudioVisualizer';
 import { SpeechRecognitionService } from '../services/speechRecognition';
@@ -15,10 +15,20 @@ const VoiceChat = () => {
   const [transcript, setTranscript] = useState('');
   const [aiResponse, setAiResponse] = useState('');
   const [servicesReady, setServicesReady] = useState(false);
+  const [lastActivity, setLastActivity] = useState(Date.now());
+  const [debugInfo, setDebugInfo] = useState('');
+  const [isMuted, setIsMuted] = useState(false);
+  const [isProcessingAudio, setIsProcessingAudio] = useState(false);
 
   const speechServiceRef = useRef<SpeechRecognitionService | null>(null);
   const geminiServiceRef = useRef<GeminiService | null>(null);
   const elevenLabsServiceRef = useRef<ElevenLabsService | null>(null);
+  const activityCheckRef = useRef<NodeJS.Timeout | null>(null);
+  const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const speakerAudioRef = useRef<HTMLAudioElement | null>(null);
+  const echoSuppressionRef = useRef<boolean>(false);
 
   // Initialize services with environment variables
   useEffect(() => {
@@ -40,7 +50,160 @@ const VoiceChat = () => {
     } else {
       setServicesReady(true);
     }
+
+    // Initialize audio context for echo suppression
+    try {
+      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (error) {
+      console.warn('AudioContext not supported for echo suppression');
+    }
+
+    return () => {
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+    };
   }, []);
+
+  // Activity monitoring with enhanced logic
+  useEffect(() => {
+    if (isConnected && isListening && !isSpeaking) {
+      activityCheckRef.current = setInterval(() => {
+        const timeSinceLastActivity = Date.now() - lastActivity;
+        setDebugInfo(`Listening - Last activity: ${Math.floor(timeSinceLastActivity / 1000)}s ago`);
+        
+        // If no activity for 45 seconds and we're supposed to be listening, restart
+        if (timeSinceLastActivity > 45000 && !isProcessingAudio) {
+          console.warn('Speech recognition appears inactive, restarting...');
+          setDebugInfo('Auto-restarting due to inactivity...');
+          restartSpeechRecognition();
+        }
+      }, 5000);
+    } else {
+      if (activityCheckRef.current) {
+        clearInterval(activityCheckRef.current);
+        activityCheckRef.current = null;
+      }
+      if (isSpeaking) {
+        setDebugInfo('AI is speaking...');
+      } else if (!isConnected) {
+        setDebugInfo('Disconnected');
+      }
+    }
+
+    return () => {
+      if (activityCheckRef.current) {
+        clearInterval(activityCheckRef.current);
+      }
+    };
+  }, [isConnected, isListening, lastActivity, isSpeaking, isProcessingAudio]);
+
+  const setupEchoSuppression = async () => {
+    try {
+      // Request microphone with echo cancellation
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 16000
+        }
+      });
+      
+      micStreamRef.current = stream;
+      echoSuppressionRef.current = true;
+      
+      console.log('Echo suppression enabled');
+      return stream;
+    } catch (error) {
+      console.warn('Advanced audio features not supported, using basic microphone');
+      // Fallback to basic microphone
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStreamRef.current = stream;
+      return stream;
+    }
+  };
+
+  const stopMicrophone = () => {
+    if (micStreamRef.current) {
+      micStreamRef.current.getTracks().forEach(track => track.stop());
+      micStreamRef.current = null;
+    }
+  };
+
+  const restartSpeechRecognition = useCallback(async () => {
+    if (!isConnected || !speechServiceRef.current) return;
+
+    try {
+      setDebugInfo('Restarting speech recognition...');
+      
+      // Stop current recognition
+      speechServiceRef.current.stopListening();
+      setIsListening(false);
+      
+      // Wait longer before restarting
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      if (isConnected && !isSpeaking) { // Only restart if still connected and AI not speaking
+        await speechServiceRef.current.startListening({
+          onTranscript: handleTranscript,
+          onError: handleSpeechError,
+          onStart: () => {
+            setIsListening(true);
+            setLastActivity(Date.now());
+            setDebugInfo('Speech recognition restarted successfully');
+          },
+          onEnd: () => {
+            console.log('Speech recognition ended');
+            // Only auto-restart if we're not processing AI audio
+            if (isConnected && !isSpeaking && !isProcessingAudio) {
+              setDebugInfo('Speech ended unexpectedly, will restart...');
+              setTimeout(() => {
+                if (isConnected && !isSpeaking && !isProcessingAudio) {
+                  restartSpeechRecognition();
+                }
+              }, 1500);
+            }
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error restarting speech recognition:', error);
+      setDebugInfo('Failed to restart - trying again...');
+      
+      // Try one more time after longer delay
+      setTimeout(() => {
+        if (isConnected && !isSpeaking) {
+          restartSpeechRecognition();
+        }
+      }, 5000);
+    }
+  }, [isConnected, isSpeaking, isProcessingAudio]);
+
+  const handleSpeechError = useCallback((error: string) => {
+    console.error('Speech recognition error:', error);
+    setDebugInfo(`Speech error: ${error}`);
+    
+    // Different handling for different error types
+    if (error.includes('network') || error.includes('service-not-allowed')) {
+      toast.error('Network error in speech recognition');
+      setTimeout(() => restartSpeechRecognition(), 3000);
+    } else if (error.includes('not-allowed') || error.includes('permission')) {
+      toast.error('Microphone permission denied');
+      setIsConnected(false);
+      setIsListening(false);
+    } else if (error.includes('no-speech')) {
+      // This is normal, just restart
+      if (isConnected && !isSpeaking) {
+        setTimeout(() => restartSpeechRecognition(), 1000);
+      }
+    } else {
+      toast.error('Speech recognition error occurred');
+      if (isConnected && !isSpeaking) {
+        setTimeout(() => restartSpeechRecognition(), 2000);
+      }
+    }
+  }, [isConnected, isSpeaking, restartSpeechRecognition]);
 
   const startListening = async () => {
     try {
@@ -49,24 +212,44 @@ const VoiceChat = () => {
         return;
       }
 
-      // Request microphone permission first
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      setDebugInfo('Starting voice chat...');
+      
+      // Setup microphone with echo suppression
+      await setupEchoSuppression();
       
       // Start speech recognition
       await speechServiceRef.current.startListening({
         onTranscript: handleTranscript,
-        onError: (error) => {
-          console.error('Speech recognition error:', error);
-          toast.error('Speech recognition error: ' + error);
-          setIsListening(false);
-          setIsConnected(false);
+        onError: handleSpeechError,
+        onStart: () => {
+          setIsListening(true);
+          setLastActivity(Date.now());
+          setDebugInfo('Speech recognition active');
+        },
+        onEnd: () => {
+          // Only auto-restart if we're not processing AI audio
+          if (isConnected && !isSpeaking && !isProcessingAudio) {
+            console.log('Speech recognition ended, restarting...');
+            setTimeout(() => {
+              if (isConnected && !isSpeaking && !isProcessingAudio) {
+                restartSpeechRecognition();
+              }
+            }, 1500);
+          }
         }
       });
       
-      setIsListening(true);
       setIsConnected(true);
+      setLastActivity(Date.now());
       
       toast.success('Voice chat started! Start speaking...');
+      
+      if (echoSuppressionRef.current) {
+        toast.success('Echo cancellation enabled');
+      } else {
+        toast.warning('For best results, use headphones to prevent echo');
+      }
+      
     } catch (error) {
       console.error('Error starting voice chat:', error);
       if (error instanceof DOMException && error.name === 'NotAllowedError') {
@@ -78,24 +261,80 @@ const VoiceChat = () => {
   };
 
   const stopListening = () => {
+    setDebugInfo('Stopping voice chat...');
+    
     if (speechServiceRef.current) {
       speechServiceRef.current.stopListening();
     }
     
+    // Stop microphone
+    stopMicrophone();
+    
+    // Clear all timeouts and intervals
+    if (restartTimeoutRef.current) {
+      clearTimeout(restartTimeoutRef.current);
+      restartTimeoutRef.current = null;
+    }
+    if (activityCheckRef.current) {
+      clearInterval(activityCheckRef.current);
+      activityCheckRef.current = null;
+    }
+    
+    // Stop any playing audio
+    if (speakerAudioRef.current) {
+      speakerAudioRef.current.pause();
+      speakerAudioRef.current = null;
+    }
+    
     setIsListening(false);
     setIsConnected(false);
+    setIsSpeaking(false);
+    setIsProcessingAudio(false);
+    setDebugInfo('');
     
     toast.success('Voice chat stopped');
   };
 
   const handleTranscript = async (transcript: string, isFinal: boolean) => {
+    // Ignore transcripts while AI is speaking or processing
+    if (isSpeaking || isProcessingAudio) {
+      console.log('Ignoring transcript while AI is active:', transcript);
+      return;
+    }
+
     setTranscript(transcript);
+    setLastActivity(Date.now());
     
     if (isFinal && transcript.trim()) {
-      console.log('Final transcript:', transcript);
+      const trimmedTranscript = transcript.trim().toLowerCase();
       
-      // Temporarily stop listening while AI responds
+      // Filter out potential echo phrases (common AI responses)
+      const echoPatterns = [
+        'hello', 'hi there', 'how can I help', 'i am', 'i\'m here',
+        'what can I do', 'how may I assist', 'good morning', 'good afternoon'
+      ];
+      
+      const isLikelyEcho = echoPatterns.some(pattern => 
+        trimmedTranscript.includes(pattern) && trimmedTranscript.length < 50
+      );
+      
+      if (isLikelyEcho) {
+        console.log('Potential echo detected, ignoring:', transcript);
+        setDebugInfo('Potential echo ignored');
+        return;
+      }
+      
+      console.log('Processing final transcript:', transcript);
+      setDebugInfo('Processing your message...');
+      
+      // Stop listening and set processing state
       setIsListening(false);
+      setIsProcessingAudio(true);
+      
+      // Stop speech recognition temporarily
+      if (speechServiceRef.current) {
+        speechServiceRef.current.stopListening();
+      }
       
       try {
         // Get AI response from Gemini
@@ -104,43 +343,69 @@ const VoiceChat = () => {
           setAiResponse(response);
           
           // Convert AI response to speech
-          if (elevenLabsServiceRef.current) {
+          if (elevenLabsServiceRef.current && !isMuted) {
             setIsSpeaking(true);
+            setDebugInfo('AI is speaking...');
+            
             await elevenLabsServiceRef.current.textToSpeech(response, {
-              onStart: () => setIsSpeaking(true),
+              onStart: () => {
+                setIsSpeaking(true);
+                setIsProcessingAudio(true);
+              },
               onEnd: () => {
+                console.log('AI finished speaking');
                 setIsSpeaking(false);
-                // Resume listening after AI finishes speaking
-                if (isConnected && speechServiceRef.current) {
-                  setTimeout(() => {
-                    speechServiceRef.current?.startListening({
-                      onTranscript: handleTranscript,
-                      onError: (error) => {
-                        console.error('Speech recognition error:', error);
-                        toast.error('Speech recognition error occurred');
+                setDebugInfo('AI finished speaking, waiting before resuming...');
+                
+                // Wait longer before resuming to avoid echo
+                setTimeout(() => {
+                  setIsProcessingAudio(false);
+                  
+                  if (isConnected) {
+                    setDebugInfo('Resuming listening...');
+                    // Resume listening after longer delay
+                    restartTimeoutRef.current = setTimeout(() => {
+                      if (isConnected && !isSpeaking) {
+                        restartSpeechRecognition();
                       }
-                    });
-                    setIsListening(true);
-                  }, 500);
-                }
+                    }, 3000); // Increased delay to 3 seconds
+                  }
+                }, 1000);
               },
               onError: (error) => {
                 console.error('TTS error:', error);
                 setIsSpeaking(false);
+                setIsProcessingAudio(false);
+                setDebugInfo('TTS error occurred');
                 toast.error('Failed to play AI response');
+                
                 // Resume listening on TTS error
                 if (isConnected) {
-                  setTimeout(() => setIsListening(true), 500);
+                  setTimeout(() => restartSpeechRecognition(), 2000);
                 }
               }
             });
+          } else {
+            // If muted, just finish processing
+            setIsProcessingAudio(false);
+            if (isConnected) {
+              setTimeout(() => restartSpeechRecognition(), 1000);
+            }
           }
         }
       } catch (error) {
         console.error('Error processing response:', error);
+        setDebugInfo('Error processing AI response');
         toast.error('Failed to get AI response');
-        setIsListening(true); // Resume listening on error
+        setIsProcessingAudio(false);
+        
+        // Resume listening on error
+        if (isConnected) {
+          setTimeout(() => restartSpeechRecognition(), 2000);
+        }
       }
+    } else if (!isFinal) {
+      setDebugInfo(`Listening... (${transcript.length} chars)`);
     }
   };
 
@@ -149,6 +414,19 @@ const VoiceChat = () => {
       stopListening();
     } else {
       startListening();
+    }
+  };
+
+  const toggleMute = () => {
+    setIsMuted(!isMuted);
+    toast.success(isMuted ? 'AI voice enabled' : 'AI voice muted');
+  };
+
+  const forceRestart = () => {
+    if (isConnected) {
+      setDebugInfo('Force restarting...');
+      setIsProcessingAudio(false);
+      restartSpeechRecognition();
     }
   };
 
@@ -162,6 +440,11 @@ const VoiceChat = () => {
           <h1 className="text-4xl font-bold text-white">AI Voice Assistant</h1>
           <p className="text-slate-300">Have a natural conversation with AI</p>
           <p className="text-slate-300">Built with Love from Yugal</p>
+          {!echoSuppressionRef.current && isConnected && (
+            <p className="text-yellow-400 text-sm">
+              💡 For best results, use headphones to prevent echo
+            </p>
+          )}
           {!speechServiceRef.current?.isSupported() && (
             <p className="text-yellow-400 text-sm">
               ⚠️ Speech recognition not supported. Please use Chrome or Edge browser.
@@ -185,36 +468,75 @@ const VoiceChat = () => {
             <div className="text-center space-y-2">
               <div className="flex items-center justify-center gap-2">
                 <div className={`w-3 h-3 rounded-full ${
-                  isConnected ? 'bg-green-500 animate-pulse' : 
-                  isSpeaking ? 'bg-blue-500 animate-pulse' : 
-                  'bg-slate-500'
+                  isConnected ? 
+                    (isSpeaking ? 'bg-blue-500 animate-pulse' :
+                     isListening ? 'bg-green-500 animate-pulse' :
+                     isProcessingAudio ? 'bg-yellow-500 animate-pulse' : 'bg-orange-500') :
+                    'bg-slate-500'
                 }`} />
                 <span className="text-slate-300">
                   {isConnected ? 
                     (isSpeaking ? 'AI is speaking...' : 
-                     isListening ? 'Listening...' : 'Processing...') : 
+                     isListening ? 'Listening...' : 
+                     isProcessingAudio ? 'Processing...' : 'Preparing...') : 
                     'Disconnected'
                   }
                 </span>
               </div>
               
-              {/* Connection Button */}
-              <Button
-                onClick={toggleConnection}
-                disabled={!canStart}
-                size="lg"
-                className={`w-32 h-32 rounded-full text-white font-semibold transition-all ${
-                  isConnected ? 
-                    'bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/25' : 
-                    'bg-green-500 hover:bg-green-600 shadow-lg shadow-green-500/25'
-                }`}
-              >
-                {isConnected ? (
-                  <PhoneOff className="w-8 h-8" />
-                ) : (
-                  <Phone className="w-8 h-8" />
+              {/* Debug Info */}
+              {debugInfo && (
+                <div className="text-xs text-slate-400 flex items-center justify-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {debugInfo}
+                </div>
+              )}
+              
+              {/* Control Buttons */}
+              <div className="flex items-center justify-center gap-4">
+                <Button
+                  onClick={toggleConnection}
+                  disabled={!canStart}
+                  size="lg"
+                  className={`w-32 h-32 rounded-full text-white font-semibold transition-all ${
+                    isConnected ? 
+                      'bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/25' : 
+                      'bg-green-500 hover:bg-green-600 shadow-lg shadow-green-500/25'
+                  }`}
+                >
+                  {isConnected ? (
+                    <PhoneOff className="w-8 h-8" />
+                  ) : (
+                    <Phone className="w-8 h-8" />
+                  )}
+                </Button>
+                
+                {/* Mute Button */}
+                {isConnected && (
+                  <Button
+                    onClick={toggleMute}
+                    variant="outline"
+                    size="sm"
+                    className={`${isMuted ? 'text-red-400 border-red-400' : 'text-blue-400 border-blue-400'} hover:bg-opacity-10`}
+                  >
+                    {isMuted ? <VolumeX className="w-4 h-4 mr-1" /> : <Volume2 className="w-4 h-4 mr-1" />}
+                    {isMuted ? 'Muted' : 'Audio'}
+                  </Button>
                 )}
-              </Button>
+                
+                {/* Force Restart Button */}
+                {isConnected && (
+                  <Button
+                    onClick={forceRestart}
+                    variant="outline"
+                    size="sm"
+                    className="text-yellow-400 border-yellow-400 hover:bg-yellow-400/10"
+                  >
+                    <Settings className="w-4 h-4 mr-1" />
+                    Restart
+                  </Button>
+                )}
+              </div>
               
               {!canStart && (
                 <p className="text-yellow-400 text-sm mt-2">
