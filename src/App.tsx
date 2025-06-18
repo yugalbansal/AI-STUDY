@@ -13,6 +13,7 @@
   import { AuthProvider, useAuth } from './contexts/AuthContext';
   import { Boxes } from './components/ui/background-boxes';
   import AuthRedirect from './pages/AuthRedirect';
+import AuthCallback from './pages/AuthCallback';
 
   // Component to handle protected routes
   function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -40,8 +41,9 @@
         <div className="relative z-10">
           <Navbar />
           <Routes>
+<Route path="/auth/callback" element={<AuthCallback />} />
             {/* Public routes - redirect to dashboard if logged in */}
-            <Route path="/auth-redirect" element={<AuthRedirect />} />
+            
             <Route 
               path="/" 
               element={
