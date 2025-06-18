@@ -48,7 +48,7 @@ export default function FlippingAuthCard() {
 
     try {
       await signUp(email, password);
-      setSuccess('Account created! Please check your email to verify your account before signing in.');
+      setSuccess('Account created! Please Login with the details.');
     } catch (error) {
       setError(error.message || 'Sign up failed');
     } finally {
