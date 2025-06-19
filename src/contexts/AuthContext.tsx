@@ -3,9 +3,9 @@ import { supabase } from '../lib/supabase';
 
 interface AuthContextType {
   user: any;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string, captchaToken?: string) => Promise<void>;
   signOut: () => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, captchaToken?: string) => Promise<void>;
   isAdmin: boolean;
 }
 
@@ -92,11 +92,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function signIn(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({
+  async function signIn(email: string, password: string, captchaToken?: string) {
+    const authOptions: any = {
       email,
       password,
-    });
+    };
+
+    // Add captcha token if provided
+    if (captchaToken) {
+      authOptions.options = {
+        captchaToken
+      };
+    }
+
+    const { error } = await supabase.auth.signInWithPassword(authOptions);
     if (error) throw error;
   }
 
@@ -105,14 +114,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   }
 
-  async function signUp(email: string, password: string) {
-    const { error } = await supabase.auth.signUp({
+  async function signUp(email: string, password: string, captchaToken?: string) {
+    const authOptions: any = {
       email,
       password,
       options: {
         emailRedirectTo: window.location.origin + '/Login',
       },
-    });
+    };
+
+    // Add captcha token if provided
+    if (captchaToken) {
+      authOptions.options.captchaToken = captchaToken;
+    }
+
+    const { error } = await supabase.auth.signUp(authOptions);
     if (error) throw error;
   }
 
