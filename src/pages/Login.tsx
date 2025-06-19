@@ -159,9 +159,8 @@ export default function FlippingAuthCard() {
     setIsLoading(true);
 
     try {
-      // For now, just proceed without the token since your auth functions don't accept it yet
-      // You can modify this once you update your auth functions
-      await signIn(email, password);
+      // Pass the captcha token to the signIn function
+      await signIn(email, password, currentToken);
       setSuccess('Login successful! Redirecting...');
       setTimeout(() => {
         navigate('/dashboard');
@@ -198,9 +197,8 @@ export default function FlippingAuthCard() {
     setIsLoading(true);
 
     try {
-      // For now, just proceed without the token since your auth functions don't accept it yet
-      // You can modify this once you update your auth functions
-      await signUp(email, password);
+      // Pass the captcha token to the signUp function
+      await signUp(email, password, currentToken);
       setSuccess('Account created! Please check your email to verify your account before signing in.');
     } catch (error: any) {
       setError(error.message || 'Sign up failed');
