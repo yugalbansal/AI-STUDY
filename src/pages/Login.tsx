@@ -1,6 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+
+// Declare turnstile on window object
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (element: string | HTMLElement, options: any) => string;
+      reset: (widgetId?: string) => void;
+      remove: (widgetId?: string) => void;
+      getResponse: (widgetId?: string) => string;
+    };
+  }
+}
 
 export default function FlippingAuthCard() {
   const [email, setEmail] = useState('');
@@ -9,48 +21,194 @@ export default function FlippingAuthCard() {
   const [isFlipped, setIsFlipped] = useState(false);
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loginTurnstileToken, setLoginTurnstileToken] = useState('');
+  const [signupTurnstileToken, setSignupTurnstileToken] = useState('');
+  const [loginWidgetId, setLoginWidgetId] = useState<string>('');
+  const [signupWidgetId, setSignupWidgetId] = useState<string>('');
+
+  const loginTurnstileRef = useRef<HTMLDivElement>(null);
+  const signupTurnstileRef = useRef<HTMLDivElement>(null);
 
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    // Clean up any existing widgets first
+    if (window.turnstile) {
+      if (loginWidgetId) {
+        window.turnstile.remove(loginWidgetId);
+        setLoginWidgetId('');
+      }
+      if (signupWidgetId) {
+        window.turnstile.remove(signupWidgetId);
+        setSignupWidgetId('');
+      }
+    }
+
+    // Initialize Turnstile widget for the currently visible side
+    const initializeTurnstile = () => {
+      if (!window.turnstile) return;
+
+      // Small delay to ensure DOM is ready and previous widgets are cleaned up
+      setTimeout(() => {
+        if (!isFlipped && loginTurnstileRef.current) {
+          // Clear any existing content first
+          loginTurnstileRef.current.innerHTML = '';
+          
+          // Render login turnstile only if we're on login side
+          const loginId = window.turnstile.render(loginTurnstileRef.current, {
+            sitekey: '0x4AAAAAABhlh5hkImqzh_M4',
+            theme: 'dark',
+            callback: (token: string) => {
+              setLoginTurnstileToken(token);
+            },
+            'error-callback': () => {
+              setError('Captcha verification failed. Please try again.');
+            }
+          });
+          setLoginWidgetId(loginId);
+        }
+
+        if (isFlipped && signupTurnstileRef.current) {
+          // Clear any existing content first
+          signupTurnstileRef.current.innerHTML = '';
+          
+          // Render signup turnstile only if we're on signup side
+          const signupId = window.turnstile.render(signupTurnstileRef.current, {
+            sitekey: '0x4AAAAAABhlh5hkImqzh_M4',
+            theme: 'dark',
+            callback: (token: string) => {
+              setSignupTurnstileToken(token);
+            },
+            'error-callback': () => {
+              setError('Captcha verification failed. Please try again.');
+            }
+          });
+          setSignupWidgetId(signupId);
+        }
+      }, 100);
+    };
+
+    // Check if turnstile is already loaded
+    if (window.turnstile) {
+      initializeTurnstile();
+    } else {
+      // Wait for turnstile to load
+      const checkTurnstile = setInterval(() => {
+        if (window.turnstile) {
+          clearInterval(checkTurnstile);
+          initializeTurnstile();
+        }
+      }, 100);
+
+      return () => clearInterval(checkTurnstile);
+    }
+  }, [isFlipped]); // Only depend on isFlipped
+
+  // Cleanup effect on unmount
+  useEffect(() => {
+    return () => {
+      if (window.turnstile) {
+        if (loginWidgetId) window.turnstile.remove(loginWidgetId);
+        if (signupWidgetId) window.turnstile.remove(signupWidgetId);
+      }
+    };
+  }, [loginWidgetId, signupWidgetId]);
+
   const handleFlip = () => {
+    // Clean up current side's widget before flipping
+    if (window.turnstile) {
+      if (!isFlipped && loginWidgetId) {
+        window.turnstile.remove(loginWidgetId);
+        setLoginWidgetId('');
+      }
+      if (isFlipped && signupWidgetId) {
+        window.turnstile.remove(signupWidgetId);
+        setSignupWidgetId('');
+      }
+    }
+
     setIsFlipped(!isFlipped);
     setError('');
     setSuccess('');
     setEmail('');
     setPassword('');
+    
+    // Reset turnstile tokens
+    setLoginTurnstileToken('');
+    setSignupTurnstileToken('');
   };
 
-  const handleLogin = async (e) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    // Get the current turnstile response
+    let currentToken = loginTurnstileToken;
+    if (!currentToken && window.turnstile && loginWidgetId) {
+      currentToken = window.turnstile.getResponse(loginWidgetId);
+    }
+
+    // Check if turnstile token is available
+    if (!currentToken) {
+      setError('Please complete the captcha verification.');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
+      // For now, just proceed without the token since your auth functions don't accept it yet
+      // You can modify this once you update your auth functions
       await signIn(email, password);
       setSuccess('Login successful! Redirecting...');
       setTimeout(() => {
         navigate('/dashboard');
       }, 1000);
-    } catch (error) {
+    } catch (error: any) {
       setError(error.message || 'Login failed');
+      // Reset turnstile on error
+      if (window.turnstile && loginWidgetId) {
+        window.turnstile.reset(loginWidgetId);
+        setLoginTurnstileToken('');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSignup = async (e) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    // Get the current turnstile response
+    let currentToken = signupTurnstileToken;
+    if (!currentToken && window.turnstile && signupWidgetId) {
+      currentToken = window.turnstile.getResponse(signupWidgetId);
+    }
+
+    // Check if turnstile token is available
+    if (!currentToken) {
+      setError('Please complete the captcha verification.');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
+      // For now, just proceed without the token since your auth functions don't accept it yet
+      // You can modify this once you update your auth functions
       await signUp(email, password);
-      setSuccess('Account created! Please Login with the details.');
-    } catch (error) {
+      setSuccess('Account created! Please check your email to verify your account before signing in.');
+    } catch (error: any) {
       setError(error.message || 'Sign up failed');
+      // Reset turnstile on error
+      if (window.turnstile && signupWidgetId) {
+        window.turnstile.reset(signupWidgetId);
+        setSignupTurnstileToken('');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -85,15 +243,15 @@ export default function FlippingAuthCard() {
             }}
           >
             <div className="flex h-full"> 
-
-<div className="hidden md:flex md:w-1/2 relative items-center justify-center p-0">
-  <img
-    src="https://cdni.iconscout.com/illustration/premium/thumb/login-page-illustration-download-in-svg-png-gif-file-formats--app-developing-development-secure-mobile-webapp-and-pack-design-illustrations-3783954.png?f=webp"
-    alt="Welcome"
-    className="object-cover w-full h-full rounded-l-2xl"
-    style={{ minHeight: '100%', minWidth: '100%' }}
-  />
-</div>
+              <div className="hidden md:flex md:w-1/2 relative items-center justify-center p-0">
+                <img
+                  src="https://cdni.iconscout.com/illustration/premium/thumb/login-page-illustration-download-in-svg-png-gif-file-formats--app-developing-development-secure-mobile-webapp-and-pack-design-illustrations-3783954.png?f=webp"
+                  alt="Welcome"
+                  className="object-cover w-full h-full rounded-l-2xl"
+                  style={{ minHeight: '100%', minWidth: '100%' }}
+                />
+              </div>
+              
               {/* Right side - Login Form */}
               <div className="w-full md:w-1/2 p-8 flex flex-col justify-center">
                 <div className="max-w-sm mx-auto w-full">
@@ -132,6 +290,11 @@ export default function FlippingAuthCard() {
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                         />
+                      </div>
+                      
+                      {/* Turnstile Widget */}
+                      <div className="flex justify-center mt-4">
+                        <div ref={loginTurnstileRef}></div>
                       </div>
                     </div>
 
@@ -213,6 +376,11 @@ export default function FlippingAuthCard() {
                           onChange={(e) => setPassword(e.target.value)}
                         />
                       </div>
+                      
+                      {/* Turnstile Widget */}
+                      <div className="flex justify-center mt-4">
+                        <div ref={signupTurnstileRef}></div>
+                      </div>
                     </div>
 
                     <button
@@ -243,28 +411,14 @@ export default function FlippingAuthCard() {
                 </div>
               </div>
 
-              {/* Right side - Image
-              <div className="hidden md:flex md:w-1/2 relative bg-gradient-to-bl from-purple-600 to-pink-700 items-center justify-center p-8">
-                <div className="absolute inset-0 bg-black/20"></div>
-                <div className="relative z-10 text-center text-white">
-                  <div className="w-32 h-32 mx-auto mb-6 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-                    <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1a1 1 0 102 0V7zM12 7a1 1 0 112 0v1a1 1 0 11-2 0V7zM16 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM12 3a1 1 0 112 0v1a1 1 0 11-2 0V3z" />
-                    </svg>
-                  </div>
-                  <h2 className="text-3xl font-bold mb-4">Join Us Today!</h2>
-                  <p className="text-lg opacity-90">Create your account and become part of our amazing community.</p>
-                </div>
-                <div className="absolute bottom-0 left-0 w-full h-1/3 bg-gradient-to-t from-black/30 to-transparent"></div>
-              </div> */}
               <div className="hidden md:flex md:w-1/2 relative items-center justify-center p-0">
-  <img
-    src="https://cdni.iconscout.com/illustration/premium/thumb/sign-up-illustration-download-in-svg-png-gif-file-formats--account-login-miscellaneous-pack-illustrations-5230178.png?f=webp"
-    alt="Welcome"
-    className="object-cover w-full h-full rounded-l-2xl"
-    style={{ minHeight: '100%', minWidth: '100%' }}
-  />
-</div>
+                <img
+                  src="https://cdni.iconscout.com/illustration/premium/thumb/sign-up-illustration-download-in-svg-png-gif-file-formats--account-login-miscellaneous-pack-illustrations-5230178.png?f=webp"
+                  alt="Welcome"
+                  className="object-cover w-full h-full rounded-l-2xl"
+                  style={{ minHeight: '100%', minWidth: '100%' }}
+                />
+              </div>
             </div>
           </div>
         </div>
