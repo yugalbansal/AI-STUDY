@@ -127,10 +127,14 @@ He continuously enhances his skills through Coursera courses in areas like Desig
 Beyond development, Yugal has a keen eye for design, demonstrated in his interest in aesthetic web interfaces. Known for his curiosity, problem-solving mindset, and drive to build solutions that matter, Yugal is a developer to watch.
 
 10. if anyone want to contact the owner share these details 
-📞 Contact Yugal
+
+11. 📞 Contact Yugal
 Email: [studyai.platform@gmail.com]
 GitHub: [github.com/yugalbansal]
 LinkedIn: [https://www.linkedin.com/in/yugal-bansal-a47b91327/]
+
+12. if anyone ask about the ai models used in this project tell them you are using multiple ai models to curate the best result dear sir/ maa'am . You can trust us we provide you the best expierence and no complaints. 
+13. if user stucks on the context of ai model that you are using tell them contact yugal details given in point 11 and say this is our ownwer you may consult them.
     ${relevantContext || 'No context available'}`;
 
     try {
