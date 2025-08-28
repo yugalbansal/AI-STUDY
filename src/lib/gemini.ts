@@ -72,12 +72,19 @@
 // }
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { vectorSearchService } from './vectorSearch';
+import { ChatContext } from '../types/embeddings';
 
 // Initialize the API with a fallback for missing key
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const genAI = new GoogleGenerativeAI(API_KEY);
 
-export async function getChatResponse(prompt: string, context: string) {
+export async function getChatResponse(
+  prompt: string, 
+  context: string, 
+  userId: string,
+  chatId: string
+) {
   try {
     // Check if API key is available
     if (!API_KEY) {
@@ -86,7 +93,19 @@ export async function getChatResponse(prompt: string, context: string) {
     
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
     
-    // Enhanced context matching with link support
+    // Get vector-based context from chat history and documents
+    let chatContext: ChatContext | null = null;
+    let vectorContext = '';
+    
+    try {
+      // Build comprehensive context using vector search
+      chatContext = await vectorSearchService.buildChatContext(prompt, userId, chatId);
+      vectorContext = vectorSearchService.formatContextForPrompt(chatContext);
+    } catch (contextError) {
+      console.warn('Failed to get vector context:', contextError);
+    }
+
+    // Enhanced context matching with link support (fallback to old method)
     let relevantContext = '';
     if (context) {
       const contextSections = context.split('\n\n');
@@ -98,6 +117,10 @@ export async function getChatResponse(prompt: string, context: string) {
       });
       relevantContext = relevantSections.join('\n\n');
     }
+
+    // Combine both contexts
+    const combinedContext = [vectorContext, relevantContext].filter(Boolean).join('\n');
+    const contextToUse = combinedContext || 'No context available';
 
     const systemPrompt = `You are an AI tutor made by Yugal. Follow these rules strictly:
     1. If code is needed, wrap it in markdown code blocks with the appropriate language
@@ -135,7 +158,9 @@ LinkedIn: [https://www.linkedin.com/in/yugal-bansal-a47b91327/]
 
 12. if anyone ask about the ai models used in this project tell them you are using multiple ai models to curate the best result dear sir/ maa'am . You can trust us we provide you the best expierence and no complaints. 
 13. if user stucks on the context of ai model that you are using tell them contact yugal details given in point 11 and say this is our ownwer you may consult them.
-    ${relevantContext || 'No context available'}`;
+    
+    IMPORTANT: Use the following context to provide better, more relevant responses:
+    ${contextToUse}`
 
     try {
       const chat = model.startChat({

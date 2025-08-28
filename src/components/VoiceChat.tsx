@@ -1,12 +1,13 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Phone, PhoneOff, Settings, AlertCircle, Volume2, VolumeX } from 'lucide-react';
+import { Phone, PhoneOff, Settings, AlertCircle, Volume2, VolumeX, Mic, MicOff } from 'lucide-react';
 import { toast } from 'sonner';
 import AudioVisualizer from './AudioVisualizer';
 import { SpeechRecognitionService } from '../services/speechRecognition';
 import { GeminiService } from '../services/gemini';
-import { ElevenLabsService } from '../services/elevenlabs';
+import { ElevenLabsService, TTSCallbacks } from '../services/elevenlabs';
+import { SimpleAudioProcessor } from '../services/simpleAudioProcessor';
 
 const VoiceChat = () => {
   const [isListening, setIsListening] = useState(false);
@@ -19,10 +20,12 @@ const VoiceChat = () => {
   const [debugInfo, setDebugInfo] = useState('');
   const [isMuted, setIsMuted] = useState(false);
   const [isProcessingAudio, setIsProcessingAudio] = useState(false);
+  const [audioReady, setAudioReady] = useState(false);
 
   const speechServiceRef = useRef<SpeechRecognitionService | null>(null);
   const geminiServiceRef = useRef<GeminiService | null>(null);
   const elevenLabsServiceRef = useRef<ElevenLabsService | null>(null);
+  const audioProcessorRef = useRef<SimpleAudioProcessor | null>(null);
   const activityCheckRef = useRef<NodeJS.Timeout | null>(null);
   const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -72,11 +75,16 @@ const VoiceChat = () => {
         const timeSinceLastActivity = Date.now() - lastActivity;
         setDebugInfo(`Listening - Last activity: ${Math.floor(timeSinceLastActivity / 1000)}s ago`);
         
-        // If no activity for 45 seconds and we're supposed to be listening, restart
-        if (timeSinceLastActivity > 45000 && !isProcessingAudio) {
-          console.warn('Speech recognition appears inactive, restarting...');
-          setDebugInfo('Auto-restarting due to inactivity...');
-          restartSpeechRecognition();
+        // Update audio status
+        if (audioProcessorRef.current) {
+          const debugInfo = audioProcessorRef.current.getDebugInfo();
+          console.log('Audio processor status:', debugInfo);
+        }
+        
+        // Just log inactivity - let the speech recognition service handle its own restarts
+        if (timeSinceLastActivity > 60000 && !isProcessingAudio) {
+          console.warn('Long period of inactivity detected');
+          setDebugInfo('Long silence detected - use Restart button if needed');
         }
       }, 5000);
     } else {
@@ -184,26 +192,21 @@ const VoiceChat = () => {
     console.error('Speech recognition error:', error);
     setDebugInfo(`Speech error: ${error}`);
     
-    // Different handling for different error types
-    if (error.includes('network') || error.includes('service-not-allowed')) {
-      toast.error('Network error in speech recognition');
-      setTimeout(() => restartSpeechRecognition(), 3000);
-    } else if (error.includes('not-allowed') || error.includes('permission')) {
+    // Let the speech recognition service handle its own restarts
+    // Only handle UI state changes here
+    if (error.includes('not-allowed') || error.includes('permission')) {
       toast.error('Microphone permission denied');
       setIsConnected(false);
       setIsListening(false);
-    } else if (error.includes('no-speech')) {
-      // This is normal, just restart
-      if (isConnected && !isSpeaking) {
-        setTimeout(() => restartSpeechRecognition(), 1000);
-      }
+    } else if (error.includes('Connection issue') || error.includes('failed after multiple attempts')) {
+      toast.error('Speech recognition connection failed');
+      setIsConnected(false);
+      setIsListening(false);
     } else {
-      toast.error('Speech recognition error occurred');
-      if (isConnected && !isSpeaking) {
-        setTimeout(() => restartSpeechRecognition(), 2000);
-      }
+      // For other errors, just show the message but let the service handle recovery
+      toast.error(`Speech: ${error}`);
     }
-  }, [isConnected, isSpeaking, restartSpeechRecognition]);
+  }, []);
 
   const startListening = async () => {
     try {
@@ -216,6 +219,25 @@ const VoiceChat = () => {
       
       // Setup microphone with echo suppression
       await setupEchoSuppression();
+
+      // Start simple audio processor for ducking control
+      if (!audioProcessorRef.current) {
+        audioProcessorRef.current = new SimpleAudioProcessor();
+      }
+      
+      try {
+        await audioProcessorRef.current.start({
+          onError: (err) => {
+            console.warn('Audio processor error:', err);
+          },
+          onStreamReady: () => {
+            setAudioReady(true);
+            console.log('Audio stream ready with enhanced noise reduction');
+          }
+        });
+      } catch (e) {
+        console.warn('Falling back without advanced audio processing');
+      }
       
       // Start speech recognition
       await speechServiceRef.current.startListening({
@@ -227,14 +249,10 @@ const VoiceChat = () => {
           setDebugInfo('Speech recognition active');
         },
         onEnd: () => {
-          // Only auto-restart if we're not processing AI audio
-          if (isConnected && !isSpeaking && !isProcessingAudio) {
-            console.log('Speech recognition ended, restarting...');
-            setTimeout(() => {
-              if (isConnected && !isSpeaking && !isProcessingAudio) {
-                restartSpeechRecognition();
-              }
-            }, 1500);
+          // Just update UI state, let the speech service handle its own restarts
+          setIsListening(false);
+          if (!isSpeaking && !isProcessingAudio) {
+            setDebugInfo('Speech recognition ended, auto-restarting...');
           }
         }
       });
@@ -269,6 +287,12 @@ const VoiceChat = () => {
     
     // Stop microphone
     stopMicrophone();
+
+    // Stop audio processor
+    if (audioProcessorRef.current) {
+      audioProcessorRef.current.stop();
+      audioProcessorRef.current = null;
+    }
     
     // Clear all timeouts and intervals
     if (restartTimeoutRef.current) {
@@ -351,12 +375,25 @@ const VoiceChat = () => {
               onStart: () => {
                 setIsSpeaking(true);
                 setIsProcessingAudio(true);
+                // Engage ducking and pause ASR to prevent feedback
+                audioProcessorRef.current?.enableDucking();
+                speechServiceRef.current?.setSpeakerActive(true);
+              },
+              onDuckingEnabled: () => {
+                // Additional hook if needed
+              },
+              onDuckingDisabled: () => {
+                // Called when playback is fully done and safe to resume
               },
               onEnd: () => {
                 console.log('AI finished speaking');
                 setIsSpeaking(false);
                 setDebugInfo('AI finished speaking, waiting before resuming...');
                 
+                // Release ducking and allow ASR to resume after a short delay
+                audioProcessorRef.current?.disableDucking();
+                speechServiceRef.current?.setSpeakerActive(false);
+
                 // Wait longer before resuming to avoid echo
                 setTimeout(() => {
                   setIsProcessingAudio(false);
@@ -376,6 +413,9 @@ const VoiceChat = () => {
                 console.error('TTS error:', error);
                 setIsSpeaking(false);
                 setIsProcessingAudio(false);
+                // Ensure we re-enable mic processing
+                audioProcessorRef.current?.disableDucking();
+                speechServiceRef.current?.setSpeakerActive(false);
                 setDebugInfo('TTS error occurred');
                 toast.error('Failed to play AI response');
                 
@@ -429,6 +469,7 @@ const VoiceChat = () => {
       restartSpeechRecognition();
     }
   };
+
 
   const canStart = servicesReady && speechServiceRef.current?.isSupported();
 
@@ -539,6 +580,13 @@ const VoiceChat = () => {
                   </Button>
                 )}
               </div>
+
+              {/* Audio Status */}
+              {isConnected && audioReady && (
+                <div className="flex items-center justify-center gap-2 mt-2">
+                  <span className="text-xs text-green-400">✓ Enhanced Audio Processing Active</span>
+                </div>
+              )}
               
               {!canStart && (
                 <p className="text-yellow-400 text-sm mt-2">

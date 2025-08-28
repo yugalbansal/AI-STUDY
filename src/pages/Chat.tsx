@@ -550,6 +550,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { getChatResponse } from '../lib/gemini';
+import { vectorSearchService } from '../lib/vectorSearch';
 import {
   Send,
   Plus,
@@ -848,7 +849,7 @@ export default function Chat() {
         .eq('user_id', user?.id);
 
       const context = documents?.map(doc => doc.content).join('\n') || '';
-      const response = await getChatResponse(userMessage, context);
+      const response = await getChatResponse(userMessage, context, user.id, currentChat);
 
       const { data, error } = await supabase
         .from('chat_messages')
@@ -866,6 +867,28 @@ export default function Chat() {
         const filtered = prev.filter(item => item.id !== tempId);
         return [...filtered, ...(data || [])];
       });
+
+      // Store embeddings for the new message asynchronously
+      if (data && data[0]) {
+        const messageData = data[0];
+        // Store user message embedding
+        vectorSearchService.storeChatEmbedding(
+          currentChat,
+          messageData.id,
+          user.id,
+          userMessage,
+          'user'
+        ).catch(error => console.error('Error storing user message embedding:', error));
+        
+        // Store assistant response embedding
+        vectorSearchService.storeChatEmbedding(
+          currentChat,
+          messageData.id,
+          user.id,
+          response,
+          'assistant'
+        ).catch(error => console.error('Error storing assistant response embedding:', error));
+      }
     } catch (error: any) {
       console.error('Error processing message:', error);
       setError(`Failed to get response: ${error.message || 'Unknown error'}`);

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Upload, Trash2, Loader2, Link as LinkIcon } from 'lucide-react';
 import { parseDocument } from '../lib/documentParser';
+import { vectorSearchService } from '../lib/vectorSearch';
 
 export default function Documents() {
   const { user } = useAuth();
@@ -89,18 +90,29 @@ export default function Documents() {
       
       const content = await parseDocument(file);
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('documents')
         .insert({
           title: file.name,
           content,
           type: 'file',
           user_id: user.id
-        });
+        })
+        .select()
+        .single();
 
       if (error) {
         console.error('Error inserting document:', error);
         throw error;
+      }
+      
+      // Generate and store embeddings for the document asynchronously
+      if (data) {
+        vectorSearchService.storeDocumentEmbeddings(
+          data.id,
+          user.id,
+          content
+        ).catch(error => console.error('Error storing document embeddings:', error));
       }
       
       await fetchDocuments();
@@ -137,6 +149,10 @@ export default function Documents() {
         throw error;
       }
       
+      // Clean up embeddings for the deleted document
+      vectorSearchService.deleteDocumentEmbeddings(id)
+        .catch(error => console.error('Error deleting document embeddings:', error));
+      
       setDocuments(documents.filter(doc => doc.id !== id));
     } catch (error) {
       console.error('Error deleting document:', error);
@@ -154,19 +170,31 @@ export default function Documents() {
       // Ensure user exists in users table before adding link
       await ensureUserExists();
       
-      const { error } = await supabase
+      const linkContent = `Link: ${url.trim()}`;
+      const { data, error } = await supabase
         .from('documents')
         .insert({
           title: title.trim(),
-          content: `Link: ${url.trim()}`,
+          content: linkContent,
           type: 'link',
           url: url.trim(),
           user_id: user.id
-        });
+        })
+        .select()
+        .single();
 
       if (error) {
         console.error('Error adding link:', error);
         throw error;
+      }
+      
+      // Generate and store embeddings for the link asynchronously
+      if (data) {
+        vectorSearchService.storeDocumentEmbeddings(
+          data.id,
+          user.id,
+          linkContent
+        ).catch(error => console.error('Error storing link embeddings:', error));
       }
       
       await fetchDocuments();
