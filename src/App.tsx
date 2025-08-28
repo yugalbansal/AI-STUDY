@@ -1,6 +1,5 @@
   import React from 'react';
   import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-  import { useMediaQuery } from 'react-responsive';
   import Navbar from './components/Navbar';
   import Login from './pages/Login';
   import Dashboard from './pages/Dashboard';
@@ -9,7 +8,6 @@
   import ImageGen from './pages/ImageGen';
   import Livecall from './pages/Livecall';
   import Landing from './pages/landing';
-  import MobileBlocker from './components/MobileBlocker';
   import { AuthProvider, useAuth } from './contexts/AuthContext';
   import { Boxes } from './components/ui/background-boxes';
  
@@ -107,15 +105,6 @@
   }
 
   function App() {
-    // Check if the device is mobile (screens smaller than 768px)
-    const isMobile = useMediaQuery({ maxWidth: 767 });
-
-    // If mobile, show the mobile blocker
-    if (isMobile) {
-      return <MobileBlocker />;
-    }
-
-    // Desktop view - your original app
     return (
       <AuthProvider>
         <HashRouter>

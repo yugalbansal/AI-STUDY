@@ -99,8 +99,8 @@ export default function ImageGenerator({ initialPrompt = '' }: ImageGeneratorPro
   }, [seed]);
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-xl font-semibold mb-4">AI Image Generator</h2>
+    <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
+      <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">AI Image Generator</h2>
       
       <div className="mb-4">
         <label htmlFor="prompt" className="block text-sm font-medium text-gray-700 mb-1">
@@ -109,7 +109,7 @@ export default function ImageGenerator({ initialPrompt = '' }: ImageGeneratorPro
         <textarea
           id="prompt"
           rows={3}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base touch-manipulation"
           placeholder="A serene mountain landscape with a lake at sunset..."
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
@@ -117,20 +117,20 @@ export default function ImageGenerator({ initialPrompt = '' }: ImageGeneratorPro
         />
       </div>
       
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-4 sm:mb-6">
         <button
           onClick={generateImage}
           disabled={isGenerating || !prompt.trim()}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center justify-center px-4 py-2.5 sm:py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation min-h-[44px] text-sm sm:text-base"
         >
           {isGenerating ? (
             <>
-              <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
+              <RefreshCw className="w-4 sm:w-5 h-4 sm:h-5 mr-2 animate-spin" />
               Generating...
             </>
           ) : (
             <>
-              <Wand2 className="w-5 h-5 mr-2" />
+              <Wand2 className="w-4 sm:w-5 h-4 sm:h-5 mr-2" />
               Generate Image
             </>
           )}
@@ -139,57 +139,57 @@ export default function ImageGenerator({ initialPrompt = '' }: ImageGeneratorPro
         <button
           onClick={regenerateWithNewSeed}
           disabled={isGenerating || !prompt.trim()}
-          className="flex items-center px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center justify-center px-4 py-2.5 sm:py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 active:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation min-h-[44px] text-sm sm:text-base"
         >
-          <RefreshCw className="w-5 h-5 mr-2" />
+          <RefreshCw className="w-4 sm:w-5 h-4 sm:h-5 mr-2" />
           New Variation
         </button>
       </div>
       
       {error && (
-        <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md">
+        <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">
           {error}
         </div>
       )}
       
       {imageUrl && (
-        <div className="space-y-4">
-          <div className="relative border border-gray-200 rounded-lg overflow-hidden min-h-[256px] flex items-center justify-center bg-gray-50">
+        <div className="space-y-3 sm:space-y-4">
+          <div className="relative border border-gray-200 rounded-lg overflow-hidden min-h-[200px] sm:min-h-[256px] flex items-center justify-center bg-gray-50">
             {imageLoading && (
               <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
-                <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+                <Loader2 className="w-8 sm:w-10 h-8 sm:h-10 text-blue-600 animate-spin" />
               </div>
             )}
             <img 
               src={imageUrl} 
               alt={prompt} 
               className={`w-full h-auto object-contain transition-opacity duration-300 ${imageLoading ? 'opacity-0' : 'opacity-100'}`}
-              style={{ maxHeight: '512px' }}
+              style={{ maxHeight: window.innerWidth < 640 ? '300px' : '512px' }}
               onLoad={() => setImageLoading(false)}
               onError={() => setImageLoading(false)}
             />
             
-            <div className="absolute bottom-0 right-0 p-2 flex space-x-2">
+            <div className="absolute bottom-2 right-2 flex space-x-2">
               <button
                 onClick={downloadImage}
-                className="p-2 bg-white bg-opacity-75 rounded-full hover:bg-opacity-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="p-2 sm:p-2.5 bg-white bg-opacity-75 rounded-full hover:bg-opacity-100 active:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
                 title="Download image"
               >
-                <Download className="w-5 h-5 text-gray-700" />
+                <Download className="w-4 sm:w-5 h-4 sm:h-5 text-gray-700" />
               </button>
               
               <button
                 onClick={copyImageUrl}
-                className="p-2 bg-white bg-opacity-75 rounded-full hover:bg-opacity-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="p-2 sm:p-2.5 bg-white bg-opacity-75 rounded-full hover:bg-opacity-100 active:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
                 title={copied ? "Copied!" : "Copy image URL"}
               >
-                <Copy className="w-5 h-5 text-gray-700" />
+                <Copy className="w-4 sm:w-5 h-4 sm:h-5 text-gray-700" />
               </button>
             </div>
           </div>
           
-          <div className="text-sm text-gray-500">
-            <p>Seed: {seed}</p>
+          <div className="text-xs sm:text-sm text-gray-500 bg-gray-50 p-2 rounded">
+            <p>Seed: <span className="font-mono">{seed}</span></p>
           </div>
         </div>
       )}

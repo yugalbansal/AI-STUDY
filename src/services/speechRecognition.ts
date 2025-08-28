@@ -23,6 +23,9 @@ export class SpeechRecognitionService {
   private consecutiveErrors = 0;
   private maxConsecutiveErrors = 2;
   private isRestarting = false;
+  private networkErrorCount = 0;
+  private lastErrorTime = 0;
+  private errorCooldownPeriod = 30000; // 30 seconds cooldown for network errors
 
   constructor() {
     // Check if browser supports speech recognition
@@ -43,11 +46,8 @@ export class SpeechRecognitionService {
     this.recognition.lang = 'en-US';
     this.recognition.maxAlternatives = 1;
     
-    // Set service timeout (some browsers support this)
-    if ('serviceURI' in this.recognition) {
-      // @ts-ignore - Browser-specific property
-      this.recognition.serviceURI = 'wss://www.google.com/speech-api/full-duplex/v1/up';
-    }
+    // Let the browser use its default speech service
+    // Custom service URIs can cause network errors in modern browsers
 
     this.recognition.onresult = (event) => {
       this.handleResults(event);
@@ -80,24 +80,9 @@ export class SpeechRecognitionService {
         this.callbacks.onEnd();
       }
 
-      // Only auto-restart on unexpected endings (not manual stops or too many errors)
-      if (!this.isManualStop && this.callbacks && this.restartAttempts < this.maxRestartAttempts && this.consecutiveErrors < this.maxConsecutiveErrors && !this.isSpeakerActive) {
-        console.log('Auto-restarting speech recognition... (attempt', this.restartAttempts + 1, '/', this.maxRestartAttempts, ')');
-        this.restartAttempts++;
-        setTimeout(() => {
-          if (!this.isManualStop && this.callbacks && !this.isRestarting && !this.isSpeakerActive) {
-            this.restart();
-          }
-        }, 2000); // Longer delay to prevent rapid restarts
-      } else {
-        console.log('Not auto-restarting:', { 
-          isManualStop: this.isManualStop, 
-          hasCallbacks: !!this.callbacks, 
-          restartAttempts: this.restartAttempts, 
-          consecutiveErrors: this.consecutiveErrors,
-          isSpeakerActive: this.isSpeakerActive
-        });
-      }
+      // DO NOT auto-restart from onend - this causes loops
+      // Let the application handle restarts manually or through specific triggers
+      console.log('Speech recognition ended - no auto-restart');
     };
 
     // Handle audio start/end events if available
@@ -166,31 +151,41 @@ export class SpeechRecognitionService {
     
     if (!this.callbacks) return;
 
+    const currentTime = Date.now();
     this.consecutiveErrors++;
+    this.lastErrorTime = currentTime;
+    
     let errorMessage = event.error;
     let shouldRestart = false;
 
     switch (event.error) {
       case 'network':
-        // Network error often indicates browser limitations or microphone conflicts
-        errorMessage = 'Connection issue (try restarting browser or check microphone)';
-        // Only restart if we haven't had too many network errors
-        shouldRestart = this.consecutiveErrors <= 2;
+        this.networkErrorCount++;
+        errorMessage = 'Network connection issue detected';
+        
+        // NEVER auto-restart for network errors - they indicate a deeper problem
+        // User must manually restart to retry
+        shouldRestart = false;
+        
+        if (this.networkErrorCount >= 2) {
+          errorMessage = 'Persistent network issues detected. Please restart manually or try refreshing the page.';
+          this.isManualStop = true; // Stop all automatic attempts
+        }
         break;
       
       case 'not-allowed':
         errorMessage = 'Microphone permission denied';
-        this.isManualStop = true; // Don't auto-restart on permission issues
+        this.isManualStop = true;
         break;
       
       case 'service-not-allowed':
         errorMessage = 'Speech service blocked (check browser settings)';
-        this.isManualStop = true; // Don't keep retrying if service is blocked
+        this.isManualStop = true;
         break;
       
       case 'bad-grammar':
         errorMessage = 'Grammar configuration error';
-        shouldRestart = false; // Don't restart for config issues
+        this.isManualStop = true; // Don't restart for config issues
         break;
       
       case 'language-not-supported':
@@ -199,45 +194,63 @@ export class SpeechRecognitionService {
         break;
       
       case 'no-speech':
-        // This is usually normal - just means timeout
         errorMessage = 'No speech detected (timeout)';
-        shouldRestart = this.consecutiveErrors <= 1;
+        // Only restart for no-speech if it's the first error and not too many total errors
+        shouldRestart = this.consecutiveErrors === 1 && this.restartAttempts === 0;
         break;
       
       case 'audio-capture':
         errorMessage = 'Microphone access failed';
-        shouldRestart = this.consecutiveErrors <= 1;
+        // Be conservative with audio capture errors
+        shouldRestart = this.consecutiveErrors === 1 && this.restartAttempts === 0;
         break;
       
       case 'aborted':
         errorMessage = 'Speech recognition stopped';
-        // Don't restart on abort as it's usually intentional
+        // Don't restart on abort
         break;
       
       default:
         errorMessage = `Unknown error: ${event.error}`;
-        shouldRestart = this.consecutiveErrors <= 1;
+        // Be very conservative with unknown errors
+        shouldRestart = false;
     }
 
     this.callbacks.onError(errorMessage);
 
-    // More conservative restart policy to prevent loops
-    if (shouldRestart && !this.isManualStop && !this.isRestarting && this.restartAttempts < this.maxRestartAttempts) {
-      console.log(`Attempting to restart due to error: ${event.error} (attempt ${this.restartAttempts + 1}/${this.maxRestartAttempts})`);
-      this.restartAttempts++;
-      this.isRestarting = true;
+    // Extremely conservative restart policy
+    if (shouldRestart && 
+        !this.isManualStop && 
+        !this.isRestarting && 
+        this.restartAttempts === 0 && // Only allow ONE restart attempt per session
+        this.consecutiveErrors === 1 && // Only on the very first error
+        (currentTime - this.lastErrorTime) > this.errorCooldownPeriod) {
       
-      // Longer delays for network errors
-      const delay = event.error === 'network' ? 5000 : 2000;
+      console.log(`Single restart attempt for error: ${event.error}`);
+      this.restartAttempts = 1; // Set to max to prevent future restarts
+      this.isRestarting = true;
       
       setTimeout(() => {
         if (!this.isManualStop && this.callbacks && !this.isSpeakerActive) {
           this.restart();
         }
         this.isRestarting = false;
-      }, delay);
+      }, 5000); // 5 second delay
     } else {
-      console.log('Not restarting due to:', { shouldRestart, isManualStop: this.isManualStop, isRestarting: this.isRestarting, attempts: this.restartAttempts });
+      console.log('Not restarting due to:', { 
+        shouldRestart, 
+        isManualStop: this.isManualStop, 
+        isRestarting: this.isRestarting, 
+        attempts: this.restartAttempts,
+        consecutiveErrors: this.consecutiveErrors,
+        networkErrors: this.networkErrorCount
+      });
+      
+      // If we've hit too many errors, stop trying
+      if (this.consecutiveErrors >= this.maxConsecutiveErrors) {
+        this.isManualStop = true;
+        console.log('Stopping automatic restarts due to too many consecutive errors');
+      }
     }
   }
 
@@ -332,9 +345,23 @@ export class SpeechRecognitionService {
   forceRestart(): void {
     if (this.callbacks) {
       console.log('Force restarting speech recognition');
+      // Reset all error counters on manual restart
       this.restartAttempts = 0;
+      this.consecutiveErrors = 0;
+      this.networkErrorCount = 0;
+      this.isManualStop = false;
       this.restart();
     }
+  }
+
+  // Reset all error states (useful when starting fresh)
+  resetErrorState(): void {
+    this.restartAttempts = 0;
+    this.consecutiveErrors = 0;
+    this.networkErrorCount = 0;
+    this.isManualStop = false;
+    this.lastErrorTime = 0;
+    console.log('Error state reset - ready for fresh start');
   }
 
   // Check if recognition seems stuck

@@ -41,6 +41,8 @@ export class ElevenLabsService {
       // Initialize audio context
       await this.initializeAudioContext();
 
+      console.log('Making TTS request to ElevenLabs API...');
+      
       const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${this.voiceId}`, {
         method: 'POST',
         headers: {
@@ -63,7 +65,20 @@ export class ElevenLabsService {
       });
 
       if (!response.ok) {
-        throw new Error(`ElevenLabs API error: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('ElevenLabs API error details:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorBody: errorText
+        });
+        
+        // If API key is invalid (401) or other API issues, fall back to browser TTS
+        if (response.status === 401) {
+          console.log('API key invalid, falling back to browser TTS...');
+          return this.fallbackToWebSpeech(text, config);
+        }
+        
+        throw new Error(`ElevenLabs API error (${response.status}): ${response.statusText}`);
       }
 
       const audioBlob = await response.blob();
@@ -134,6 +149,19 @@ export class ElevenLabsService {
       });
     } catch (error) {
       console.error('Error with text-to-speech:', error);
+      
+      // Try fallback to Web Speech API on network or other errors
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        console.log('Network error detected, falling back to browser TTS...');
+        try {
+          return await this.fallbackToWebSpeech(text, config);
+        } catch (fallbackError) {
+          console.error('Fallback TTS also failed:', fallbackError);
+          config.onError?.(fallbackError);
+          throw fallbackError;
+        }
+      }
+      
       config.onError?.(error);
       throw error;
     }
@@ -162,9 +190,74 @@ export class ElevenLabsService {
     return this.currentAudio?.duration || 0;
   }
 
+  // Fallback to Web Speech API when ElevenLabs is unavailable
+  private async fallbackToWebSpeech(text: string, config: TTSCallbacks): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!('speechSynthesis' in window)) {
+        const error = new Error('Text-to-speech not supported in this browser');
+        config.onError?.(error);
+        reject(error);
+        return;
+      }
+
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      
+      // Try to find a good voice
+      const voices = window.speechSynthesis.getVoices();
+      const englishVoice = voices.find(voice => 
+        voice.lang.startsWith('en') && voice.name.includes('Female')
+      ) || voices.find(voice => voice.lang.startsWith('en'));
+      
+      if (englishVoice) {
+        utterance.voice = englishVoice;
+      }
+      
+      // Configure speech parameters
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 0.8;
+
+      utterance.onstart = () => {
+        console.log('Browser TTS started');
+        this.isPlaying = true;
+        config.onDuckingEnabled?.();
+        config.onPlaybackStart?.();
+      };
+
+      utterance.onend = () => {
+        console.log('Browser TTS ended');
+        this.isPlaying = false;
+        setTimeout(() => {
+          config.onDuckingDisabled?.();
+          config.onEnd?.();
+          resolve();
+        }, 500);
+      };
+
+      utterance.onerror = (event) => {
+        console.error('Browser TTS error:', event);
+        this.isPlaying = false;
+        config.onDuckingDisabled?.();
+        config.onError?.(event);
+        reject(event);
+      };
+
+      // Start speech synthesis
+      window.speechSynthesis.speak(utterance);
+    });
+  }
+
   // Cleanup method
   cleanup(): void {
     this.stopCurrentAudio();
+    
+    // Cancel any Web Speech API synthesis
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
     
     if (this.audioContext && this.audioContext.state !== 'closed') {
       this.audioContext.close();

@@ -920,11 +920,19 @@ export default function Chat() {
     <>
       {/* Use your own background and layout */}
       <div className="flex h-[calc(100vh-4rem)] overflow-hidden bg-gray-100">
+        {/* Mobile Sidebar Overlay */}
+        {isSidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 xl:hidden z-20"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        )}
+        
         {/* Sidebar */}
         <div 
-          className={`relative inset-y-0 left-0 transform  ${
+          className={`fixed inset-y-0 left-0 transform ${
             isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          } lg:relative lg:translate-x-0 w-64 bg-white border-r transition-transform duration-200 ease-in-out z-30 h-[91vh]`}
+          } xl:relative xl:translate-x-0 w-64 sm:w-72 lg:w-80 bg-white border-r transition-transform duration-200 ease-in-out z-30 h-screen xl:h-[91vh] pt-16 xl:pt-0`}
         >
           <div className="flex items-center justify-between p-4 border-b">
             <button
@@ -932,14 +940,14 @@ export default function Chat() {
                 createNewChat();
                 setIsSidebarOpen(false);
               }}
-              className="flex-1 flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="flex-1 flex items-center justify-center px-3 sm:px-4 py-2 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-all touch-manipulation text-sm sm:text-base"
             >
-              <Plus className="w-5 h-5 mr-2" />
+              <Plus className="w-4 sm:w-5 h-4 sm:h-5 mr-2" />
               New Chat
             </button>
             <button
               onClick={() => setIsSidebarOpen(false)}
-              className="ml-2 p-2 hover:bg-gray-100 rounded-lg"
+              className="xl:hidden ml-2 p-2 hover:bg-gray-100 rounded-lg touch-manipulation"
             >
               <X className="w-5 h-5" />
             </button>
@@ -948,7 +956,9 @@ export default function Chat() {
             {chats.map(chat => (
               <div
                 key={chat.id}
-                className={`p-3 cursor-pointer hover:bg-gray-100 ${currentChat === chat.id ? 'bg-blue-50' : ''}`}
+                className={`p-3 sm:p-4 cursor-pointer hover:bg-gray-100 touch-manipulation transition-colors ${
+                  currentChat === chat.id ? 'bg-blue-50 border-r-2 border-blue-500' : ''
+                }`}
               >
                 <div className="flex items-center justify-between">
                   {editingChat === chat.id ? (
@@ -958,40 +968,42 @@ export default function Chat() {
                       onChange={(e) => setEditTitle(e.target.value)}
                       onBlur={() => renameChat(chat.id)}
                       onKeyPress={(e) => e.key === 'Enter' && renameChat(chat.id)}
-                      className="flex-1 px-2 py-1 border rounded"
+                      className="flex-1 px-2 py-1 border rounded text-sm sm:text-base touch-manipulation"
                       autoFocus
                     />
                   ) : (
                     <div
-                      className="flex-1 flex items-center"
+                      className="flex-1 flex items-center min-w-0"
                       onClick={() => {
                         setCurrentChat(chat.id);
                         setIsSidebarOpen(false);
                       }}
                     >
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      <span className="truncate">{chat.title}</span>
+                      <MessageSquare className="w-4 h-4 mr-2 sm:mr-3 flex-shrink-0 text-gray-500" />
+                      <span className="truncate text-sm sm:text-base font-medium">{chat.title}</span>
                     </div>
                   )}
-                  <div className="flex items-center">
+                  <div className="flex items-center space-x-1 ml-2">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditingChat(chat.id);
                         setEditTitle(chat.title);
                       }}
-                      className="p-1 hover:text-blue-600"
+                      className="p-1.5 sm:p-2 hover:text-blue-600 hover:bg-blue-50 rounded-md touch-manipulation transition-all"
+                      title="Edit chat name"
                     >
-                      <Edit2 className="w-4 h-4" />
+                      <Edit2 className="w-3.5 sm:w-4 h-3.5 sm:h-4" />
                     </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         deleteChat(chat.id);
                       }}
-                      className="p-1 hover:text-red-600"
+                      className="p-1.5 sm:p-2 hover:text-red-600 hover:bg-red-50 rounded-md touch-manipulation transition-all"
+                      title="Delete chat"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 sm:w-4 h-3.5 sm:h-4" />
                     </button>
                   </div>
                 </div>
@@ -1001,30 +1013,30 @@ export default function Chat() {
         </div>
 
         {/* Main Chat Area */}
-        {/* <div className="flex-1 flex flex-col bg-gray-50"> */}
-        <div className="flex flex-col bg-gray-50 w-full h-[91vh] overflow-y-auto">
-          {/* Mobile Header */}
-          <div className="lg:hidden flex items-center justify-between p-4 bg-white border-b">
+        <div className="flex flex-col bg-gray-50 w-full h-screen xl:h-[91vh] overflow-hidden">
+          {/* Mobile/Tablet Header */}
+          <div className="xl:hidden flex items-center justify-between p-3 sm:p-4 bg-white border-b shadow-sm sticky top-16 z-40">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-2 hover:bg-gray-100 rounded-lg"
+              className="p-2 hover:bg-gray-100 rounded-lg touch-manipulation transition-colors"
+              aria-label="Toggle sidebar"
             >
-              <Menu className="w-6 h-6" />
+              <Menu className="w-5 sm:w-6 h-5 sm:h-6" />
             </button>
-            <h2 className="font-semibold truncate max-w-[200px]">
+            <h2 className="font-semibold truncate max-w-[150px] sm:max-w-[200px] text-sm sm:text-base">
               {currentChat ? chats.find(c => c.id === currentChat)?.title : 'Select a chat'}
             </h2>
-            <div className="w-6" />
+            <div className="w-5 sm:w-6" />
           </div>
 
           {/* Chat Messages */}
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-1">
             {currentChat ? (
               chatHistory.length === 0 ? (
                 <div className="flex items-center justify-center h-full">
-                  <div className="text-center p-8 max-w-md">
-                    <h2 className="text-xl font-semibold text-gray-700 mb-2">Start a New Conversation</h2>
-                    <p className="text-gray-500">
+                  <div className="text-center p-4 sm:p-8 max-w-md mx-auto">
+                    <h2 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2">Start a New Conversation</h2>
+                    <p className="text-sm sm:text-base text-gray-500">
                       Ask questions about your documents or any topic you'd like to learn about.
                     </p>
                   </div>
@@ -1045,15 +1057,16 @@ export default function Chat() {
               )
             ) : (
               <div className="flex items-center justify-center h-full">
-                <div className="text-center p-8">
-                  <h2 className="text-xl font-semibold text-gray-700 mb-2">Welcome to AI Chat created by YUGAL. </h2>
-                  <p className="text-gray-500">Select a chat or create a new one to get started.</p>
+                <div className="text-center p-4 sm:p-8 max-w-md mx-auto">
+                  <h2 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2">Welcome to AI Chat</h2>
+                  <p className="text-sm sm:text-base text-gray-500">Select a chat or create a new one to get started.</p>
+                  <p className="text-xs sm:text-sm text-gray-400 mt-2">Created by YUGAL</p>
                 </div>
               </div>
             )}
             {isTyping && <ChatMessage content="" isUser={false} isTyping={true} />}
             {error && (
-              <div className="mx-4 p-4 bg-red-50 text-red-700 rounded-md mb-4">
+              <div className="mx-2 sm:mx-4 p-3 sm:p-4 bg-red-50 text-red-700 rounded-md mb-4 text-sm">
                 {error}
               </div>
             )}
@@ -1062,15 +1075,15 @@ export default function Chat() {
 
           {/* Input Area */}
           {currentChat && (
-            <div className="border-t p-4 bg-white mt-auto">
-              <form onSubmit={handleSubmit} className="flex space-x-4">
+            <div className="border-t p-3 sm:p-4 bg-white mt-auto safe-bottom">
+              <form onSubmit={handleSubmit} className="flex space-x-2 sm:space-x-4">
                 <textarea
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Ask a question..."
                   rows={1}
-                  className="flex-1 resize-none rounded-lg border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 min-h-[2.5rem] max-h-32"
+                  className="flex-1 resize-none rounded-lg border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 min-h-[2.5rem] max-h-32 text-sm sm:text-base touch-manipulation"
                   disabled={loading}
                   style={{
                     height: 'auto',
@@ -1081,20 +1094,22 @@ export default function Chat() {
                 <button
                   type="submit"
                   disabled={loading || !message.trim()}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed h-10 self-end transition-colors"
+                  className="inline-flex items-center px-3 sm:px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed h-10 self-end transition-all touch-manipulation min-w-[44px] min-h-[44px]"
+                  aria-label="Send message"
                 >
                   {loading ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <div className="animate-spin rounded-full h-4 sm:h-5 w-4 sm:w-5 border-b-2 border-white"></div>
                   ) : (
-                    <Send className="h-5 w-5" />
+                    <Send className="h-4 sm:h-5 w-4 sm:w-5" />
                   )}
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate('/livecall')}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 h-10 self-end transition-colors"
+                  className="inline-flex items-center px-3 sm:px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 active:bg-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 h-10 self-end transition-all touch-manipulation min-w-[44px] min-h-[44px]"
+                  aria-label="Voice chat"
                 >
-                  <Mic className="h-5 w-5" />
+                  <Mic className="h-4 sm:h-5 w-4 sm:w-5" />
                 </button>
               </form>
             </div>
@@ -1104,7 +1119,7 @@ export default function Chat() {
         {/* Context Menu for Message Actions */}
         {showContextMenu && (
           <div
-            className="fixed bg-white rounded-lg shadow-lg py-2 z-50"
+            className="fixed bg-white rounded-lg shadow-lg py-2 z-50 border"
             style={{
               left: showContextMenu.x,
               top: showContextMenu.y,
@@ -1115,7 +1130,7 @@ export default function Chat() {
                 deleteMessage(showContextMenu.messageId);
                 setShowContextMenu(null);
               }}
-              className="w-full px-4 py-2 text-left text-red-600 hover:bg-gray-100"
+              className="w-full px-4 py-3 text-left text-red-600 hover:bg-gray-100 touch-manipulation transition-colors text-sm"
             >
               Delete Message
             </button>

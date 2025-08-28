@@ -217,38 +217,39 @@ export default function Documents() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Documents</h1>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6 sm:mb-8">Documents</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8">
         <div {...getRootProps()}>
           <input {...getInputProps()} />
-          <div className={`border-2 border-dashed rounded-lg p-8 text-center ${
+          <div className={`border-2 border-dashed rounded-lg p-4 sm:p-6 lg:p-8 text-center cursor-pointer transition-all ${
             isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-          } ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+          } ${isUploading ? 'opacity-50 cursor-not-allowed' : 'hover:border-blue-400 hover:bg-gray-50'} touch-manipulation`}>
             {isUploading ? (
-              <Loader2 className="mx-auto h-12 w-12 text-blue-600 animate-spin" />
+              <Loader2 className="mx-auto h-8 sm:h-10 lg:h-12 w-8 sm:w-10 lg:w-12 text-blue-600 animate-spin" />
             ) : (
-              <Upload className="mx-auto h-12 w-12 text-gray-400" />
+              <Upload className="mx-auto h-8 sm:h-10 lg:h-12 w-8 sm:w-10 lg:w-12 text-gray-400" />
             )}
-            <p className="mt-2 text-gray-600">
+            <p className="mt-2 text-gray-600 text-sm sm:text-base">
               {isUploading ? "Uploading..." :
                 isDragActive ? "Drop the file here..." :
                 "Drag 'n' drop a file here, or click to select"}
             </p>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-xs sm:text-sm text-gray-500">
               Supported formats: PPTX, DOCX, TXT, MD
             </p>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-xs sm:text-sm text-gray-500">
               Important Tip: Convert your documents to Word file if desired format not supported.
             </p>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg p-8 border-2 border-gray-200">
-          <form onSubmit={addLink} className="space-y-4">
+        <div className="bg-white rounded-lg p-4 sm:p-6 lg:p-8 border-2 border-gray-200 shadow-sm">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Add Link</h2>
+          <form onSubmit={addLink} className="space-y-3 sm:space-y-4">
             <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
                 Link Title
               </label>
               <input
@@ -256,13 +257,13 @@ export default function Documents() {
                 id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm sm:text-base p-2.5 sm:p-3 touch-manipulation"
                 placeholder="Enter a title for the link"
                 required
               />
             </div>
             <div>
-              <label htmlFor="url" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="url" className="block text-sm font-medium text-gray-700 mb-1">
                 URL
               </label>
               <input
@@ -270,7 +271,7 @@ export default function Documents() {
                 id="url"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm sm:text-base p-2.5 sm:p-3 touch-manipulation"
                 placeholder="https://example.com"
                 required
               />
@@ -278,9 +279,9 @@ export default function Documents() {
             <button
               type="submit"
               disabled={isUploading}
-              className="w-full flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              className="w-full flex justify-center items-center px-4 py-2.5 sm:py-3 border border-transparent rounded-md shadow-sm text-sm sm:text-base font-medium text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-all touch-manipulation min-h-[44px]"
             >
-              <LinkIcon className="mr-2 h-4 w-4" />
+              <LinkIcon className="mr-2 h-4 w-4 flex-shrink-0" />
               Add Link
             </button>
           </form>
@@ -288,49 +289,55 @@ export default function Documents() {
       </div>
 
       {uploadError && (
-        <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-md">
+        <div className="mb-4 p-3 sm:p-4 bg-red-50 text-red-700 rounded-md text-sm">
           {uploadError}
         </div>
       )}
 
-      <div className="bg-white shadow overflow-hidden sm:rounded-md">
+      <div className="bg-white shadow overflow-hidden rounded-md">
+        <div className="px-4 py-3 sm:px-6 border-b border-gray-200 bg-gray-50">
+          <h3 className="text-lg font-medium text-gray-900">Your Documents ({documents.length})</h3>
+        </div>
         <ul className="divide-y divide-gray-200">
           {documents.map((doc) => (
             <li key={doc.id}>
-              <div className="px-4 py-4 sm:px-6">
+              <div className="px-3 sm:px-4 py-3 sm:py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center">
                       {doc.type === 'link' ? (
-                        <LinkIcon className="h-5 w-5 text-gray-400 mr-2" />
+                        <LinkIcon className="h-4 sm:h-5 w-4 sm:w-5 text-gray-400 mr-2 sm:mr-3 flex-shrink-0" />
                       ) : (
-                        <Upload className="h-5 w-5 text-gray-400 mr-2" />
+                        <Upload className="h-4 sm:h-5 w-4 sm:w-5 text-gray-400 mr-2 sm:mr-3 flex-shrink-0" />
                       )}
-                      {doc.type === 'link' ? (
-                        <a
-                          href={doc.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm font-medium text-blue-600 hover:text-blue-800 truncate"
-                        >
-                          {doc.title}
-                        </a>
-                      ) : (
-                        <p className="text-sm font-medium text-blue-600 truncate">
-                          {doc.title}
+                      <div className="min-w-0 flex-1">
+                        {doc.type === 'link' ? (
+                          <a
+                            href={doc.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm sm:text-base font-medium text-blue-600 hover:text-blue-800 truncate block touch-manipulation"
+                          >
+                            {doc.title}
+                          </a>
+                        ) : (
+                          <p className="text-sm sm:text-base font-medium text-blue-600 truncate">
+                            {doc.title}
+                          </p>
+                        )}
+                        <p className="mt-1 text-xs sm:text-sm text-gray-500">
+                          Uploaded on {new Date(doc.created_at).toLocaleDateString()}
                         </p>
-                      )}
+                      </div>
                     </div>
-                    <p className="mt-1 text-sm text-gray-500">
-                      Uploaded on {new Date(doc.created_at).toLocaleDateString()}
-                    </p>
                   </div>
-                  <div className="ml-4 flex-shrink-0">
+                  <div className="ml-3 sm:ml-4 flex-shrink-0">
                     <button
                       onClick={() => deleteDocument(doc.id)}
-                      className="text-red-600 hover:text-red-900"
+                      className="text-red-600 hover:text-red-900 hover:bg-red-50 p-2 rounded-md touch-manipulation transition-all"
+                      title="Delete document"
                     >
-                      <Trash2 className="h-5 w-5" />
+                      <Trash2 className="h-4 sm:h-5 w-4 sm:w-5" />
                     </button>
                   </div>
                 </div>
@@ -339,8 +346,10 @@ export default function Documents() {
           ))}
           {documents.length === 0 && (
             <li>
-              <div className="px-4 py-4 sm:px-6 text-center text-gray-500">
-                No documents uploaded yet
+              <div className="px-4 py-8 sm:px-6 text-center text-gray-500">
+                <Upload className="mx-auto h-12 w-12 text-gray-300 mb-3" />
+                <p className="text-sm sm:text-base">No documents uploaded yet</p>
+                <p className="text-xs sm:text-sm mt-1">Upload your first document to get started</p>
               </div>
             </li>
           )}
