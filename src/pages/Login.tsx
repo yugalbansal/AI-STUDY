@@ -14,7 +14,7 @@ declare global {
   }
 }
 
-export default function FlippingAuthCard() {
+export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -222,7 +222,7 @@ export default function FlippingAuthCard() {
       </div>
 
       <div 
-        className="relative z-10 w-full max-w-xs sm:max-w-md lg:max-w-4xl h-auto lg:h-[600px]"
+        className="relative z-10 w-full max-w-sm sm:max-w-md lg:max-w-4xl h-[620px] sm:h-[650px] lg:h-[600px]"
         style={{ perspective: '1000px' }}
       >
         {/* Card Container */}
@@ -235,17 +235,17 @@ export default function FlippingAuthCard() {
         >
           {/* Login Side (Front) */}
           <div 
-            className="absolute inset-0 w-full h-full bg-white/10 backdrop-blur-xl rounded-xl lg:rounded-2xl shadow-2xl border border-white/20 overflow-hidden"
+            className="absolute inset-0 w-full h-full bg-white/10 backdrop-blur-xl rounded-lg sm:rounded-xl lg:rounded-2xl shadow-2xl border border-white/20 overflow-hidden"
             style={{
               backfaceVisibility: 'hidden',
             }}
           >
             <div className="flex flex-col lg:flex-row h-full"> 
-              <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center p-0">
+              <div className="hidden md:flex md:w-1/2 relative items-center justify-center p-0">
                 <img
                   src="https://cdni.iconscout.com/illustration/premium/thumb/login-page-illustration-download-in-svg-png-gif-file-formats--app-developing-development-secure-mobile-webapp-and-pack-design-illustrations-3783954.png?f=webp"
                   alt="Welcome"
-                  className="object-cover w-full h-full rounded-l-2xl"
+                  className="object-cover w-full h-full rounded-l-xl lg:rounded-l-2xl"
                   style={{ minHeight: '100%', minWidth: '100%' }}
                 />
               </div>
@@ -292,7 +292,7 @@ export default function FlippingAuthCard() {
                       
                       {/* Turnstile Widget */}
                       <div className="flex justify-center mt-3 sm:mt-4">
-                        <div ref={loginTurnstileRef} className="scale-90 sm:scale-100"></div>
+                        <div ref={loginTurnstileRef} className="scale-75 sm:scale-90 md:scale-100 origin-center"></div>
                       </div>
                     </div>
 
@@ -328,7 +328,7 @@ export default function FlippingAuthCard() {
 
           {/* Signup Side (Back) */}
           <div 
-            className="absolute inset-0 w-full h-full bg-white/10 backdrop-blur-xl rounded-xl lg:rounded-2xl shadow-2xl border border-white/20 overflow-hidden"
+            className="absolute inset-0 w-full h-full bg-white/10 backdrop-blur-xl rounded-lg sm:rounded-xl lg:rounded-2xl shadow-2xl border border-white/20 overflow-hidden"
             style={{
               backfaceVisibility: 'hidden',
               transform: 'rotateY(180deg)'
@@ -377,7 +377,7 @@ export default function FlippingAuthCard() {
                       
                       {/* Turnstile Widget */}
                       <div className="flex justify-center mt-3 sm:mt-4">
-                        <div ref={signupTurnstileRef} className="scale-90 sm:scale-100"></div>
+                        <div ref={signupTurnstileRef} className="scale-75 sm:scale-90 md:scale-100 origin-center"></div>
                       </div>
                     </div>
 
@@ -409,11 +409,11 @@ export default function FlippingAuthCard() {
                 </div>
               </div>
 
-              <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center p-0">
+        <div className="hidden md:flex md:w-1/2 relative items-center justify-center p-0">
                 <img
                   src="https://cdni.iconscout.com/illustration/premium/thumb/sign-up-illustration-download-in-svg-png-gif-file-formats--account-login-miscellaneous-pack-illustrations-5230178.png?f=webp"
                   alt="Welcome"
-                  className="object-cover w-full h-full rounded-r-2xl"
+          className="object-cover w-full h-full rounded-r-xl lg:rounded-r-2xl"
                   style={{ minHeight: '100%', minWidth: '100%' }}
                 />
               </div>

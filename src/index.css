@@ -132,6 +132,17 @@
     hyphens: auto;
   }
   
+  /* Mobile viewport fixes */
+  .min-h-screen-mobile {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+  
+  .h-screen-mobile {
+    height: 100vh;
+    height: 100dvh;
+  }
+  
   /* Mobile-optimized animations */
   @media (prefers-reduced-motion: reduce) {
     .animate-pulse,
