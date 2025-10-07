@@ -79,6 +79,60 @@ import { ChatContext } from '../types/embeddings';
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const genAI = new GoogleGenerativeAI(API_KEY);
 
+// Rate limiting and quota management
+interface RequestTracker {
+  count: number;
+  resetTime: number;
+  model: string;
+}
+
+const MODELS = {
+  PRIMARY: 'gemini-2.0-flash'
+};
+
+const RATE_LIMITS = {
+  [MODELS.PRIMARY]: { daily: 200, hourly: 50 }
+};
+
+// Get request tracker from localStorage
+function getRequestTracker(model: string): RequestTracker {
+  const stored = localStorage.getItem(`gemini_requests_${model}`);
+  if (stored) {
+    const tracker = JSON.parse(stored);
+    // Reset if it's a new day
+    if (Date.now() > tracker.resetTime) {
+      return { count: 0, resetTime: getNextResetTime(), model };
+    }
+    return tracker;
+  }
+  return { count: 0, resetTime: getNextResetTime(), model };
+}
+
+// Update request tracker
+function updateRequestTracker(model: string): void {
+  const tracker = getRequestTracker(model);
+  tracker.count++;
+  localStorage.setItem(`gemini_requests_${model}`, JSON.stringify(tracker));
+}
+
+// Get next reset time (24 hours from now)
+function getNextResetTime(): number {
+  return Date.now() + (24 * 60 * 60 * 1000);
+}
+
+// Check if model has quota available
+function hasQuotaAvailable(model: string): boolean {
+  const tracker = getRequestTracker(model);
+  const limits = RATE_LIMITS[model as keyof typeof RATE_LIMITS];
+  return tracker.count < limits.daily;
+}
+
+// Get the best available model
+function getBestAvailableModel(): string {
+  // Since we only have one model, always return it
+  return MODELS.PRIMARY;
+}
+
 export async function getChatResponse(
   prompt: string, 
   context: string, 
@@ -91,7 +145,35 @@ export async function getChatResponse(
       return "Error: Gemini API key is missing. Please add VITE_GEMINI_API_KEY to your .env file.";
     }
     
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    // Get the best available model based on quotas
+    const selectedModel = getBestAvailableModel();
+    
+    // Check if we have any quota available
+    if (!hasQuotaAvailable(selectedModel)) {
+      const tracker = getRequestTracker(selectedModel);
+      const hoursLeft = Math.ceil((tracker.resetTime - Date.now()) / (1000 * 60 * 60));
+      return `⚠️ **API Quota Exceeded**
+
+All available AI models have reached their daily limits. Here's what you can do:
+
+🔄 **Wait for Reset:** Your quota will reset in approximately ${hoursLeft} hours.
+
+💡 **Tips to avoid this:**
+- Try to consolidate multiple questions into one message
+- Use more specific questions to get better results faster
+- Consider upgrading to a paid Google AI plan for higher limits
+
+📞 **Need Help?** Contact the developer:
+- Email: studyai.platform@gmail.com
+- GitHub: github.com/yugalbansal
+
+Thank you for your understanding! 🙏`;
+    }
+
+    const model = genAI.getGenerativeModel({ model: selectedModel });
+    
+    // Track this request
+    updateRequestTracker(selectedModel);
     
     // Get vector-based context from chat history and documents
     let chatContext: ChatContext | null = null;
@@ -187,6 +269,32 @@ LinkedIn: [https://www.linkedin.com/in/yugal-bansal-a47b91327/]
       return text;
     } catch (modelError: any) {
       console.error('Model error:', modelError);
+      
+      // Handle specific quota exceeded errors
+      if (modelError.message && modelError.message.includes('quota') || modelError.message.includes('429')) {
+        const tracker = getRequestTracker(selectedModel);
+        const hoursLeft = Math.ceil((tracker.resetTime - Date.now()) / (1000 * 60 * 60));
+        return `⚠️ **API Quota Exceeded**
+
+You've reached the daily limit for AI requests (200 requests per day for gemini-2.0-flash).
+
+🔍 **Details:** ${modelError.message}
+
+⏰ **Reset Time:** Your quota will reset in approximately ${hoursLeft} hours.
+
+💡 **What you can do:**
+1. Wait for the quota to reset (resets every 24 hours)
+2. Try asking more specific questions to get better results with fewer requests
+3. Combine multiple questions into one message to save API calls
+4. Consider upgrading to a paid Google AI plan for higher limits
+
+📞 **Need immediate help?** Contact Yugal:
+- Email: studyai.platform@gmail.com
+- GitHub: github.com/yugalbansal
+
+Thank you for your patience! 🙏`;
+      }
+      
       return `I apologize, but I encountered an error with the AI model: ${modelError.message || 'Unknown error'}. Please try again.`;
     }
   } catch (error: any) {
