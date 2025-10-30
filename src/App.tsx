@@ -10,6 +10,7 @@
   import Landing from './pages/landing';
   import { AuthProvider, useAuth } from './contexts/AuthContext';
   import { Boxes } from './components/ui/background-boxes';
+  import { Toaster } from 'sonner';
  
 
   // Component to handle protected routes
@@ -109,6 +110,7 @@
       <AuthProvider>
         <HashRouter>
           <AppContent />
+          <Toaster />
         </HashRouter>
       </AuthProvider>
     );
