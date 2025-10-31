@@ -6,6 +6,7 @@ interface AuthContextType {
   signIn: (email: string, password: string, captchaToken?: string) => Promise<void>;
   signOut: () => Promise<void>;
   signUp: (email: string, password: string, captchaToken?: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   isAdmin: boolean;
 }
 
@@ -132,11 +133,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   }
 
+  async function signInWithGoogle() {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
+    });
+    
+    if (error) throw error;
+  }
+
   const value = {
     user,
     signIn,
     signOut,
     signUp,
+    signInWithGoogle,
     isAdmin,
   };
 

@@ -28,7 +28,7 @@ const testimonials: Testimonial[] = [
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const handleSignIn = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -75,7 +75,16 @@ export default function Login() {
   };
 
   const handleGoogleSignIn = async () => {
-    toast.info('Google Sign-In coming soon! Please use email/password for now.');
+    setIsLoading(true);
+    try {
+      await signInWithGoogle();
+      // The redirect will happen automatically, so we don't need to navigate here
+      toast.success('Redirecting to Google...');
+    } catch (error: any) {
+      console.error('Google sign-in error:', error);
+      toast.error(error.message || 'Google sign-in failed. Please try again.');
+      setIsLoading(false);
+    }
   };
 
   const handleResetPassword = () => {

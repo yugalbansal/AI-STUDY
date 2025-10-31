@@ -7,6 +7,7 @@
   import ImageGen from './pages/ImageGen';
   import Livecall from './pages/Livecall';
   import Landing from './pages/landing';
+  import AuthCallback from './pages/AuthCallback';
   import { AuthProvider, useAuth } from './contexts/AuthContext';
   import { Boxes } from './components/ui/background-boxes';
   import { Toaster } from 'sonner';
@@ -54,6 +55,12 @@
                   <Login />
                 </PublicRoute>
               } 
+            />
+            
+            {/* Auth callback route - no protection needed */}
+            <Route 
+              path="/auth/callback" 
+              element={<AuthCallback />} 
             />
               
             {/* Protected routes - require authentication */}

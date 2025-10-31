@@ -2,6 +2,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { toast } from 'sonner';
 
 const AuthCallback = () => {
   const navigate = useNavigate();
@@ -9,7 +10,19 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        // Get the current URL hash
+        // Check for error in URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const error = urlParams.get('error');
+        const errorDescription = urlParams.get('error_description');
+
+        if (error) {
+          console.error('Auth error:', error, errorDescription);
+          toast.error(errorDescription || 'Authentication failed');
+          navigate('/login');
+          return;
+        }
+
+        // Get the current URL hash (for older OAuth flow)
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         
         // Check if we have auth tokens in the hash
@@ -25,27 +38,32 @@ const AuthCallback = () => {
           
           if (error) {
             console.error('Error setting session:', error.message);
-            navigate('/login?error=auth_failed');
+            toast.error('Failed to authenticate. Please try again.');
+            navigate('/login');
             return;
           }
           
           if (data?.session) {
             // Successful authentication
+            toast.success('Successfully signed in with Google!');
             navigate('/dashboard');
           } else {
-            navigate('/login?error=no_session');
+            toast.error('No session found. Please try again.');
+            navigate('/login');
           }
         } else {
-          // No tokens found, check if user is already authenticated
+          // For PKCE flow (newer), check if user is already authenticated
           const { data, error } = await supabase.auth.getSession();
           
           if (error) {
             console.error('Error getting session:', error.message);
-            navigate('/login?error=session_error');
+            toast.error('Session error. Please try signing in again.');
+            navigate('/login');
             return;
           }
           
           if (data?.session) {
+            toast.success('Successfully signed in with Google!');
             navigate('/dashboard');
           } else {
             navigate('/login');
@@ -53,7 +71,8 @@ const AuthCallback = () => {
         }
       } catch (error) {
         console.error('Auth callback error:', error);
-        navigate('/login?error=callback_failed');
+        toast.error('Authentication failed. Please try again.');
+        navigate('/login');
       }
     };
 
@@ -61,10 +80,11 @@ const AuthCallback = () => {
   }, [navigate]);
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Verifying your email, please wait...</p>
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-fuchsia-500 border-t-transparent mx-auto"></div>
+        <p className="mt-6 text-lg font-medium text-gray-800">Signing you in...</p>
+        <p className="mt-2 text-sm text-gray-600">Please wait while we verify your authentication</p>
       </div>
     </div>
   );
