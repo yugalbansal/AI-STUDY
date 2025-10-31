@@ -1,9 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { FileText, MessageSquare, Users, RefreshCw, Trash2, Image } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { Card } from '../components/ui/card';
+import { FileText, MessageSquare, Users, RefreshCw, Trash2, Image, Mic, Brain, Sparkles, Zap } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { BentoGrid, BentoItem } from '../components/ui/bento-grid';
+import Navbar from '../components/Navbar';
+
+interface User {
+  id: string;
+  email: string;
+  full_name: string;
+  last_seen: string;
+  is_online: boolean;
+  role: string;
+}
 
 interface User {
   id: string;
@@ -16,6 +26,7 @@ interface User {
 
 export default function Dashboard() {
   const { user, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     documentCount: 0,
     chatCount: 0,
@@ -140,191 +151,236 @@ export default function Dashboard() {
     }
   };
 
+  // Create bento grid items for dashboard features
+  const bentoItems: BentoItem[] = [
+    {
+      title: "AI Chat Assistant",
+      meta: `${stats.chatCount} conversations`,
+      description: "Engage in intelligent conversations with our advanced AI. Get instant answers, explanations, and creative insights.",
+      icon: <MessageSquare className="w-4 h-4 text-blue-500" />,
+      status: "Active",
+      tags: ["AI", "Chat", "Real-time"],
+      colSpan: 2,
+      hasPersistentHover: true,
+      cta: "Start Chat →"
+    },
+    {
+      title: "Document Analysis",
+      meta: `${stats.documentCount} documents`,
+      description: "Upload and analyze PDFs, Word docs, and text files with AI-powered insights and summaries.",
+      icon: <FileText className="w-4 h-4 text-emerald-500" />,
+      status: "Ready",
+      tags: ["Documents", "Analysis"],
+      cta: "Upload →"
+    },
+    {
+      title: "AI Image Generator",
+      meta: "Unlimited creates",
+      description: "Transform your ideas into stunning visuals with state-of-the-art AI image generation technology.",
+      icon: <Image className="w-4 h-4 text-purple-500" />,
+      status: "New",
+      tags: ["Creative", "Images"],
+      colSpan: 2,
+      cta: "Generate →"
+    },
+    {
+      title: "Voice Chat",
+      meta: "Real-time AI",
+      description: "Natural voice conversations with AI. Speak your questions and hear intelligent responses instantly.",
+      icon: <Mic className="w-4 h-4 text-rose-500" />,
+      status: "Beta",
+      tags: ["Voice", "AI"],
+      cta: "Try Now →"
+    },
+    ...(isAdmin ? [{
+      title: "Admin Dashboard",
+      meta: `${stats.userCount} users`,
+      description: "Manage users, monitor system health, and access advanced analytics and controls.",
+      icon: <Users className="w-4 h-4 text-amber-500" />,
+      status: "Admin",
+      tags: ["Management", "Analytics"],
+      colSpan: 3,
+      hasPersistentHover: true,
+      cta: "Manage →"
+    }] : [])
+  ];
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-      {/* Welcome header for mobile */}
-      <div className="mb-6 md:hidden">
-        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-        <p className="text-white/60 text-sm mt-1">Welcome back, {user?.email?.split('@')[0]}</p>
-      </div>
-      
-      <div className="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2 xl:grid-cols-3">
-        <Card>
-          <div className="p-4 sm:p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <FileText className="h-5 sm:h-6 w-5 sm:w-6 text-white/60" />
-              </div>
-              <div className="ml-4 sm:ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-white/60 truncate">Documents</dt>
-                  <dd className="text-2xl sm:text-3xl font-semibold text-white">{stats.documentCount}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white/5 px-4 sm:px-5 py-3">
-            <Link to="/documents" className="text-sm font-medium text-blue-400 hover:text-blue-300 touch-manipulation">
-              View all documents
-            </Link>
-          </div>
-        </Card>
+    <div className="min-h-screen bg-gray-50">
+      {/* Navbar */}
+      <Navbar />
 
-        <Card>
-          <div className="p-4 sm:p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <MessageSquare className="h-5 sm:h-6 w-5 sm:w-6 text-white/60" />
-              </div>
-              <div className="ml-4 sm:ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-white/60 truncate">Chat Messages</dt>
-                  <dd className="text-2xl sm:text-3xl font-semibold text-white">{stats.chatCount}</dd>
-                </dl>
-              </div>
+      {/* Hero Section */}
+      <div className="pt-32 pb-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-blue-50 via-white to-purple-50">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm font-medium mb-4">
+              <Sparkles className="w-4 h-4" />
+              Welcome back, {user?.email?.split('@')[0] || 'User'}!
             </div>
+            <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
+              Your AI-Powered
+              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Workspace</span>
+            </h1>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Access all your AI tools in one place. Chat, analyze, create, and innovate with cutting-edge artificial intelligence.
+            </p>
           </div>
-          <div className="bg-white/5 px-4 sm:px-5 py-3">
-            <Link to="/chat" className="text-sm font-medium text-blue-400 hover:text-blue-300 touch-manipulation">
-              Start a new chat
-            </Link>
-          </div>
-        </Card>
 
-        <Card>
-          <div className="p-4 sm:p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <Image className="h-5 sm:h-6 w-5 sm:w-6 text-white/60" />
+          {/* Quick Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all cursor-pointer" onClick={() => navigate('/chat')}>
+              <div className="flex items-center justify-between mb-2">
+                <MessageSquare className="w-8 h-8 text-blue-500" />
+                <Zap className="w-5 h-5 text-blue-400" />
               </div>
-              <div className="ml-4 sm:ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-white/60 truncate">AI Images</dt>
-                  <dd className="text-2xl sm:text-3xl font-semibold text-white">
-                    <span className="text-blue-400">New!</span>
-                  </dd>
-                </dl>
-              </div>
+              <div className="text-3xl font-bold text-gray-900 mb-1">{stats.chatCount}</div>
+              <div className="text-sm text-gray-600">Chat Conversations</div>
             </div>
-          </div>
-          <div className="bg-white/5 px-4 sm:px-5 py-3">
-            <Link to="/images" className="text-sm font-medium text-blue-400 hover:text-blue-300 touch-manipulation">
-              Generate images
-            </Link>
-          </div>
-        </Card>
 
-        {isAdmin && (
-          <Card className="sm:col-span-2 xl:col-span-3">
-            <div className="p-4 sm:p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <Users className="h-5 sm:h-6 w-5 sm:w-6 text-white/60" />
-                </div>
-                <div className="ml-4 sm:ml-5">
-                  <h3 className="text-base sm:text-lg font-medium text-white">Total Users</h3>
-                  <p className="text-2xl sm:text-3xl font-semibold text-white">{stats.userCount}</p>
-                </div>
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all cursor-pointer" onClick={() => navigate('/documents')}>
+              <div className="flex items-center justify-between mb-2">
+                <FileText className="w-8 h-8 text-emerald-500" />
+                <Brain className="w-5 h-5 text-emerald-400" />
               </div>
+              <div className="text-3xl font-bold text-gray-900 mb-1">{stats.documentCount}</div>
+              <div className="text-sm text-gray-600">Documents Analyzed</div>
             </div>
-          </Card>
-        )}
+
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all cursor-pointer" onClick={() => navigate('/images')}>
+              <div className="flex items-center justify-between mb-2">
+                <Image className="w-8 h-8 text-purple-500" />
+                <Sparkles className="w-5 h-5 text-purple-400" />
+              </div>
+              <div className="text-3xl font-bold text-gray-900 mb-1">
+                <span className="text-purple-600">New!</span>
+              </div>
+              <div className="text-sm text-gray-600">AI Image Generation</div>
+            </div>
+          </div>
+        </div>
       </div>
 
+      {/* Bento Grid Section */}
+      <div className="py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto mb-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">Your AI Tools</h2>
+          <p className="text-gray-600">Explore powerful features designed to enhance your productivity</p>
+        </div>
+        
+        <div onClick={(e) => {
+          const target = e.target as HTMLElement;
+          const card = target.closest('[class*="group relative"]') as HTMLElement;
+          if (!card) return;
+          
+          const index = Array.from(card.parentElement?.children || []).indexOf(card);
+          const routes = ['/chat', '/documents', '/images', '/livecall'];
+          if (isAdmin && index === 3) {
+            // Scroll to admin section
+            document.getElementById('admin-section')?.scrollIntoView({ behavior: 'smooth' });
+          } else if (routes[index]) {
+            navigate(routes[index]);
+          }
+        }}>
+          <BentoGrid items={bentoItems} />
+        </div>
+      </div>
+
+      {/* Admin Section */}
       {isAdmin && (
-        <div className="mt-6 sm:mt-8">
-          <h2 className="text-xl sm:text-2xl font-bold text-white mb-4">User Management</h2>
-          <div className="bg-white/10 backdrop-blur-md shadow rounded-lg overflow-hidden border border-white/10">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 lg:gap-4">
-              <div className="p-4 border-b lg:border-b-0 lg:border-r border-white/10">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-white">Users ({users.length})</h3>
-                  <button
-                    onClick={fetchData}
-                    className="p-2 rounded-md text-white hover:text-blue-400 hover:bg-white/10 transition-all touch-manipulation"
-                    disabled={isRefreshing}
-                  >
-                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  </button>
-                </div>
-                <div className="space-y-2 max-h-[300px] lg:max-h-[600px] overflow-y-auto">
-                  {users.map((u) => (
+        <div id="admin-section" className="py-12 px-4 sm:px-6 lg:px-8 bg-gray-50">
+          <div className="max-w-7xl mx-auto">
+            <h2 className="text-3xl font-bold text-gray-900 mb-8">Admin Controls</h2>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-0">
+                <div className="p-6 border-b lg:border-b-0 lg:border-r border-gray-200 bg-gray-50">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="font-semibold text-gray-900 text-lg">Users ({users.length})</h3>
                     <button
-                      key={u.id}
-                      onClick={() => fetchUserChats(u.id)}
-                      className={`w-full text-left px-3 py-3 rounded-lg touch-manipulation transition-all ${
-                        selectedUser === u.id ? 'bg-white/10 text-blue-400' : 'hover:bg-white/5 text-white'
-                      }`}
+                      onClick={fetchData}
+                      className="p-2 rounded-lg text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                      disabled={isRefreshing}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="min-w-0 flex-1">
-                          <div className="font-medium text-sm truncate">{u.full_name || u.email}</div>
-                          <div className="text-xs text-white/60 truncate">
-                            {u.email}
-                          </div>
-                          <div className="text-xs text-white/40">
-                            Role: {u.role}
-                          </div>
-                          <div className="text-xs text-white/40 hidden sm:block">
-                            Last seen: {u.last_seen ? new Date(u.last_seen).toLocaleString() : 'Never'}
-                          </div>
-                        </div>
-                        <div className={`h-2 w-2 rounded-full flex-shrink-0 ${u.is_online ? 'bg-green-500' : 'bg-gray-500'}`} />
-                      </div>
+                      <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
                     </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="lg:col-span-2 p-4">
-                {selectedUser ? (
-                  <>
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-semibold text-white text-sm sm:text-base">Chat History</h3>
-                      <button
-                        onClick={() => setSelectedUser(null)}
-                        className="text-sm text-white/60 hover:text-white hover:bg-white/10 px-3 py-1 rounded-md transition-all touch-manipulation"
-                      >
-                        Close
-                      </button>
-                    </div>
-                    <div className="space-y-3 sm:space-y-4 max-h-[400px] lg:max-h-[600px] overflow-y-auto">
-                      {userChats.map((chat) => (
-                        <div key={chat.id} className="border border-white/10 rounded-lg p-3 sm:p-4">
-                          <div className="flex justify-between items-start mb-2">
-                            <div className="flex-1 min-w-0">
-                              <div className="mb-2">
-                                <span className="font-medium text-white text-sm">User:</span>
-                                <p className="ml-2 text-white/80 text-sm break-words">{chat.message}</p>
-                              </div>
-                              <div>
-                                <span className="font-medium text-white text-sm">AI:</span>
-                                <p className="ml-2 text-white/80 text-sm break-words">{chat.response}</p>
-                              </div>
-                              <div className="mt-2 text-xs text-white/40">
-                                {new Date(chat.created_at).toLocaleString()}
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => deleteUserChat(chat.id)}
-                              className="ml-2 text-red-400 hover:text-red-300 hover:bg-white/10 p-2 rounded-md transition-all touch-manipulation flex-shrink-0"
-                              title="Delete chat"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                      {userChats.length === 0 && (
-                        <p className="text-white/60 text-center text-sm">No chat history available</p>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex items-center justify-center h-32 lg:h-64">
-                    <p className="text-white/60 text-center text-sm">Select a user to view their chat history</p>
                   </div>
-                )}
+                  <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                    {users.map((u) => (
+                      <button
+                        key={u.id}
+                        onClick={() => fetchUserChats(u.id)}
+                        className={`w-full text-left px-4 py-3 rounded-xl transition-all ${
+                          selectedUser === u.id 
+                            ? 'bg-blue-100 border-2 border-blue-500' 
+                            : 'hover:bg-gray-100 border-2 border-transparent'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium text-gray-900 truncate">{u.full_name || u.email}</div>
+                            <div className="text-sm text-gray-600 truncate">{u.email}</div>
+                            <div className="text-xs text-gray-500 mt-1">Role: {u.role}</div>
+                          </div>
+                          <div className={`h-3 w-3 rounded-full flex-shrink-0 ${u.is_online ? 'bg-green-500' : 'bg-gray-300'}`} />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="lg:col-span-2 p-6">
+                  {selectedUser ? (
+                    <>
+                      <div className="flex justify-between items-center mb-6">
+                        <h3 className="font-semibold text-gray-900 text-lg">Chat History</h3>
+                        <button
+                          onClick={() => setSelectedUser(null)}
+                          className="text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 px-4 py-2 rounded-lg transition-all"
+                        >
+                          Close
+                        </button>
+                      </div>
+                      <div className="space-y-4 max-h-[600px] overflow-y-auto">
+                        {userChats.map((chat) => (
+                          <div key={chat.id} className="border border-gray-200 rounded-xl p-4 hover:shadow-sm transition-all">
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1 min-w-0 space-y-3">
+                                <div>
+                                  <span className="font-medium text-gray-900 text-sm">User:</span>
+                                  <p className="text-gray-700 text-sm mt-1">{chat.message}</p>
+                                </div>
+                                <div>
+                                  <span className="font-medium text-gray-900 text-sm">AI:</span>
+                                  <p className="text-gray-700 text-sm mt-1">{chat.response}</p>
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {new Date(chat.created_at).toLocaleString()}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => deleteUserChat(chat.id)}
+                                className="ml-3 text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-all"
+                                title="Delete chat"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        {userChats.length === 0 && (
+                          <p className="text-gray-500 text-center py-12">No chat history available</p>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-center h-full min-h-[400px]">
+                      <div className="text-center">
+                        <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                        <p className="text-gray-500">Select a user to view their chat history</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

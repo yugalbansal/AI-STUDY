@@ -1,6 +1,5 @@
   import React from 'react';
   import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-  import Navbar from './components/Navbar';
   import Login from './pages/Login';
   import Dashboard from './pages/Dashboard';
   import Chat from './pages/Chat';
@@ -37,7 +36,6 @@
 
         {/* Content */}
         <div className="relative z-10">
-          <Navbar />
           <Routes>
             {/* Public routes - redirect to dashboard if logged in */}
             

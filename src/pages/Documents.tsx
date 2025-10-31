@@ -1,10 +1,12 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Upload, Trash2, Loader2, Link as LinkIcon } from 'lucide-react';
+import { Upload, Trash2, Loader2, Link as LinkIcon, FileText, ExternalLink, Calendar, Sparkles } from 'lucide-react';
 import { parseDocument } from '../lib/documentParser';
 import { vectorSearchService } from '../lib/vectorSearch';
+import Navbar from '../components/Navbar';
+import { motion } from 'framer-motion';
 
 export default function Documents() {
   const { user } = useAuth();
@@ -29,7 +31,7 @@ export default function Documents() {
     
     try {
       // Check if user exists in users table
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('users')
         .select('id')
         .eq('id', user.id)
@@ -210,150 +212,223 @@ export default function Documents() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <div className="flex justify-center items-center h-[calc(100vh-120px)] pt-32">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
+            <p className="text-gray-600">Loading your documents...</p>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6 sm:mb-8">Documents</h1>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8">
-        <div {...getRootProps()}>
-          <input {...getInputProps()} />
-          <div className={`border-2 border-dashed rounded-lg p-4 sm:p-6 lg:p-8 text-center cursor-pointer transition-all ${
-            isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-          } ${isUploading ? 'opacity-50 cursor-not-allowed' : 'hover:border-blue-400 hover:bg-gray-50'} touch-manipulation`}>
-            {isUploading ? (
-              <Loader2 className="mx-auto h-8 sm:h-10 lg:h-12 w-8 sm:w-10 lg:w-12 text-blue-600 animate-spin" />
-            ) : (
-              <Upload className="mx-auto h-8 sm:h-10 lg:h-12 w-8 sm:w-10 lg:w-12 text-gray-400" />
-            )}
-            <p className="mt-2 text-gray-600 text-sm sm:text-base">
-              {isUploading ? "Uploading..." :
-                isDragActive ? "Drop the file here..." :
-                "Drag 'n' drop a file here, or click to select"}
-            </p>
-            <p className="mt-1 text-xs sm:text-sm text-gray-500">
-              Supported formats: PPTX, DOCX, TXT, MD
-            </p>
-            <p className="mt-1 text-xs sm:text-sm text-gray-500">
-              Important Tip: Convert your documents to Word file if desired format not supported.
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+      
+      {/* Hero Section */}
+      <div className="pt-32 pb-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-blue-50 via-white to-purple-50">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-0">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm font-medium mb-4">
+              <Sparkles className="w-4 h-4" />
+              AI-Powered Document Analysis
+            </div>
+            <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
+              Your Document
+              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Library</span>
+            </h1>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Upload documents, add links, and let AI analyze and understand your content
             </p>
           </div>
         </div>
-
-        <div className="bg-white rounded-lg p-4 sm:p-6 lg:p-8 border-2 border-gray-200 shadow-sm">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Add Link</h2>
-          <form onSubmit={addLink} className="space-y-3 sm:space-y-4">
-            <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-                Link Title
-              </label>
-              <input
-                type="text"
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm sm:text-base p-2.5 sm:p-3 touch-manipulation"
-                placeholder="Enter a title for the link"
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="url" className="block text-sm font-medium text-gray-700 mb-1">
-                URL
-              </label>
-              <input
-                type="url"
-                id="url"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm sm:text-base p-2.5 sm:p-3 touch-manipulation"
-                placeholder="https://example.com"
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={isUploading}
-              className="w-full flex justify-center items-center px-4 py-2.5 sm:py-3 border border-transparent rounded-md shadow-sm text-sm sm:text-base font-medium text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-all touch-manipulation min-h-[44px]"
-            >
-              <LinkIcon className="mr-2 h-4 w-4 flex-shrink-0" />
-              Add Link
-            </button>
-          </form>
-        </div>
       </div>
 
-      {uploadError && (
-        <div className="mb-4 p-3 sm:p-4 bg-red-50 text-red-700 rounded-md text-sm">
-          {uploadError}
-        </div>
-      )}
-
-      <div className="bg-white shadow overflow-hidden rounded-md">
-        <div className="px-4 py-3 sm:px-6 border-b border-gray-200 bg-gray-50">
-          <h3 className="text-lg font-medium text-gray-900">Your Documents ({documents.length})</h3>
-        </div>
-        <ul className="divide-y divide-gray-200">
-          {documents.map((doc) => (
-            <li key={doc.id}>
-              <div className="px-3 sm:px-4 py-3 sm:py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center">
-                      {doc.type === 'link' ? (
-                        <LinkIcon className="h-4 sm:h-5 w-4 sm:w-5 text-gray-400 mr-2 sm:mr-3 flex-shrink-0" />
-                      ) : (
-                        <Upload className="h-4 sm:h-5 w-4 sm:w-5 text-gray-400 mr-2 sm:mr-3 flex-shrink-0" />
-                      )}
-                      <div className="min-w-0 flex-1">
-                        {doc.type === 'link' ? (
-                          <a
-                            href={doc.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm sm:text-base font-medium text-blue-600 hover:text-blue-800 truncate block touch-manipulation"
-                          >
-                            {doc.title}
-                          </a>
-                        ) : (
-                          <p className="text-sm sm:text-base font-medium text-blue-600 truncate">
-                            {doc.title}
-                          </p>
-                        )}
-                        <p className="mt-1 text-xs sm:text-sm text-gray-500">
-                          Uploaded on {new Date(doc.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="ml-3 sm:ml-4 flex-shrink-0">
-                    <button
-                      onClick={() => deleteDocument(doc.id)}
-                      className="text-red-600 hover:text-red-900 hover:bg-red-50 p-2 rounded-md touch-manipulation transition-all"
-                      title="Delete document"
-                    >
-                      <Trash2 className="h-4 sm:h-5 w-4 sm:w-5" />
-                    </button>
-                  </div>
+      {/* Main Content */}
+      <div className="py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Upload Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
+            {/* File Upload */}
+            <motion.div 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3 }}
+              className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200"
+            >
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Upload className="w-5 h-5 text-blue-600" />
+                Upload Document
+              </h2>
+              <div {...getRootProps()}>
+                <input {...getInputProps()} />
+                <div className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
+                  isDragActive ? 'border-blue-500 bg-blue-50 scale-[1.02]' : 'border-gray-300'
+                } ${isUploading ? 'opacity-50 cursor-not-allowed' : 'hover:border-blue-400 hover:bg-gray-50 hover:shadow-md'}`}>
+                  {isUploading ? (
+                    <Loader2 className="mx-auto h-12 w-12 text-blue-600 animate-spin" />
+                  ) : (
+                    <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                  )}
+                  <p className="mt-4 text-gray-700 font-medium">
+                    {isUploading ? "Uploading..." :
+                      isDragActive ? "Drop the file here..." :
+                      "Drag & drop or click to select"}
+                  </p>
+                  <p className="mt-2 text-sm text-gray-500">
+                    PPTX, DOCX, TXT, MD
+                  </p>
+                  <p className="mt-1 text-xs text-gray-400">
+                    Tip: Convert documents to Word if format not supported
+                  </p>
                 </div>
               </div>
-            </li>
-          ))}
-          {documents.length === 0 && (
-            <li>
-              <div className="px-4 py-8 sm:px-6 text-center text-gray-500">
-                <Upload className="mx-auto h-12 w-12 text-gray-300 mb-3" />
-                <p className="text-sm sm:text-base">No documents uploaded yet</p>
-                <p className="text-xs sm:text-sm mt-1">Upload your first document to get started</p>
-              </div>
-            </li>
+            </motion.div>
+
+            {/* Add Link */}
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 }}
+              className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200"
+            >
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <LinkIcon className="w-5 h-5 text-purple-600" />
+                Add Link
+              </h2>
+              <form onSubmit={addLink} className="space-y-4">
+                <div>
+                  <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+                    Link Title
+                  </label>
+                  <input
+                    type="text"
+                    id="title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="block w-full rounded-xl border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 px-4 py-3"
+                    placeholder="Enter a title..."
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="url" className="block text-sm font-medium text-gray-700 mb-2">
+                    URL
+                  </label>
+                  <input
+                    type="url"
+                    id="url"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    className="block w-full rounded-xl border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 px-4 py-3"
+                    placeholder="https://example.com"
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isUploading}
+                  className="w-full flex justify-center items-center px-4 py-3 border border-transparent rounded-xl shadow-sm font-medium text-white bg-gradient-to-r from-purple-600 to-blue-600 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 transition-all"
+                >
+                  <LinkIcon className="mr-2 h-5 w-5" />
+                  Add Link
+                </button>
+              </form>
+            </motion.div>
+          </div>
+
+          {uploadError && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl"
+            >
+              {uploadError}
+            </motion.div>
           )}
-        </ul>
+
+          {/* Documents List */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden"
+          >
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+              <h3 className="text-lg font-semibold text-gray-900">Your Documents</h3>
+              <p className="text-sm text-gray-600 mt-1">{documents.length} document{documents.length !== 1 ? 's' : ''} in your library</p>
+            </div>
+            
+            {documents.length === 0 ? (
+              <div className="px-6 py-16 text-center">
+                <FileText className="mx-auto h-16 w-16 text-gray-300 mb-4" />
+                <p className="text-gray-600 font-medium">No documents yet</p>
+                <p className="text-sm text-gray-500 mt-2">Upload your first document or add a link to get started</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-200">
+                {documents.map((doc, index) => (
+                  <motion.div
+                    key={doc.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.1 * index }}
+                    className="px-6 py-4 hover:bg-gray-50 transition-all group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                          doc.type === 'link' ? 'bg-purple-100' : 'bg-blue-100'
+                        }`}>
+                          {doc.type === 'link' ? (
+                            <LinkIcon className="h-6 w-6 text-purple-600" />
+                          ) : (
+                            <FileText className="h-6 w-6 text-blue-600" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          {doc.type === 'link' ? (
+                            <a
+                              href={doc.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium text-gray-900 hover:text-blue-600 truncate block group-hover:underline"
+                            >
+                              {doc.title}
+                              <ExternalLink className="inline-block ml-1 w-4 h-4" />
+                            </a>
+                          ) : (
+                            <p className="font-medium text-gray-900 truncate">
+                              {doc.title}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
+                            <Calendar className="w-4 h-4" />
+                            {new Date(doc.created_at).toLocaleDateString('en-US', { 
+                              year: 'numeric', 
+                              month: 'short', 
+                              day: 'numeric' 
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => deleteDocument(doc.id)}
+                        className="ml-4 text-gray-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        </div>
       </div>
     </div>
   );

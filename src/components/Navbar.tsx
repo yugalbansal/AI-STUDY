@@ -1,9 +1,22 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { BookOpen, MessageSquare, LayoutDashboard, LogOut, Menu, X, Image } from 'lucide-react';
+import { BookOpen, MessageSquare, LayoutDashboard, LogOut, Menu, X, Image, Phone } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-export default function Navbar() {
+interface NavbarProps {
+  /**
+   * When true (default), the navbar positions itself using a fixed, full-width layout.
+   * When false, positioning is left to the parent component.
+   */
+  isFixed?: boolean;
+  /**
+   * Optional additional classes to apply to the outer wrapper.
+   */
+  className?: string;
+}
+
+export default function Navbar({ isFixed = true, className = '' }: NavbarProps = {}) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -16,128 +29,186 @@ export default function Navbar() {
     setIsMenuOpen(false);
   };
 
+  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+
+  const containerClasses = [
+    'flex justify-center w-full py-6 px-4 bg-gradient-to-b from-gray-50 via-gray-50 to-transparent pointer-events-none',
+    isFixed ? 'fixed top-0 left-0 right-0 z-50' : 'relative z-40',
+    className
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <nav className="bg-white/10 backdrop-blur-md shadow-lg border-b border-white/10 relative z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="flex justify-between h-16">
-          <div className="flex items-center">
-            <Link to="/dashboard" className="flex items-center px-2 py-2 text-white hover:text-blue-400 transition-colors">
-              <BookOpen className="h-6 w-6 flex-shrink-0" />
-              <span className="ml-2 font-semibold hidden xs:block text-sm sm:text-base">AI Study Platform</span>
-            </Link>
-          </div>
+    <div className={containerClasses}>
+      <nav className="flex items-center justify-between px-6 py-3 bg-white rounded-full shadow-lg w-full max-w-5xl relative pointer-events-auto">
+        {/* Logo */}
+        <Link to="/dashboard" className="flex items-center">
+          <motion.div
+            className="w-8 h-8 mr-3"
+            initial={{ scale: 0.8 }}
+            animate={{ scale: 1 }}
+            whileHover={{ rotate: 10 }}
+            transition={{ duration: 0.3 }}
+          >
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="16" cy="16" r="16" fill="url(#paint0_linear)" />
+              <defs>
+                <linearGradient id="paint0_linear" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                  <stop stopColor="#3B82F6" />
+                  <stop offset="1" stopColor="#8B5CF6" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </motion.div>
+          <span className="font-semibold text-gray-900 hidden sm:block">AI Study Platform</span>
+        </Link>
 
-          {/* Mobile menu button */}
-          <div className="flex items-center md:hidden">
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-2 rounded-md text-white hover:text-blue-400 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-blue-400/50 transition-all touch-manipulation"
-              aria-label="Toggle menu"
-            >
-              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </button>
-          </div>
-
-          {/* Desktop and Tablet menu */}
-          <div className="hidden md:flex md:items-center md:space-x-2 lg:space-x-4">
-            <Link
-              to="/dashboard"
-              className="flex items-center px-2 lg:px-3 py-2 text-white hover:text-blue-400 hover:bg-white/10 rounded-md transition-all text-sm lg:text-base"
-            >
-              <LayoutDashboard className="h-4 lg:h-5 w-4 lg:w-5 mr-1" />
-              <span className="hidden lg:block">Dashboard</span>
-            </Link>
-            <Link
-              to="/documents"
-              className="flex items-center px-2 lg:px-3 py-2 text-white hover:text-blue-400 hover:bg-white/10 rounded-md transition-all text-sm lg:text-base"
-            >
-              <BookOpen className="h-4 lg:h-5 w-4 lg:w-5 mr-1" />
-              <span className="hidden lg:block">Documents</span>
-            </Link>
-            <Link
-              to="/chat"
-              className="flex items-center px-2 lg:px-3 py-2 text-white hover:text-blue-400 hover:bg-white/10 rounded-md transition-all text-sm lg:text-base"
-            >
-              <MessageSquare className="h-4 lg:h-5 w-4 lg:w-5 mr-1" />
-              <span className="hidden lg:block">Chat</span>
-            </Link>
-            <Link
-              to="/livecall"
-              className="flex items-center px-2 lg:px-3 py-2 text-white hover:text-blue-400 hover:bg-white/10 rounded-md transition-all text-sm lg:text-base"
-            >
-              <MessageSquare className="h-4 lg:h-5 w-4 lg:w-5 mr-1" />
-              <span className="hidden lg:block">Live Call</span>
-            </Link>
-            <Link
-              to="/images"
-              className="flex items-center px-2 lg:px-3 py-2 text-white hover:text-blue-400 hover:bg-white/10 rounded-md transition-all text-sm lg:text-base"
-            >
-              <Image className="h-4 lg:h-5 w-4 lg:w-5 mr-1" />
-              <span className="hidden lg:block">Images</span>
-            </Link>
-            <button
-              onClick={handleSignOut}
-              className="flex items-center px-2 lg:px-3 py-2 text-white hover:text-red-400 hover:bg-white/10 rounded-md transition-all text-sm lg:text-base"
-            >
-              <LogOut className="h-4 lg:h-5 w-4 lg:w-5 mr-1" />
-              <span className="hidden lg:block">Sign Out</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile and Tablet menu */}
-      <div className={`md:hidden ${isMenuOpen ? 'block' : 'hidden'} border-t border-white/10 bg-white/5 backdrop-blur-md`}>
-        <div className="pt-2 pb-3 space-y-1 px-2">
+        {/* Desktop Navigation */}
+        <div className="hidden md:flex items-center space-x-1">
           <Link
             to="/dashboard"
-            className="flex items-center px-4 py-3 text-white hover:text-blue-400 hover:bg-white/10 rounded-md transition-all touch-manipulation"
-            onClick={() => setIsMenuOpen(false)}
+            className="px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-all text-sm font-medium"
           >
-            <LayoutDashboard className="h-5 w-5 mr-3 flex-shrink-0" />
             Dashboard
           </Link>
           <Link
-            to="/documents"
-            className="flex items-center px-4 py-3 text-white hover:text-blue-400 hover:bg-white/10 rounded-md transition-all touch-manipulation"
-            onClick={() => setIsMenuOpen(false)}
-          >
-            <BookOpen className="h-5 w-5 mr-3 flex-shrink-0" />
-            Documents
-          </Link>
-          <Link
             to="/chat"
-            className="flex items-center px-4 py-3 text-white hover:text-blue-400 hover:bg-white/10 rounded-md transition-all touch-manipulation"
-            onClick={() => setIsMenuOpen(false)}
+            className="px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-all text-sm font-medium"
           >
-            <MessageSquare className="h-5 w-5 mr-3 flex-shrink-0" />
             Chat
           </Link>
           <Link
-            to="/livecall"
-            className="flex items-center px-4 py-3 text-white hover:text-blue-400 hover:bg-white/10 rounded-md transition-all touch-manipulation"
-            onClick={() => setIsMenuOpen(false)}
+            to="/documents"
+            className="px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-all text-sm font-medium"
           >
-            <MessageSquare className="h-5 w-5 mr-3 flex-shrink-0" />
-            Live Call
+            Documents
           </Link>
           <Link
             to="/images"
-            className="flex items-center px-4 py-3 text-white hover:text-blue-400 hover:bg-white/10 rounded-md transition-all touch-manipulation"
-            onClick={() => setIsMenuOpen(false)}
+            className="px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-all text-sm font-medium"
           >
-            <Image className="h-5 w-5 mr-3 flex-shrink-0" />
             Images
+          </Link>
+          <Link
+            to="/livecall"
+            className="px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-all text-sm font-medium"
+          >
+            Live Call
           </Link>
           <button
             onClick={handleSignOut}
-            className="flex items-center w-full px-4 py-3 text-white hover:text-red-400 hover:bg-white/10 rounded-md transition-all touch-manipulation"
+            className="px-5 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full hover:shadow-lg hover:scale-105 transition-all text-sm font-medium ml-2"
           >
-            <LogOut className="h-5 w-5 mr-3 flex-shrink-0" />
             Sign Out
           </button>
         </div>
-      </div>
-    </nav>
+
+        {/* Mobile Menu Button */}
+        <button
+          onClick={toggleMenu}
+          className="md:hidden p-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-all"
+          aria-label="Toggle menu"
+        >
+          {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
+      </nav>
+
+      {/* Mobile Menu Overlay */}
+      <AnimatePresence>
+        {isMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden pointer-events-auto"
+            onClick={toggleMenu}
+          >
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'tween', duration: 0.3 }}
+              className="absolute right-0 top-0 h-full w-80 bg-white shadow-2xl p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center">
+                  <div className="w-8 h-8 mr-3">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="16" cy="16" r="16" fill="url(#paint0_linear_mobile)" />
+                      <defs>
+                        <linearGradient id="paint0_linear_mobile" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                          <stop stopColor="#3B82F6" />
+                          <stop offset="1" stopColor="#8B5CF6" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                  </div>
+                  <span className="font-semibold text-gray-900">Menu</span>
+                </div>
+                <button
+                  onClick={toggleMenu}
+                  className="p-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-all"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <Link
+                  to="/dashboard"
+                  className="flex items-center px-4 py-3 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all"
+                  onClick={toggleMenu}
+                >
+                  <LayoutDashboard className="h-5 w-5 mr-3" />
+                  Dashboard
+                </Link>
+                <Link
+                  to="/chat"
+                  className="flex items-center px-4 py-3 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all"
+                  onClick={toggleMenu}
+                >
+                  <MessageSquare className="h-5 w-5 mr-3" />
+                  Chat
+                </Link>
+                <Link
+                  to="/documents"
+                  className="flex items-center px-4 py-3 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all"
+                  onClick={toggleMenu}
+                >
+                  <BookOpen className="h-5 w-5 mr-3" />
+                  Documents
+                </Link>
+                <Link
+                  to="/images"
+                  className="flex items-center px-4 py-3 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all"
+                  onClick={toggleMenu}
+                >
+                  <Image className="h-5 w-5 mr-3" />
+                  Images
+                </Link>
+                <Link
+                  to="/livecall"
+                  className="flex items-center px-4 py-3 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all"
+                  onClick={toggleMenu}
+                >
+                  <Phone className="h-5 w-5 mr-3" />
+                  Live Call
+                </Link>
+                <button
+                  onClick={handleSignOut}
+                  className="flex items-center w-full px-4 py-3 text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:shadow-lg rounded-xl transition-all mt-4"
+                >
+                  <LogOut className="h-5 w-5 mr-3" />
+                  Sign Out
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
