@@ -9,7 +9,6 @@
   import Landing from './pages/landing';
   import AuthCallback from './pages/AuthCallback';
   import { AuthProvider, useAuth } from './contexts/AuthContext';
-  import { Boxes } from './components/ui/background-boxes';
   import { Toaster } from 'sonner';
  
 
