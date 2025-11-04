@@ -1,5 +1,5 @@
   import React from 'react';
-  import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+  import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
   import Login from './pages/Login';
   import Dashboard from './pages/Dashboard';
   import Chat from './pages/Chat';
@@ -14,13 +14,37 @@
 
   // Component to handle protected routes
   function ProtectedRoute({ children }: { children: React.ReactNode }) {
-    const { user } = useAuth();
+    const { user, loading } = useAuth();
+    
+    if (loading) {
+      return (
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <div className="text-white text-lg">Loading...</div>
+          </div>
+        </div>
+      );
+    }
+    
     return user ? children : <Navigate to="/login" replace />;
   }
 
   // Component to handle public routes (redirect to dashboard if logged in)
   function PublicRoute({ children }: { children: React.ReactNode }) {
-    const { user } = useAuth();
+    const { user, loading } = useAuth();
+    
+    if (loading) {
+      return (
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <div className="text-white text-lg">Loading...</div>
+          </div>
+        </div>
+      );
+    }
+    
     return !user ? children : <Navigate to="/dashboard" replace />;
   }
 
@@ -35,7 +59,7 @@
 
         {/* Content */}
         <div className="relative z-10">
-          <Routes>
+          <Routes> 
             {/* Public routes - redirect to dashboard if logged in */}
             
             <Route 
@@ -111,10 +135,10 @@
   function App() {
     return (
       <AuthProvider>
-        <HashRouter>
+        <BrowserRouter>
           <AppContent />
           <Toaster />
-        </HashRouter>
+        </BrowserRouter>
       </AuthProvider>
     );
   }

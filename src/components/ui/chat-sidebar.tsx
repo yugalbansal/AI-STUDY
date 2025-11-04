@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus, Edit2, Trash2, MessageSquare, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface Chat {
   id: string;
@@ -31,6 +32,7 @@ export default function ChatSidebar({
   userEmail,
   userName,
 }: ChatSidebarProps) {
+  const navigate = useNavigate();
   const [editingChat, setEditingChat] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const profileRef = useRef<HTMLButtonElement | null>(null);
@@ -110,7 +112,7 @@ export default function ChatSidebar({
                       {userEmail}
                     </span>
                     <button 
-                      onClick={() => window.location.href = '/dashboard'}
+                      onClick={() => navigate('/dashboard')}
                       className="block w-full p-2 text-left rounded-md hover:bg-gray-50 active:bg-gray-100 duration-150"
                     >
                       Go to Dashboard

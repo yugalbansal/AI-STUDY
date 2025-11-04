@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 
 interface AuthContextType {
   user: any;
+  loading: boolean;
   signIn: (email: string, password: string, captchaToken?: string) => Promise<void>;
   signOut: () => Promise<void>;
   signUp: (email: string, password: string, captchaToken?: string) => Promise<void>;
@@ -14,17 +15,20 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       checkUserRole(session?.user?.id);
+      setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       checkUserRole(session?.user?.id);
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -150,6 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = {
     user,
+    loading,
     signIn,
     signOut,
     signUp,
