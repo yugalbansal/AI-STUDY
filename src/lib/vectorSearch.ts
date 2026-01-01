@@ -64,8 +64,8 @@ export class VectorSearchService {
     content: string
   ): Promise<void> {
     try {
-      // Chunk the document content
-      const chunks = embeddingService.chunkText(content, 400);
+      // Chunk the document content (larger chunks = better context)
+      const chunks = embeddingService.chunkText(content, 800);
       
       // Generate embeddings for each chunk
       for (let i = 0; i < chunks.length; i++) {
@@ -110,7 +110,7 @@ export class VectorSearchService {
         query_embedding: JSON.stringify(queryEmbedding),
         user_id_param: userId,
         chat_id_param: chatId || null,
-        similarity_threshold: 0.6,
+        similarity_threshold: 0.3,
         match_count: limit
       });
 
@@ -142,7 +142,7 @@ export class VectorSearchService {
       const { data, error } = await supabase.rpc('search_similar_documents', {
         query_embedding: JSON.stringify(queryEmbedding),
         user_id_param: userId,
-        similarity_threshold: 0.6,
+        similarity_threshold: 0.3,
         match_count: limit
       });
 
@@ -196,10 +196,11 @@ export class VectorSearchService {
     chatId: string
   ): Promise<ChatContext> {
     try {
+      // REDUCED LIMITS to prevent context overflow (was causing 253k token error)
       const [recentMessages, similarConversations, relevantDocuments] = await Promise.all([
-        this.getRecentChatHistory(chatId, userId, 5),
-        this.findSimilarChatMessages(query, userId, undefined, 3), // Search across all chats
-        this.findSimilarDocuments(query, userId, 3)
+        this.getRecentChatHistory(chatId, userId, 3), // Only last 3 messages (was 5)
+        this.findSimilarChatMessages(query, userId, undefined, 2), // Only 2 similar (was 3)
+        this.findSimilarDocuments(query, userId, 2) // Only 2 docs (was 3)
       ]);
 
       return {

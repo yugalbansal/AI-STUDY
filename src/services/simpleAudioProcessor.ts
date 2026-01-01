@@ -7,6 +7,7 @@ export class SimpleAudioProcessor {
   private stream: MediaStream | null = null;
   private audioContext: AudioContext | null = null;
   private gainNode: GainNode | null = null;
+  private analyser: AnalyserNode | null = null;
   private isDucking = false;
   private callbacks: SimpleAudioCallbacks | null = null;
   private isActive = false;
@@ -56,9 +57,15 @@ export class SimpleAudioProcessor {
       this.gainNode = this.audioContext.createGain();
       this.gainNode.gain.value = 1.0;
 
-      // Connect stream to gain node (but don't connect to destination to avoid feedback)
+      // Create analyser for volume detection
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 1024;
+      this.analyser.smoothingTimeConstant = 0.3;
+
+      // Connect stream to gain node to analyser
       const source = this.audioContext.createMediaStreamSource(this.stream);
       source.connect(this.gainNode);
+      this.gainNode.connect(this.analyser);
       // Note: NOT connecting to destination to prevent audio feedback
 
       this.isActive = true;
@@ -144,6 +151,16 @@ export class SimpleAudioProcessor {
       this.gainNode = null;
     }
 
+    // Clean up analyser
+    if (this.analyser) {
+      try {
+        this.analyser.disconnect();
+      } catch (e) {
+        console.warn('Error disconnecting analyser:', e);
+      }
+      this.analyser = null;
+    }
+
     // Stop microphone stream
     if (this.stream) {
       this.stream.getTracks().forEach(track => {
@@ -168,6 +185,22 @@ export class SimpleAudioProcessor {
   // Get current ducking state
   isDuckingActive(): boolean {
     return this.isDucking;
+  }
+
+  // Get current microphone volume (0 to 1)
+  getCurrentVolume(): number {
+    if (!this.analyser) return 0;
+
+    const data = new Uint8Array(this.analyser.frequencyBinCount);
+    this.analyser.getByteTimeDomainData(data);
+
+    let sumSquares = 0;
+    for (let i = 0; i < data.length; i++) {
+      const normalized = (data[i] - 128) / 128;
+      sumSquares += normalized * normalized;
+    }
+
+    return Math.sqrt(sumSquares / data.length); // 0 → 1
   }
 
   // Simple debug info

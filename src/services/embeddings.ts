@@ -1,17 +1,13 @@
-import axios from 'axios';
 import { EmbeddingRequest, EmbeddingResponse } from '../types/embeddings';
+import { supabase } from '../lib/supabase';
 
-// Using Hugging Face's free Inference API for sentence-transformers/all-mpnet-base-v2
-const HF_API_URL = 'https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-mpnet-base-v2';
-const HF_API_KEY = import.meta.env.VITE_HUGGINGFACE_API_KEY || ''; // You'll need to add this to .env
+// Use Supabase Edge Function for embeddings (avoids CORS + hides API key)
+const EMBEDDING_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-embedding`;
 
 export class EmbeddingService {
   private static instance: EmbeddingService;
-  private apiKey: string;
 
-  private constructor() {
-    this.apiKey = HF_API_KEY;
-  }
+  private constructor() {}
 
   public static getInstance(): EmbeddingService {
     if (!EmbeddingService.instance) {
@@ -21,94 +17,57 @@ export class EmbeddingService {
   }
 
   /**
-   * Generate embeddings for a single text using sentence-transformers/all-mpnet-base-v2
+   * Generate embeddings for a single text via Supabase Edge Function
    */
   async generateEmbedding(text: string): Promise<number[]> {
     try {
-      if (!this.apiKey) {
-        console.warn('Hugging Face API key not found, using fallback random embedding');
-        return this.generateFallbackEmbedding(text);
+      // Skip short text
+      const cleanText = this.prepareTextForEmbedding(text);
+      if (cleanText.length < 15) {
+        console.warn('Text too short for embedding, skipping');
+        return this.generateFallbackEmbedding(cleanText);
       }
 
-      const response = await axios.post(
-        HF_API_URL,
-        {
-          inputs: text,
-          options: {
-            wait_for_model: true,
-          },
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          timeout: 30000, // 30 second timeout
-        }
-      );
-
-      // Hugging Face API returns array of embeddings, we want the first one
-      const embedding = Array.isArray(response.data[0]) ? response.data[0] : response.data;
+      const { data: { session } } = await supabase.auth.getSession();
       
-      if (!Array.isArray(embedding) || embedding.length !== 768) {
-        throw new Error('Invalid embedding format received from API');
+      const response = await fetch(EMBEDDING_FUNCTION_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`,
+        },
+        body: JSON.stringify({ text: cleanText }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Edge Function error: ${response.status} - ${error}`);
+      }
+
+      const { embedding } = await response.json();
+
+      if (!Array.isArray(embedding) || embedding.length === 0) {
+        throw new Error('Invalid embedding format from Edge Function');
       }
 
       return embedding;
     } catch (error: any) {
       console.error('Error generating embedding:', error);
-      
-      // If API is loading or temporarily unavailable, use fallback
-      if (error.response?.status === 503) {
-        console.warn('Model is loading, using fallback embedding');
-        return this.generateFallbackEmbedding(text);
-      }
-      
-      // For other errors, still provide a fallback
-      console.warn('Using fallback embedding due to API error');
+      console.warn('Using fallback embedding due to error');
       return this.generateFallbackEmbedding(text);
     }
   }
 
   /**
    * Generate embeddings for multiple texts in batch
+   * Note: Calls Edge Function sequentially (batch not implemented to keep it simple)
    */
   async generateBatchEmbeddings(texts: string[]): Promise<number[][]> {
     try {
-      if (!this.apiKey) {
-        console.warn('Hugging Face API key not found, using fallback embeddings');
-        return texts.map(text => this.generateFallbackEmbedding(text));
-      }
-
-      const response = await axios.post(
-        HF_API_URL,
-        {
-          inputs: texts,
-          options: {
-            wait_for_model: true,
-          },
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          timeout: 60000, // 60 second timeout for batch
-        }
+      const embeddings = await Promise.all(
+        texts.map(text => this.generateEmbedding(text))
       );
-
-      const embeddings = response.data;
-      
-      if (!Array.isArray(embeddings)) {
-        throw new Error('Invalid batch embedding format received from API');
-      }
-
-      return embeddings.map((embedding: any) => {
-        if (!Array.isArray(embedding) || embedding.length !== 768) {
-          return this.generateFallbackEmbedding('');
-        }
-        return embedding;
-      });
+      return embeddings;
     } catch (error: any) {
       console.error('Error generating batch embeddings:', error);
       return texts.map(text => this.generateFallbackEmbedding(text));
@@ -139,15 +98,15 @@ export class EmbeddingService {
 
   /**
    * Fallback embedding generation using simple text hashing
-   * This is used when the API is unavailable
+   * This is used when the API is unavailable or text is too short
    */
   private generateFallbackEmbedding(text: string): number[] {
-    // Generate a deterministic 768-dimensional embedding based on text content
-    const embedding = new Array(768);
+    // Generate a deterministic 1536-dimensional embedding based on text content
+    const embedding = new Array(1536);
     const textBytes = new TextEncoder().encode(text.toLowerCase());
     
     // Use a simple hash-based approach for consistent embeddings
-    for (let i = 0; i < 768; i++) {
+    for (let i = 0; i < 1536; i++) {
       let hash = 0;
       const seed = i * 31 + (textBytes[i % textBytes.length] || 0);
       

@@ -15,7 +15,7 @@ import { SimpleAudioProcessor } from '../services/simpleAudioProcessor';
 type VoiceState = 'IDLE' | 'LISTENING' | 'THINKING' | 'SPEAKING' | 'ERROR';
 
 const VALID_TRANSITIONS: Record<VoiceState, VoiceState[]> = {
-  IDLE: ['LISTENING', 'THINKING', 'SPEAKING', 'ERROR'],
+  IDLE: ['LISTENING', 'ERROR'],
   LISTENING: ['THINKING', 'IDLE', 'ERROR'],
   THINKING: ['SPEAKING', 'IDLE', 'ERROR'],
   SPEAKING: ['LISTENING', 'IDLE', 'ERROR'],
@@ -38,62 +38,53 @@ const Livecall = () => {
   // ============================================================================
   // SERVICES - ALL IN useRef (never useState)
   // ============================================================================
-  const groqSTTRef = useRef<GroqSTTService | null>(null);
-  const groqTTSRef = useRef<GroqTTSService | null>(null);
+  const speechServiceRef = useRef<RobustSpeechRecognitionService | null>(null);
   const geminiServiceRef = useRef<GeminiService | null>(null);
+  const elevenLabsServiceRef = useRef<ElevenLabsService | null>(null);
   const audioProcessorRef = useRef<SimpleAudioProcessor | null>(null);
-  const micStreamRef = useRef<MediaStream | null>(null);
-  
-  // ============================================================================
-  // MUTEX - PREVENTS OVERLAPPING TRANSITIONS (FIX #2)
-  // ============================================================================
-  const transitionMutexRef = useRef(false);
-  
-  // ============================================================================
-  // CANCELLATION TOKEN - ABORT IN-FLIGHT OPERATIONS (FIX #3)
-  // ============================================================================
-  const operationIdRef = useRef(0);
-  
-  // ============================================================================
-  // STATE MACHINE GUARD
-  // ============================================================================
-  const transitionTo = (newState: VoiceState): boolean => {
-    const validNextStates = VALID_TRANSITIONS[currentState];
-    
-    if (!validNextStates.includes(newState)) {
-      console.error(`Invalid transition: ${currentState} -> ${newState}`);
-      return false;
-    }
-    
-    console.log(`STATE TRANSITION: ${currentState} -> ${newState}`);
-    setCurrentState(newState);
-    return true;
-  };
-
-  // ============================================================================
+  con============================================================================
   // SERVICE INITIALIZATION (RUNS ONCE)
   // ============================================================================
   useEffect(() => {
     const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    const groqKey = import.meta.env.VITE_GROQ_API_KEY;
+    const elevenLabsKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
 
-    if (!geminiKey || !groqKey) {
-      toast.error('API keys not configured. Check VITE_GEMINI_API_KEY and VITE_GROQ_API_KEY.');
+    if (!geminiKey || !elevenLabsKey) {
+      toast.error('API keys not configured. Please check your environment variables.');
       return;
     }
 
     geminiServiceRef.current = new GeminiService(geminiKey);
-    groqSTTRef.current = new GroqSTTService({ apiKey: groqKey });
-    groqTTSRef.current = new GroqTTSService({ apiKey: groqKey });
+    elevenLabsServiceRef.current = new ElevenLabsService(elevenLabsKey);
+    speechServiceRef.current = new RobustSpeechRecognitionService();
     
-    setServicesReady(true);
+    if (!speechServiceRef.current.isSupported()) {
+      toast.error('Speech recognition not supported. Please use Chrome or Edge.');
+    } else {
+      setServicesReady(true);
+    }
 
     return () => {
       // Cleanup on unmount
-      fullStop();
-    };
-  }, []);
+      fullStopsKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
 
+    if (!geminiKey || !elevenLabsKey) {
+      toast.error('API keys not configured. Please check your environment variables.');
+      return;
+    }
+
+    geminiServiceRef.current = new GeminiService(geminiKey);
+    elevenLabsServiceRef.current = new ElevenLabsService(elevenLabsKey);
+    speechServiceRef.current = new RobustSpeechRecognitionService();
+    
+    if (!speechServiceRef.current.isSupported()) {
+      toast.error('Speech recognition not supported. Please use Chrome or Edge.');
+    } else {
+      setServicesReady(true);
+    }
+
+    return () => {
+      stopListening();
   // ============================================================================
   // MICROPHONE CONTROL (BLOCKING)
   // ============================================================================
@@ -122,17 +113,6 @@ const Livecall = () => {
     }
   };
 
-  const stopMicrophone = async (): Promise<void> => {
-    if (micStreamRef.current) {
-      micStreamRef.current.getTracks().forEach(track => track.stop());
-      micStreamRef.current = null;
-      console.log('Microphone stopped');
-    }
-    
-    // Wait for mic to fully release
-    await new Promise(resolve => setTimeout(resolve, 100));
-  };
-
   // ============================================================================
   // STATE TRANSITION: LISTENING -> THINKING
   // ============================================================================
@@ -143,9 +123,15 @@ const Livecall = () => {
       return;
     }
     
+    // FIX #3: Guard - Only process if we're in LISTENING state
+    if (currentState !== 'LISTENING') {
+      console.warn(`Ignoring transcript in state: ${currentState}`);
+      return;
+    }
+    
     const trimmedText = text.trim();
     if (!trimmedText) {
-      console.log('Empty transcript, ignoring');
+      console.log('Empty transcript, staying in LISTENING');
       return;
     }
     
@@ -157,11 +143,14 @@ const Livecall = () => {
     setTranscript(trimmedText);
     
     try {
-      // Transition to THINKING (state machine validates transition is legal)
-      if (!transitionTo('THINKING')) {
-        console.error('Cannot transition to THINKING from current state');
+      // FIX #3: Re-validate state before transition
+      if (currentState !== 'LISTENING') {
+        console.log('State changed during processing, aborting');
         return;
       }
+      
+      // Transition to THINKING
+      if (!transitionTo('THINKING')) return;
       
       // FIX #6: Stop recording BEFORE any processing (BLOCKING)
       console.log('Stopping audio recording...');
@@ -190,6 +179,12 @@ const Livecall = () => {
         return;
       }
       
+      // FIX #3: Re-validate state after async operation
+      if (currentState !== 'THINKING') {
+        console.log('State changed during LLM call, aborting TTS');
+        return;
+      }
+      
       console.log(`AI response: "${response}"`);
       setAiResponse(response);
       
@@ -211,6 +206,12 @@ const Livecall = () => {
   // STATE TRANSITION: THINKING -> SPEAKING
   // ============================================================================
   const transitionToSpeaking = async (responseText: string, operationId: number) => {
+    // FIX #3: Re-validate state before transition
+    if (currentState !== 'THINKING') {
+      console.error('Cannot transition to SPEAKING from', currentState);
+      return;
+    }
+    
     // FIX #5: Check cancellation token
     if (operationIdRef.current !== operationId) {
       console.log('TTS cancelled before starting');
@@ -245,6 +246,12 @@ const Livecall = () => {
         console.log('TTS muted or service unavailable');
       }
       
+      // FIX #3: Re-validate state after TTS completes
+      if (currentState !== 'SPEAKING') {
+        console.log('State changed during TTS, not restarting listening');
+        return;
+      }
+      
       // FIX #5: Check cancellation after TTS
       if (operationIdRef.current !== operationId) {
         console.log('Cancelled after TTS, not restarting');
@@ -266,7 +273,7 @@ const Livecall = () => {
   };
   
   // ============================================================================
-  // STATE TRANSITION: IDLE -> LISTENING (FIX #1: GROQ STT ONLY)
+  // STATE TRANSITION: IDLE -> LISTENING
   // ============================================================================
   const transitionToListening = async () => {
     if (currentState !== 'IDLE' && currentState !== 'SPEAKING') {
@@ -276,122 +283,8 @@ const Livecall = () => {
     
     if (!transitionTo('LISTENING')) return;
     
-    // Reset mutex for new listening cycle
-    transitionMutexRef.current = false;
-    
     try {
-      // STEP 1: Ensure microphone stream is active (BLOCKING)
-      await setupMicrophone();
-      
-      if (!micStreamRef.current) {
-        throw new Error('Failed to get microphone stream');
-      }
-      
-      // STEP 2: Start audio processor (optional, for gain control)
-      if (!audioProcessorRef.current) {
-        audioProcessorRef.current = new SimpleAudioProcessor();
-        try {
-          await audioProcessorRef.current.start({
-            onError: (err) => console.warn('Audio processor warning:', err),
-            onStreamReady: () => console.log('Audio stream ready')
-          });
-        } catch (e) {
-          console.warn('Audio processor failed, continuing without it');
-        }
-      }
-      
-      // FIX #1: Start Groq STT recording (NON-BLOCKING START)
-      console.log('Starting Groq STT recording...');
-      if (!groqSTTRef.current) {
-        throw new Error('Groq STT service not initialized');
-      }
-      
-      await groqSTTRef.current.startRecording(micStreamRef.current);
-      console.log('Recording audio for Groq STT...');
-      
-      // FIX #1 & #5: Wait for user to finish speaking, then transcribe
-      // Use Voice Activity Detection or simple timer for now
-      await waitForUserSpeech();
-      
-    } catch (error) {
-      console.error('Error transitioning to LISTENING:', error);
-      toast.error('Failed to start listening');
-      transitionTo('ERROR');
-      await fullStop();
-    }
-  };
-  
-  // FIX #1 & #5: Silence-based VAD - wait for user to stop speaking, then process ONCE
-  const waitForUserSpeech = async () => {
-    console.log('Listening with silence detection...');
-
-    const SILENCE_THRESHOLD = 0.015; // adjust if needed
-    const SILENCE_DURATION = 800; // ms
-    const CHECK_INTERVAL = 50; // ms
-
-    let silenceStart: number | null = null;
-
-    while (true) {
-      // Stop if recording was cancelled
-      if (!groqSTTRef.current?.isCurrentlyRecording()) {
-        console.log('Recording stopped externally');
-        return;
-      }
-
-      const volume = audioProcessorRef.current?.getCurrentVolume() ?? 0;
-
-      if (volume < SILENCE_THRESHOLD) {
-        if (silenceStart === null) {
-          silenceStart = Date.now();
-        }
-
-        if (Date.now() - silenceStart >= SILENCE_DURATION) {
-          console.log('Silence detected, stopping recording...');
-          break;
-        }
-      } else {
-        // User is speaking
-        silenceStart = null;
-      }
-
-      await new Promise(r => setTimeout(r, CHECK_INTERVAL));
-    }
-
-    // Stop & transcribe
-    try {
-      if (!groqSTTRef.current) {
-        console.error('Groq STT service not available');
-        return;
-      }
-
-      if (!groqSTTRef.current.isCurrentlyRecording()) {
-        console.log('Recording already stopped, aborting transcription');
-        return;
-      }
-
-      const transcript = await groqSTTRef.current.stopAndTranscribe();
-      console.log(`Transcription result: "${transcript}"`);
-
-      if (transcript) {
-        setTranscript(transcript);
-        await handleFinalTranscript(transcript);
-      } else {
-        console.log('No speech detected (empty transcript)');
-        if (currentState === 'LISTENING') {
-          console.log('Restarting listening cycle...');
-          await transitionToListening();
-        } else {
-          console.log('No longer in LISTENING state, not restarting');
-        }
-      }
-    } catch (error) {
-      console.error('Transcription error:', error);
-      toast.error('Speech recognition failed');
-      transitionTo('ERROR');
-      await fullStop();
-    }
-  };
-
+      // STEP 1: Ensure microphone is active (BLOCKING)
   // ============================================================================
   // FULL STOP (EMERGENCY CLEANUP) - FIX #4: ABORT ALL IN-FLIGHT OPERATIONS
   // ============================================================================
@@ -459,8 +352,43 @@ const Livecall = () => {
   };
 
   const canStart = servicesReady && groqSTTRef.current !== null && groqTTSRef.current !== null;
-  const isActive = currentState !== 'IDLE' && currentState !== 'ERROR';
+  const isActive = currentState !== 'IDLE' && currentState !== 'ERROR'
+          setIsListening(true);
+        },
+        onEnd: () => {
+          setIsListening(false);
+        }
+      });
+      
+      setIsConnected(true);
+      toast.success('Voice chat started!');
+      
+    } catch (error) {
+      console.error('Error starting voice chat:', error);
+      if (error instanceof DOMException && error.name === 'NotAllowedError') {
+        toast.error('Microphone permission denied');
+      } else {
+        toast.error('Failed to start voice chat');
+      }
+    }
+  };
 
+  const stopListening = () => {
+    if (speechServiceRef.current) {
+      speechServiceRef.current.stopListening();
+    }
+    
+    stopMicrophone();
+
+    if (audioProcessorRef.current) {
+      audioProcessorRef.current.stop();
+      audioProcessorRef.current = null;
+    }
+    
+    if (restartTimeoutRef.current) {
+      clearTimeout(restartTimeoutRef.current);
+      restartTimeoutRef.current = null;
+    }
   // ============================================================================
   // RENDER - UI ONLY
   // ============================================================================
@@ -519,7 +447,39 @@ const Livecall = () => {
         <div className="text-center mt-2">
           <span className="text-xs text-gray-500 bg-white/80 px-3 py-1 rounded-full">
             State: {currentState}
-          </span>
+          </span>} text-white shadow-lg`}
+          >
+            {isConnected ? (
+              <PhoneOff className="w-6 h-6" />
+            ) : (
+              <Phone className="w-6 h-6" />
+            )}
+          </Button>
+          
+          {/* Secondary Controls */}
+          {isConnected && (
+            <>
+              <Button
+                onClick={toggleMute}
+                variant="outline"
+                size="sm"
+                className={`rounded-full ${
+                  isMuted ? 'text-red-500 border-red-300' : 'text-gray-700 border-gray-300'
+                }`}
+              >
+                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              </Button>
+              
+              <Button
+                onClick={forceRestart}
+                variant="outline"
+                size="sm"
+                className="rounded-full text-gray-700 border-gray-300"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
