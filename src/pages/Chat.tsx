@@ -595,9 +595,7 @@ export default function Chat() {
 
   useEffect(() => {
     if (user?.id) {
-      ensureUserExists().then(() => {
-        fetchChats();
-      });
+      fetchChats();
     } else {
       setInitialLoading(false);
     }
@@ -615,41 +613,13 @@ export default function Chat() {
     }
   }, [currentChat]);
 
-  async function ensureUserExists() {
-    if (!user?.id) return;
-    
-    try {
-      const { error } = await supabase
-        .from('users')
-        .select('id')
-        .eq('id', user.id)
-        .single();
-        
-      if (error && error.code === 'PGRST116') {
-        const { error: insertError } = await supabase
-          .from('users')
-          .insert({
-            id: user.id,
-            email: user.email,
-            role: user.email === 'studyai.platform@gmail.com' ? 'admin' : 'user',
-            last_seen: new Date().toISOString()
-          });
-          
-        if (insertError) {
-          console.error('Error creating user record:', insertError);
-        }
-      }
-    } catch (error) {
-      console.error('Error ensuring user exists:', error);
-    }
-  }
+
 
   async function fetchChats() {
     try {
       const { data, error } = await supabase
         .from('chats')
         .select('*')
-        .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;

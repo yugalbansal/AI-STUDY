@@ -19,43 +19,11 @@ export default function Documents() {
 
   useEffect(() => {
     if (user?.id) {
-      // Ensure user exists in users table before fetching documents
-      ensureUserExists().then(() => {
-        fetchDocuments();
-      });
+      fetchDocuments();
     }
   }, [user]);
 
-  async function ensureUserExists() {
-    if (!user?.id) return;
-    
-    try {
-      // Check if user exists in users table
-      const { error } = await supabase
-        .from('users')
-        .select('id')
-        .eq('id', user.id)
-        .single();
-        
-      if (error && error.code === 'PGRST116') {
-        // User doesn't exist, create them
-        const { error: insertError } = await supabase
-          .from('users')
-          .insert({
-            id: user.id,
-            email: user.email,
-            role: user.email === 'studyai.platform@gmail.com' ? 'admin' : 'user',
-            last_seen: new Date().toISOString()
-          });
-          
-        if (insertError) {
-          console.error('Error creating user record:', insertError);
-        }
-      }
-    } catch (error) {
-      console.error('Error ensuring user exists:', error);
-    }
-  }
+
 
   async function fetchDocuments() {
     try {
@@ -63,7 +31,6 @@ export default function Documents() {
       const { data, error } = await supabase
         .from('documents')
         .select('*')
-        .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
 
       if (error) {

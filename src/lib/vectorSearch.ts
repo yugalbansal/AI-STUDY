@@ -171,7 +171,6 @@ export class VectorSearchService {
         .from('chat_messages')
         .select('message, response, created_at')
         .eq('chat_id', chatId)
-        .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(limit);
 

@@ -40,16 +40,10 @@ export default function Dashboard() {
   const fetchData = async () => {
     setIsRefreshing(true);
     try {
-      // Fetch basic stats
+      // Fetch basic stats - RLS will automatically filter based on user role
       const [documentsResponse, chatResponse] = await Promise.all([
-        supabase
-          .from('documents')
-          .select('id', { count: 'exact' })
-          .eq('user_id', user?.id),
-        supabase
-          .from('chat_messages')
-          .select('id', { count: 'exact' })
-          .eq('user_id', user?.id),
+        supabase.from('documents').select('id', { count: 'exact' }),
+        supabase.from('chat_messages').select('id', { count: 'exact' }),
       ]);
 
       // Admin-specific data
@@ -120,6 +114,7 @@ export default function Dashboard() {
 
   const fetchUserChats = async (userId: string) => {
     try {
+      // Admin needs to see specific user's chats, so keep user_id filter
       const { data } = await supabase
         .from('chat_messages')
         .select('*')
