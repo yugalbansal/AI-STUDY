@@ -1,4 +1,5 @@
 import { useCallback, useState, useEffect } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { useDropzone } from 'react-dropzone';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -192,7 +193,12 @@ export default function Documents() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
+      <Helmet>
+        <title>My Documents - Study AI</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
+      <div className="min-h-screen bg-gray-50">
       <Navbar />
       
       {/* Hero Section */}
@@ -398,5 +404,6 @@ export default function Documents() {
         </div>
       </div>
     </div>
+    </>
   );
 }

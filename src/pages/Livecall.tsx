@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { Button } from "@/components/ui/button";
 import { Phone, PhoneOff, Volume2, VolumeX } from 'lucide-react';
 import { toast } from 'sonner';
@@ -465,7 +466,12 @@ const Livecall = () => {
   // RENDER - UI ONLY
   // ============================================================================
   return (
-    <div className="relative min-h-screen">
+    <>
+      <Helmet>
+        <title>Voice Call - Study AI</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
+      <div className="relative min-h-screen">
       <Navbar isFixed />
       
       {/* AI Siri Chat Component */}
@@ -534,6 +540,7 @@ const Livecall = () => {
         </div>
       )}
     </div>
+    </>
   );
 };
 

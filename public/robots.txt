@@ -1,0 +1,30 @@
+# Study AI - Robots.txt
+# Updated: 2026-01-07
+# Purpose: Guide search engine crawlers and protect user-specific content
+
+User-agent: *
+# Allow public pages
+Allow: /
+Allow: /favicon/
+
+# Block authenticated routes (noindex meta also applied)
+Disallow: /login
+Disallow: /auth/
+Disallow: /dashboard
+Disallow: /chat
+Disallow: /documents
+Disallow: /images
+Disallow: /livecall
+
+# Sitemap location
+Sitemap: https://yugal.site/sitemap.xml
+
+# Crawl-delay for aggressive bots (reduces server load)
+User-agent: SemrushBot
+Crawl-delay: 10
+
+User-agent: AhrefsBot
+Crawl-delay: 10
+
+User-agent: DotBot
+Crawl-delay: 10

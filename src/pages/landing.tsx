@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { Hero } from '../components/ui/animated-hero';
 import { Navbar1 } from '../components/ui/navbar-1';
 import { motion } from "framer-motion";
@@ -66,6 +67,28 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50 overflow-x-hidden">
+      <Helmet>
+        {/* Primary Meta Tags */}
+        <title>Study AI - Your AI-Powered Learning Assistant | Free AI Tutor</title>
+        <meta name="description" content="Study AI is a free AI-powered platform for students. Get instant answers, upload documents for analysis, generate images, and have voice conversations with your AI tutor." />
+        
+        {/* Open Graph / Facebook */}
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://yugal.site/" />
+        <meta property="og:title" content="Study AI - Your AI-Powered Learning Assistant" />
+        <meta property="og:description" content="Free AI tutor platform with chat, document analysis, voice conversations, and image generation for students." />
+        <meta property="og:image" content="https://yugal.site/og-image.png" />
+        
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Study AI - Your AI-Powered Learning Assistant" />
+        <meta name="twitter:description" content="Free AI tutor with chat, docs, voice & image generation." />
+        <meta name="twitter:image" content="https://yugal.site/og-image.png" />
+        
+        {/* Canonical URL */}
+        <link rel="canonical" href="https://yugal.site/" />
+      </Helmet>
+
       {/* Navbar */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-gray-50 to-transparent">
         <Navbar1 onGetStarted={handleSignUp} />

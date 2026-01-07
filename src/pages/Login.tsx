@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { useAuth } from '../contexts/AuthContext';
 import { SignInPage, Testimonial } from '../components/ui/sign-in';
 import { toast } from 'sonner';
@@ -117,17 +118,23 @@ export default function Login() {
   }
 
   return (
-    <SignInPage
-      title={<span className="font-light text-gray-900 tracking-tighter">Welcome Back</span>}
-      description="Sign in to continue your learning journey with AI"
-      heroImageSrc="https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=2160&q=80"
-      testimonials={testimonials}
-      onSignIn={handleSignIn}
-      onGoogleSignIn={handleGoogleSignIn}
-      onResetPassword={handleResetPassword}
-      onCreateAccount={handleCreateAccount}
-      isLoading={isLoading}
-      isSignUpMode={false}
-    />
+    <>
+      <Helmet>
+        <title>Login - Study AI</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
+      <SignInPage
+        title={<span className="font-light text-gray-900 tracking-tighter">Welcome Back</span>}
+        description="Sign in to continue your learning journey with AI"
+        heroImageSrc="https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=2160&q=80"
+        testimonials={testimonials}
+        onSignIn={handleSignIn}
+        onGoogleSignIn={handleGoogleSignIn}
+        onResetPassword={handleResetPassword}
+        onCreateAccount={handleCreateAccount}
+        isLoading={isLoading}
+        isSignUpMode={false}
+      />
+    </>
   );
 }

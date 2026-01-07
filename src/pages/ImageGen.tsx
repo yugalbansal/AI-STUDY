@@ -1,4 +1,5 @@
 ﻿import { useCallback } from 'react';
+import { Helmet } from 'react-helmet-async';
 import Navbar from '@/components/Navbar';
 import { SimplifiedAIImageGenerator } from '@/components/ui/simplified-ai-gen';
 import { Sparkles, Zap, Palette, Image as ImageIcon } from 'lucide-react';
@@ -9,7 +10,12 @@ export default function ImageGen() {
   }, []);
 
   return (
-    <div className="relative min-h-screen bg-white">
+    <>
+      <Helmet>
+        <title>Image Generator - Study AI</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
+      <div className="relative min-h-screen bg-white">
       <Navbar />
       
       {/* Hero Section */}
@@ -177,5 +183,6 @@ export default function ImageGen() {
         </div>
       </section>
     </div>
+    </>
   );
 }

@@ -546,6 +546,7 @@
 // }
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { getChatResponse } from '../lib/gemini';
@@ -838,7 +839,12 @@ export default function Chat() {
   ]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
+      <Helmet>
+        <title>AI Chat - Study AI</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
+      <div className="min-h-screen bg-gray-50">
       {/* Sidebar - Fixed on left side, full height */}
       <div 
         className={`
@@ -1066,5 +1072,6 @@ export default function Chat() {
           </div>
         </div>
     </div>
+    </>
   );
 }

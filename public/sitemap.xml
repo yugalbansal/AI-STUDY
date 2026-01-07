@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+        http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+  
+  <!-- 
+    Study AI Sitemap
+    Updated: 2026-01-07
+    
+    This sitemap only includes publicly indexable pages.
+    Authenticated routes are excluded and protected with noindex meta tags.
+  -->
+  
+  <!-- Landing Page (Primary entry point) -->
+  <url>
+    <loc>https://yugal.site/</loc>
+    <lastmod>2026-01-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  
+  <!-- 
+    Future public pages to add:
+    - /about (About Study AI & Yugal)
+    - /features (Detailed feature breakdown)
+    - /use-cases (Student success stories)
+    - /blog/* (SEO-focused educational content)
+    
+    Update this file manually when adding new public pages,
+    or automate with a build script in Phase 2.
+  -->
+  
+</urlset>

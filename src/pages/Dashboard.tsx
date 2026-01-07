@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { FileText, MessageSquare, Users, RefreshCw, Trash2, Image, Mic, Brain, Sparkles, Zap } from 'lucide-react';
@@ -201,7 +202,12 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
+      <Helmet>
+        <title>Dashboard - Study AI</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
+      <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
       <Navbar />
 
@@ -382,5 +388,6 @@ export default function Dashboard() {
         </div>
       )}
     </div>
+    </>
   );
 }
