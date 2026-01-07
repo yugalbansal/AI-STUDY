@@ -55,9 +55,6 @@ export default function Documents() {
     setIsUploading(true);
 
     try {
-      // Ensure user exists in users table before uploading
-      await ensureUserExists();
-      
       const content = await parseDocument(file);
       
       const { data, error } = await supabase
@@ -137,9 +134,6 @@ export default function Documents() {
     setIsUploading(true);
 
     try {
-      // Ensure user exists in users table before adding link
-      await ensureUserExists();
-      
       const linkContent = `Link: ${url.trim()}`;
       const { data, error } = await supabase
         .from('documents')
