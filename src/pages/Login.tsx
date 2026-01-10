@@ -122,16 +122,26 @@ export default function Login() {
           navigate('/dashboard');
         }, 1000);
       } else if (result.status === 'missing_requirements') {
-        // Email verification required - explicitly send verification email
-        try {
-          await signUp.prepareEmailAddressVerification({ 
-            strategy: 'email_link'
-          });
-          toast.success('Account created! Check your email for verification link, then sign in.');
-          console.log('Verification email sent to:', email);
-        } catch (emailErr: any) {
-          console.error('Failed to send verification email:', emailErr);
-          toast.info('Account created! You may need to contact support to verify your email.');
+        // Email verification required
+        // Check if email verification needs to be triggered
+        const emailVerification = result.verifications?.emailAddress;
+        
+        if (emailVerification?.status === 'unverified') {
+          try {
+            // Attempt to send verification email
+            await signUp.prepareEmailAddressVerification({ 
+              strategy: 'email_link'
+            });
+            toast.success('Account created! Check your email for verification link, then sign in.');
+            console.log('Verification email sent to:', email);
+          } catch (emailErr: any) {
+            console.error('Failed to send verification email:', emailErr);
+            // Email sending failed - could be config issue in Clerk
+            toast.warning('Account created but verification email failed. Try signing in or contact support.');
+          }
+        } else {
+          // Verification not configured properly or account needs manual approval
+          toast.info('Account created! Please check your email or try signing in.');
         }
         
         // Switch to sign in after successful signup
@@ -159,10 +169,11 @@ export default function Login() {
     
     setIsLoading(true);
     try {
-      // Use Clerk's default OAuth flow - it will handle redirects automatically
+      // Clerk handles OAuth at clerk.vectormind.site/v1/oauth_callback
+      // Then redirects back to your site
       await signIn.authenticateWithRedirect({
         strategy: 'oauth_google',
-        redirectUrl: window.location.origin,
+        redirectUrl: `${window.location.origin}/dashboard`,
         redirectUrlComplete: `${window.location.origin}/dashboard`,
       });
     } catch (err: any) {

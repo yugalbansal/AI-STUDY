@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
+import { useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Hero } from '../components/ui/animated-hero';
 import { Navbar1 } from '../components/ui/navbar-1';
@@ -8,7 +9,14 @@ import { BookOpen, MessageSquare, FileText, Mic, Sparkles, Zap, Shield, Users } 
 
 export default function Landing() {
   const navigate = useNavigate();
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, isLoaded } = useAuth();
+
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isLoaded, isSignedIn, navigate]);
 
   const handleKnowMore = () => {
     // Scroll to features section
