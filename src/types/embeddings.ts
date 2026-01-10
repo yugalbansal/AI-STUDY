@@ -6,7 +6,7 @@ export interface ChatEmbedding {
   message_id: string;
   user_id: string;
   content: string;
-  embedding?: number[]; // 768-dimensional vector for all-mpnet-base-v2
+  embedding?: number[]; // 1536-dimensional vector (text-embedding-3-small)
   message_type: 'user' | 'assistant';
   created_at: string;
 }
@@ -16,7 +16,7 @@ export interface DocumentEmbedding {
   document_id: string;
   user_id: string;
   content_chunk: string;
-  embedding?: number[]; // 768-dimensional vector
+  embedding?: number[]; // 1536-dimensional vector
   chunk_index: number;
   created_at: string;
 }
@@ -45,6 +45,8 @@ export interface SimilarDocument {
   chunk_index: number;
   similarity: number;
   created_at: string;
+  document_title?: string;
+  document_url?: string;
 }
 
 export interface EmbeddingRequest {

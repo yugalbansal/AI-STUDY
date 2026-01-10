@@ -5,6 +5,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/embeddings";
 const EMBEDDING_MODEL = "openai/text-embedding-3-small"; // Free model
+const EXPECTED_EMBEDDING_DIMS = Number(Deno.env.get("EMBEDDING_DIMS") ?? "1536");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,7 +53,7 @@ serve(async (req: Request) => {
       headers: {
         "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://ktjpfkrmsjopiytvxkzm.supabase.co",
+        "HTTP-Referer": "https://auth.yugal.site",
         "X-Title": "AI Study Platform - Embeddings",
       },
       body: JSON.stringify({
@@ -74,6 +75,24 @@ serve(async (req: Request) => {
 
     if (!Array.isArray(embedding)) {
       throw new Error("Invalid embedding format from OpenRouter API");
+    }
+
+    // Validate dimensions to avoid DB vector(n) mismatch
+    if (Number.isFinite(EXPECTED_EMBEDDING_DIMS) && EXPECTED_EMBEDDING_DIMS > 0) {
+      if (embedding.length !== EXPECTED_EMBEDDING_DIMS) {
+        console.error(
+          `Embedding dimension mismatch: expected ${EXPECTED_EMBEDDING_DIMS}, got ${embedding.length}. Model=${EMBEDDING_MODEL}`
+        );
+        return new Response(
+          JSON.stringify({
+            error: `Embedding dimension mismatch: expected ${EXPECTED_EMBEDDING_DIMS}, got ${embedding.length}.`,
+            model: EMBEDDING_MODEL,
+            expected_dims: EXPECTED_EMBEDDING_DIMS,
+            actual_dims: embedding.length
+          }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     return new Response(

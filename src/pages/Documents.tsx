@@ -78,7 +78,8 @@ export default function Documents() {
         vectorSearchService.storeDocumentEmbeddings(
           data.id,
           user.id,
-          content
+          content,
+          data.title
         ).catch(error => console.error('Error storing document embeddings:', error));
       }
       
@@ -157,7 +158,8 @@ export default function Documents() {
         vectorSearchService.storeDocumentEmbeddings(
           data.id,
           user.id,
-          linkContent
+          linkContent,
+          data.title
         ).catch(error => console.error('Error storing link embeddings:', error));
       }
       

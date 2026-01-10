@@ -1,3 +1,6 @@
+import * as mammoth from 'mammoth';
+import JSZip from 'jszip';
+
 /**
  * Parse a DOCX file and extract text content
  */
@@ -5,18 +8,19 @@ async function parseDOCX(file: File): Promise<string> {
   try {
     const arrayBuffer = await file.arrayBuffer();
     const result = await mammoth.extractRawText({ arrayBuffer });
-    
+
     if (result.messages.length > 0) {
       console.warn('DOCX parsing warnings:', result.messages);
     }
-    
+
     return result.value.trim();
   } catch (error) {
     console.error('Error parsing DOCX:', error);
-    throw new Error(`Failed to parse DOCX: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to parse DOCX: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
-}import * as mammoth from 'mammoth';
-import JSZip from 'jszip';
+}
 
 export interface ParsedDocument {
   content: string;

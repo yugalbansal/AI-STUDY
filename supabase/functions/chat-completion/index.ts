@@ -52,7 +52,7 @@ async function callOpenRouter(
     headers: {
       "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://ktjpfkrmsjopiytvxkzm.supabase.co",
+      "HTTP-Referer": "https://auth.yugal.site",
       "X-Title": "AI Study Platform",
     },
     body: JSON.stringify({

@@ -3,9 +3,12 @@ import { supabase } from '../lib/supabase';
 
 // Use Supabase Edge Function for embeddings (avoids CORS + hides API key)
 const EMBEDDING_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-embedding`;
+const EXPECTED_EMBEDDING_DIMS = Number(import.meta.env.VITE_EMBEDDING_DIMS ?? 1536);
 
 export class EmbeddingService {
   private static instance: EmbeddingService;
+
+  private readonly MAX_CONCURRENT_EMBEDDINGS = 3;
 
   private constructor() {}
 
@@ -50,6 +53,14 @@ export class EmbeddingService {
         throw new Error('Invalid embedding format from Edge Function');
       }
 
+      if (Number.isFinite(EXPECTED_EMBEDDING_DIMS) && EXPECTED_EMBEDDING_DIMS > 0) {
+        if (embedding.length !== EXPECTED_EMBEDDING_DIMS) {
+          throw new Error(
+            `Embedding dimension mismatch: expected ${EXPECTED_EMBEDDING_DIMS}, got ${embedding.length}`
+          );
+        }
+      }
+
       return embedding;
     } catch (error: any) {
       console.error('Error generating embedding:', error);
@@ -64,10 +75,20 @@ export class EmbeddingService {
    */
   async generateBatchEmbeddings(texts: string[]): Promise<number[][]> {
     try {
-      const embeddings = await Promise.all(
-        texts.map(text => this.generateEmbedding(text))
-      );
-      return embeddings;
+      const results: number[][] = new Array(texts.length);
+      const queue = texts.map((text, index) => ({ text, index }));
+
+      const workers = Array.from({ length: Math.min(this.MAX_CONCURRENT_EMBEDDINGS, texts.length) })
+        .map(async () => {
+          while (queue.length > 0) {
+            const item = queue.shift();
+            if (!item) return;
+            results[item.index] = await this.generateEmbedding(item.text);
+          }
+        });
+
+      await Promise.all(workers);
+      return results;
     } catch (error: any) {
       console.error('Error generating batch embeddings:', error);
       return texts.map(text => this.generateFallbackEmbedding(text));
@@ -104,6 +125,13 @@ export class EmbeddingService {
     // Generate a deterministic 1536-dimensional embedding based on text content
     const embedding = new Array(1536);
     const textBytes = new TextEncoder().encode(text.toLowerCase());
+
+    if (textBytes.length === 0) {
+      // Return a tiny non-zero normalized vector to avoid NaNs in cosine similarity
+      embedding.fill(0);
+      embedding[0] = 1;
+      return embedding;
+    }
     
     // Use a simple hash-based approach for consistent embeddings
     for (let i = 0; i < 1536; i++) {
