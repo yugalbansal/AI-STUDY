@@ -123,25 +123,17 @@ export default function Login() {
         }, 1000);
       } else if (result.status === 'missing_requirements') {
         // Email verification required
-        // Check if email verification needs to be triggered
-        const emailVerification = result.verifications?.emailAddress;
-        
-        if (emailVerification?.status === 'unverified') {
-          try {
-            // Attempt to send verification email
-            await signUp.prepareEmailAddressVerification({ 
-              strategy: 'email_link'
-            });
-            toast.success('Account created! Check your email for verification link, then sign in.');
-            console.log('Verification email sent to:', email);
-          } catch (emailErr: any) {
-            console.error('Failed to send verification email:', emailErr);
-            // Email sending failed - could be config issue in Clerk
-            toast.warning('Account created but verification email failed. Try signing in or contact support.');
-          }
-        } else {
-          // Verification not configured properly or account needs manual approval
-          toast.info('Account created! Please check your email or try signing in.');
+        try {
+          // REQUIRED (headless): this call triggers sending the verification email.
+          await signUp.prepareEmailAddressVerification({
+            strategy: 'email_link',
+            redirectUrl: `${window.location.origin}/verify-email`,
+          });
+          toast.success('Account created! Check your email for the verification link.');
+        } catch (emailErr: any) {
+          console.error('Failed to send verification email:', emailErr);
+          const errorMessage = emailErr?.errors?.[0]?.message || emailErr?.message || 'Failed to send verification email.';
+          toast.error(errorMessage);
         }
         
         // Switch to sign in after successful signup

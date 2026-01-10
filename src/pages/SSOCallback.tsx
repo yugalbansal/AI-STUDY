@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@clerk/clerk-react';
+import { useAuth, useClerk } from '@clerk/clerk-react';
 import { Helmet } from 'react-helmet-async';
 import { toast } from 'sonner';
 
@@ -11,6 +11,30 @@ import { toast } from 'sonner';
 export default function SSOCallback() {
   const navigate = useNavigate();
   const { isSignedIn, isLoaded } = useAuth();
+  const { handleRedirectCallback } = useClerk();
+  const redirectHandledRef = useRef(false);
+
+  // IMPORTANT:
+  // OAuth completes at Clerk ("/v1/oauth_callback"), but the session is finalized
+  // in the app by calling `handleRedirectCallback()` on the `redirectUrl` route.
+  useEffect(() => {
+    if (redirectHandledRef.current) return;
+    redirectHandledRef.current = true;
+
+    (async () => {
+      try {
+        await handleRedirectCallback({
+          signInUrl: '/login',
+          signUpUrl: '/login',
+          afterSignInUrl: '/dashboard',
+          afterSignUpUrl: '/dashboard',
+        });
+      } catch (error) {
+        // If this fails, `isSignedIn` will remain false.
+        console.error('OAuth redirect finalization failed:', error);
+      }
+    })();
+  }, [handleRedirectCallback]);
 
   useEffect(() => {
     console.log('🔄 SSO Callback - isLoaded:', isLoaded, 'isSignedIn:', isSignedIn);
@@ -22,21 +46,23 @@ export default function SSOCallback() {
     }
 
     if (isSignedIn) {
-      // Successfully authenticated
       console.log('✅ OAuth successful! Redirecting to dashboard...');
       toast.success('Successfully signed in with Google!');
-      // Small delay to ensure session is fully established
-      setTimeout(() => {
-        navigate('/dashboard', { replace: true });
-      }, 500);
-    } else {
-      // OAuth failed or was cancelled
-      console.log('❌ OAuth failed - user not signed in');
-      toast.error('Sign in failed. Please try again.');
-      setTimeout(() => {
-        navigate('/login', { replace: true });
-      }, 1000);
+      navigate('/dashboard', { replace: true });
+      return;
     }
+
+    // Tolerate short delays where Clerk isLoaded=true but the session is still being finalized.
+    const timeoutMs = 5000;
+    console.log(`⏳ Not signed in yet; waiting up to ${timeoutMs}ms for finalization...`);
+
+    const timeoutId = window.setTimeout(() => {
+      console.log('❌ OAuth finalization timeout - user still not signed in');
+      toast.error('Sign in did not complete. Please try again.');
+      navigate('/login', { replace: true });
+    }, timeoutMs);
+
+    return () => window.clearTimeout(timeoutId);
   }, [isLoaded, isSignedIn, navigate]);
 
   return (
