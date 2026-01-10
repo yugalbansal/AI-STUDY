@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { embeddingService } from '../services/embeddings';
 import {
   SimilarMessage,
@@ -8,6 +8,7 @@ import {
 
 export class VectorSearchService {
   private static instance: VectorSearchService;
+  private supabase: SupabaseClient | null = null;
 
   private constructor() {}
 
@@ -103,6 +104,19 @@ export class VectorSearchService {
     return VectorSearchService.instance;
   }
 
+  public setSupabaseClient(client: SupabaseClient | null) {
+    this.supabase = client;
+    // Keep embedding service in sync since it also calls Edge Functions.
+    embeddingService.setSupabaseClient(client);
+  }
+
+  private requireSupabase(): SupabaseClient {
+    if (!this.supabase) {
+      throw new Error('Supabase client not initialized (Clerk session missing)');
+    }
+    return this.supabase;
+  }
+
   /**
    * Store chat message embedding in the database
    */
@@ -114,6 +128,7 @@ export class VectorSearchService {
     messageType: 'user' | 'assistant'
   ): Promise<void> {
     try {
+      const supabase = this.requireSupabase();
       // Generate embedding for the content
       const cleanContent = embeddingService.prepareTextForEmbedding(content);
       const embedding = await embeddingService.generateEmbedding(cleanContent);
@@ -148,6 +163,7 @@ export class VectorSearchService {
     title: string = ''
   ): Promise<void> {
     try {
+      const supabase = this.requireSupabase();
       // Remove old chunk embeddings to avoid duplicates when re-indexing
       await supabase
         .from('document_embeddings')
@@ -214,6 +230,7 @@ export class VectorSearchService {
     limit: number = 5
   ): Promise<SimilarMessage[]> {
     try {
+      const supabase = this.requireSupabase();
       // Generate embedding for the query
       const queryEmbedding = await embeddingService.generateEmbedding(query);
       
@@ -247,6 +264,7 @@ export class VectorSearchService {
     limit: number = 5
   ): Promise<SimilarDocument[]> {
     try {
+      const supabase = this.requireSupabase();
       // Generate embedding for the query
       const queryEmbedding = await embeddingService.generateEmbedding(query);
       
@@ -294,6 +312,7 @@ export class VectorSearchService {
     const chunkSimilarityThreshold = options?.chunkSimilarityThreshold ?? 0.25;
 
     try {
+      const supabase = this.requireSupabase();
       const queryEmbedding = await embeddingService.generateEmbedding(query);
       const queryText = this.sanitizeQueryForHybrid(query);
 

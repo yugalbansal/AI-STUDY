@@ -81,14 +81,24 @@ export default function Login() {
       }
     } catch (err: any) {
       console.error('Sign in error:', err);
-      const errorMessage = err.errors?.[0]?.message || err.message || 'Login failed.';
-      
-      if (errorMessage.includes('not found') || errorMessage.includes("couldn't find")) {
+      const clerkError = err?.errors?.[0];
+      const code = clerkError?.code as string | undefined;
+      const errorMessage = clerkError?.message || err?.message || 'Login failed.';
+
+      if (code === 'form_identifier_not_found') {
         toast.error('Account not found. Please sign up first or check your email address.');
-      } else if (errorMessage.includes('password')) {
+      } else if (code === 'form_password_not_set') {
+        toast.error('This email is registered via Google. Please sign in with Google.');
+      } else if (code === 'form_password_incorrect') {
         toast.error('Incorrect password. Please try again.');
-      } else if (errorMessage.includes('verify') || errorMessage.includes('verification')) {
+      } else if (code === 'form_identifier_not_verified') {
         toast.error('Please verify your email before signing in. Check your inbox.');
+      } else if (
+        /password has not been set|no password|password not set/i.test(errorMessage)
+      ) {
+        toast.error('This email is registered via Google. Please sign in with Google.');
+      } else if (/(couldn't find|not found)/i.test(errorMessage)) {
+        toast.error('Account not found. Please sign up first or check your email address.');
       } else {
         toast.error(errorMessage);
       }

@@ -73,10 +73,9 @@
 
 import { vectorSearchService } from './vectorSearch';
 import { ChatContext } from '../types/embeddings';
-import { supabase } from './supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-// Use Supabase Edge Function for chat (avoids CORS + hides API key + handles continuations)
-const CHAT_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-completion`;
+// Uses Supabase Edge Function for chat (avoids CORS + hides API key + handles continuations)
 
 // Context window management - prevent token overflow
 const MAX_CONTEXT_LENGTH = 8000; // Conservative limit (much less than 131k token max)
@@ -108,7 +107,8 @@ export async function getChatResponse(
   prompt: string, 
   context: string, 
   userId: string,
-  chatId: string
+  chatId: string,
+  supabaseClient: SupabaseClient
 ): Promise<string> {
   try {
     // Get vector-based context from chat history and documents
@@ -165,37 +165,23 @@ export async function getChatResponse(
       { role: 'user', content: prompt }
     ];
 
-    // Get session token
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    // Call Edge Function
-    const response = await fetch(CHAT_FUNCTION_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session?.access_token || ''}`,
-      },
-      body: JSON.stringify({
-        messages,
-        systemPrompt
-      }),
+    const { data, error } = await supabaseClient.functions.invoke('chat-completion', {
+      body: { messages, systemPrompt },
     });
 
-    if (!response.ok) {
-      const error = await response.text();
+    if (error) {
       console.error('Edge Function error:', error);
-      throw new Error(`Chat API error: ${response.status} - ${error}`);
+      throw new Error(`Chat API error: ${error.message}`);
     }
 
-    const data = await response.json();
     console.log('Edge Function response:', data);
     
-    if (!data || !data.content) {
+    if (!data || !(data as any).content) {
       console.error('Empty response from Edge Function:', data);
       throw new Error('No response from AI service. Please try again.');
     }
     
-    return data.content;
+    return (data as any).content;
     
   } catch (error: any) {
     console.error('Error getting chat response:', error);

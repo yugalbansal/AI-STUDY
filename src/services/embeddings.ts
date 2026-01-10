@@ -1,5 +1,5 @@
 import { EmbeddingRequest, EmbeddingResponse } from '../types/embeddings';
-import { supabase } from '../lib/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Use Supabase Edge Function for embeddings (avoids CORS + hides API key)
 const EMBEDDING_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-embedding`;
@@ -7,6 +7,8 @@ const EXPECTED_EMBEDDING_DIMS = Number(import.meta.env.VITE_EMBEDDING_DIMS ?? 15
 
 export class EmbeddingService {
   private static instance: EmbeddingService;
+
+  private supabase: SupabaseClient | null = null;
 
   private readonly MAX_CONCURRENT_EMBEDDINGS = 3;
 
@@ -17,6 +19,10 @@ export class EmbeddingService {
       EmbeddingService.instance = new EmbeddingService();
     }
     return EmbeddingService.instance;
+  }
+
+  public setSupabaseClient(client: SupabaseClient | null) {
+    this.supabase = client;
   }
 
   /**
@@ -31,23 +37,19 @@ export class EmbeddingService {
         return this.generateFallbackEmbedding(cleanText);
       }
 
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const response = await fetch(EMBEDDING_FUNCTION_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || ''}`,
-        },
-        body: JSON.stringify({ text: cleanText }),
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Edge Function error: ${response.status} - ${error}`);
+      if (!this.supabase) {
+        throw new Error('Supabase client not initialized (Clerk session missing)');
       }
 
-      const { embedding } = await response.json();
+      const { data, error } = await this.supabase.functions.invoke('generate-embedding', {
+        body: { text: cleanText },
+      });
+
+      if (error) {
+        throw new Error(`Edge Function error: ${error.message}`);
+      }
+
+      const embedding = (data as any)?.embedding;
 
       if (!Array.isArray(embedding) || embedding.length === 0) {
         throw new Error('Invalid embedding format from Edge Function');

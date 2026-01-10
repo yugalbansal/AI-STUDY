@@ -12,7 +12,9 @@ if (!clerkPubKey) {
   throw new Error('Missing Clerk Publishable Key - Add VITE_CLERK_PUBLISHABLE_KEY to .env or .env.local');
 }
 
-console.log('Clerk key loaded:', clerkPubKey.substring(0, 20) + '...');
+if (import.meta.env.DEV) {
+  console.log('Clerk key loaded:', clerkPubKey.substring(0, 20) + '...');
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

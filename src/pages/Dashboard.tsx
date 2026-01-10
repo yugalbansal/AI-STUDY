@@ -15,15 +15,6 @@ interface User {
   role: string;
 }
 
-interface User {
-  id: string;
-  email: string;
-  full_name: string;
-  last_seen: string;
-  is_online: boolean;
-  role: string;
-}
-
 export default function Dashboard() {
   const { user, userId, supabase, isAdmin, loading } = useClerkAuth();
   const navigate = useNavigate();
@@ -36,6 +27,12 @@ export default function Dashboard() {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [userChats, setUserChats] = useState<any[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const displayName =
+    user?.firstName ||
+    user?.fullName ||
+    user?.primaryEmailAddress?.emailAddress?.split('@')?.[0] ||
+    'User';
 
   const fetchData = async () => {
     if (!supabase) return;
@@ -216,11 +213,11 @@ export default function Dashboard() {
 
       {/* Hero Section */}
       <div className="pt-32 pb-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-blue-50 via-white to-purple-50">
-        <div className="max-w-7xl mfirstName || user?.primaryEmailAddress?.emailAddresso">
+        <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm font-medium mb-4">
               <Sparkles className="w-4 h-4" />
-              Welcome back, {user?.email?.split('@')[0] || 'User'}!
+              Welcome back, {displayName}!
             </div>
             <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
               Your AI-Powered

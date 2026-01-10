@@ -756,7 +756,7 @@ export default function Chat() {
     try {
       // Don't fetch all documents - vector search in getChatResponse already provides relevant context
       // This prevents massive context overflow (253k+ tokens)
-      const response = await getChatResponse(input, '', userId, currentChat);
+      const response = await getChatResponse(input, '', userId, currentChat, supabase);
 
       const { data, error } = await supabase
         .from('chat_messages')

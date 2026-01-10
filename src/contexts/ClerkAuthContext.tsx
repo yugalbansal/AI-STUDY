@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useUser, useSession, useClerk } from '@clerk/clerk-react';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { createClerkSupabaseClient, syncClerkUserToSupabase } from '../lib/supabaseClerk';
+import { vectorSearchService } from '../lib/vectorSearch';
 
 interface ClerkAuthContextType {
   user: any; // Clerk User object
@@ -31,8 +32,10 @@ export function ClerkAuthProvider({ children }: { children: React.ReactNode }) {
     if (sessionLoaded && session) {
       const client = createClerkSupabaseClient(session);
       setSupabase(client);
+      vectorSearchService.setSupabaseClient(client);
     } else if (sessionLoaded && !session) {
       setSupabase(null);
+      vectorSearchService.setSupabaseClient(null);
     }
   }, [session?.id, sessionLoaded]); // Only recreate when session ID changes
 
@@ -59,6 +62,17 @@ export function ClerkAuthProvider({ children }: { children: React.ReactNode }) {
 
     syncUser();
   }, [user, supabase, syncAttempted]);
+
+  // Always (re)check role once auth + supabase are ready
+  useEffect(() => {
+    if (!user || !supabase) {
+      setIsAdmin(false);
+      return;
+    }
+
+    void checkUserRole();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, supabase]);
 
   // Check if user has admin role
   async function checkUserRole() {
