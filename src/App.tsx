@@ -37,8 +37,8 @@
 
   function App() {
     return (
-      <ClerkAuthProvider>
-        <BrowserRouter>
+      <BrowserRouter>
+        <ClerkAuthProvider>
           <div className="min-h-screen bg-slate-900 relative overflow-hidden">
             {/* Background */}
             <div className="fixed inset-0 w-full h-full">
@@ -101,8 +101,8 @@
             </div>
           </div>
           <Toaster />
-        </BrowserRouter>
-      </ClerkAuthProvider>
+        </ClerkAuthProvider>
+      </BrowserRouter>
     );
   }
 

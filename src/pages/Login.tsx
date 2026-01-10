@@ -169,12 +169,12 @@ export default function Login() {
     
     setIsLoading(true);
     try {
-      // Clerk handles OAuth at clerk.vectormind.site/v1/oauth_callback
-      // Then redirects back to your site
+      // Let Clerk handle the entire OAuth flow and redirects
+      // After OAuth completes, Clerk will redirect based on paths configured in dashboard
       await signIn.authenticateWithRedirect({
         strategy: 'oauth_google',
-        redirectUrl: `${window.location.origin}/dashboard`,
-        redirectUrlComplete: `${window.location.origin}/dashboard`,
+        redirectUrl: '/sso-callback',
+        redirectUrlComplete: '/dashboard',
       });
     } catch (err: any) {
       console.error('Google sign-in error:', err);
