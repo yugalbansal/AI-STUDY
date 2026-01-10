@@ -9,7 +9,6 @@
   import Livecall from './pages/Livecall';
   import Landing from './pages/landing';
   import SSOCallback from './pages/SSOCallback';
-  import VerifyEmail from './pages/VerifyEmail';
   import { ClerkAuthProvider } from './contexts/ClerkAuthContext';
   import { Toaster } from 'sonner';
  
@@ -53,7 +52,6 @@
                 <Route path="/" element={<Landing />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/sso-callback" element={<SSOCallback />} />
-                <Route path="/verify-email" element={<VerifyEmail />} />
                   
                 {/* Protected routes - require authentication */}
                 <Route 

@@ -127,7 +127,7 @@ export default function Login() {
           // REQUIRED (headless): this call triggers sending the verification email.
           await signUp.prepareEmailAddressVerification({
             strategy: 'email_link',
-            redirectUrl: `${window.location.origin}/verify-email`,
+            redirectUrl: '/sso-callback',
           });
           toast.success('Account created! Check your email for the verification link.');
         } catch (emailErr: any) {
@@ -149,7 +149,17 @@ export default function Login() {
       }
     } catch (err: any) {
       console.error('Sign up error:', err);
-      const errorMessage = err.errors?.[0]?.message || err.message || 'Sign up failed. Please try again.';
+      const clerkError = err?.errors?.[0];
+
+      // If the email already exists (often because it was created via Google OAuth),
+      // do NOT attempt to merge accounts silently.
+      if (clerkError?.code === 'form_identifier_exists') {
+        toast.error('This email is already registered. Please sign in with Google.');
+        setIsSignUp(false);
+        return;
+      }
+
+      const errorMessage = clerkError?.message || err?.message || 'Sign up failed. Please try again.';
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);

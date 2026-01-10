@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 export default function SSOCallback() {
   const navigate = useNavigate();
   const { isSignedIn, isLoaded } = useAuth();
-  const { handleRedirectCallback } = useClerk();
+  const { handleRedirectCallback, handleEmailLinkVerification } = useClerk();
   const redirectHandledRef = useRef(false);
 
   // IMPORTANT:
@@ -23,6 +23,19 @@ export default function SSOCallback() {
 
     (async () => {
       try {
+        // Email link verification finalization (sign up verify-email link)
+        // If the URL is not an email-link verification, this will throw; ignore.
+        try {
+          await handleEmailLinkVerification({
+            redirectUrl: '/login',
+            redirectUrlComplete: '/dashboard',
+          });
+        } catch (error) {
+          // Not an email-link verification redirect (or already handled)
+          console.log('Email link verification not applicable:', error);
+        }
+
+        // OAuth finalization (Google, etc.)
         await handleRedirectCallback({
           signInUrl: '/login',
           signUpUrl: '/login',
@@ -34,7 +47,7 @@ export default function SSOCallback() {
         console.error('OAuth redirect finalization failed:', error);
       }
     })();
-  }, [handleRedirectCallback]);
+  }, [handleRedirectCallback, handleEmailLinkVerification]);
 
   useEffect(() => {
     console.log('🔄 SSO Callback - isLoaded:', isLoaded, 'isSignedIn:', isSignedIn);
@@ -53,7 +66,7 @@ export default function SSOCallback() {
     }
 
     // Tolerate short delays where Clerk isLoaded=true but the session is still being finalized.
-    const timeoutMs = 5000;
+    const timeoutMs = 4000;
     console.log(`⏳ Not signed in yet; waiting up to ${timeoutMs}ms for finalization...`);
 
     const timeoutId = window.setTimeout(() => {
