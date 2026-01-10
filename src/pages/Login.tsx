@@ -125,8 +125,7 @@ export default function Login() {
         // Email verification required - explicitly send verification email
         try {
           await signUp.prepareEmailAddressVerification({ 
-            strategy: 'email_link',
-            redirectUrl: `${window.location.origin}/login`
+            strategy: 'email_link'
           });
           toast.success('Account created! Check your email for verification link, then sign in.');
           console.log('Verification email sent to:', email);
@@ -160,12 +159,12 @@ export default function Login() {
     
     setIsLoading(true);
     try {
+      // Use Clerk's default OAuth flow - it will handle redirects automatically
       await signIn.authenticateWithRedirect({
         strategy: 'oauth_google',
-        redirectUrl: '/sso-callback',
-        redirectUrlComplete: '/dashboard',
+        redirectUrl: window.location.origin,
+        redirectUrlComplete: `${window.location.origin}/dashboard`,
       });
-      toast.success('Redirecting to Google...');
     } catch (err: any) {
       console.error('Google sign-in error:', err);
       toast.error(err.errors?.[0]?.message || 'Google sign-in failed. Please try again.');

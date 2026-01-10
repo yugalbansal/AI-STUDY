@@ -8,6 +8,7 @@
   import ImageGen from './pages/ImageGen';
   import Livecall from './pages/Livecall';
   import Landing from './pages/landing';
+  import SSOCallback from './pages/SSOCallback';
   import { ClerkAuthProvider } from './contexts/ClerkAuthContext';
   import { Toaster } from 'sonner';
  
@@ -50,6 +51,7 @@
                 {/* Public routes - no authentication required */}
                 <Route path="/" element={<Landing />} />
                 <Route path="/login" element={<Login />} />
+                <Route path="/sso-callback" element={<SSOCallback />} />
                   
                 {/* Protected routes - require authentication */}
                 <Route 
