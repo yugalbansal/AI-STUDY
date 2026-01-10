@@ -1,8 +1,7 @@
 import { useCallback, useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useDropzone } from 'react-dropzone';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
+import { useClerkAuth } from '../contexts/ClerkAuthContext';
 import { Upload, Trash2, Loader2, Link as LinkIcon, FileText, ExternalLink, Calendar, Sparkles } from 'lucide-react';
 import { parseDocument } from '../lib/documentParser';
 import { vectorSearchService } from '../lib/vectorSearch';
@@ -10,7 +9,7 @@ import Navbar from '../components/Navbar';
 import { motion } from 'framer-motion';
 
 export default function Documents() {
-  const { user } = useAuth();
+  const { user, userId, supabase, loading: authLoading } = useClerkAuth();
   const [documents, setDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -19,14 +18,15 @@ export default function Documents() {
   const [title, setTitle] = useState('');
 
   useEffect(() => {
-    if (user?.id) {
+    if (!authLoading && userId && supabase) {
       fetchDocuments();
     }
-  }, [user]);
+  }, [userId, authLoading, supabase]);
 
 
 
   async function fetchDocuments() {
+    if (!supabase) return;
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -49,7 +49,7 @@ export default function Documents() {
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
-    if (!file || !user?.id) return;
+    if (!file || !userId || !supabase) return;
 
     setUploadError(null);
     setIsUploading(true);
@@ -63,7 +63,7 @@ export default function Documents() {
           title: file.name,
           content,
           type: 'file',
-          user_id: user.id
+          user_id: userId
         })
         .select()
         .single();
@@ -77,7 +77,7 @@ export default function Documents() {
       if (data) {
         vectorSearchService.storeDocumentEmbeddings(
           data.id,
-          user.id,
+          userId,
           content,
           data.title
         ).catch(error => console.error('Error storing document embeddings:', error));
@@ -106,6 +106,7 @@ export default function Documents() {
 });
 
   async function deleteDocument(id: string) {
+    if (!supabase) return;
     try {
       const { error } = await supabase
         .from('documents')
@@ -129,7 +130,7 @@ export default function Documents() {
 
   async function addLink(e: React.FormEvent) {
     e.preventDefault();
-    if (!url.trim() || !title.trim() || !user?.id) return;
+    if (!url.trim() || !title.trim() || !userId || !supabase) return;
 
     setUploadError(null);
     setIsUploading(true);
@@ -143,7 +144,7 @@ export default function Documents() {
           content: linkContent,
           type: 'link',
           url: url.trim(),
-          user_id: user.id
+          user_id: userId
         })
         .select()
         .single();
@@ -157,7 +158,7 @@ export default function Documents() {
       if (data) {
         vectorSearchService.storeDocumentEmbeddings(
           data.id,
-          user.id,
+          userId,
           linkContent,
           data.title
         ).catch(error => console.error('Error storing link embeddings:', error));

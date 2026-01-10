@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { SignOutButton, useUser } from '@clerk/clerk-react';
 import { BookOpen, MessageSquare, LayoutDashboard, LogOut, Menu, X, Image, Phone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -17,17 +17,11 @@ interface NavbarProps {
 }
 
 export default function Navbar({ isFixed = true, className = '' }: NavbarProps = {}) {
-  const { user, signOut } = useAuth();
+  const { user } = useUser();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   if (!user) return null;
-
-  const handleSignOut = async () => {
-    await signOut();
-    navigate('/');
-    setIsMenuOpen(false);
-  };
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -96,12 +90,11 @@ export default function Navbar({ isFixed = true, className = '' }: NavbarProps =
           >
             Live Call
           </Link>
-          <button
-            onClick={handleSignOut}
-            className="px-5 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full hover:shadow-lg hover:scale-105 transition-all text-sm font-medium ml-2"
-          >
-            Sign Out
-          </button>
+          <SignOutButton signOutCallback={() => navigate('/')}>
+            <button className="px-5 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full hover:shadow-lg hover:scale-105 transition-all text-sm font-medium ml-2">
+              Sign Out
+            </button>
+          </SignOutButton>
         </div>
 
         {/* Mobile Menu Button */}
@@ -197,13 +190,12 @@ export default function Navbar({ isFixed = true, className = '' }: NavbarProps =
                   <Phone className="h-5 w-5 mr-3" />
                   Live Call
                 </Link>
-                <button
-                  onClick={handleSignOut}
-                  className="flex items-center w-full px-4 py-3 text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:shadow-lg rounded-xl transition-all mt-4"
-                >
-                  <LogOut className="h-5 w-5 mr-3" />
-                  Sign Out
-                </button>
+                <SignOutButton signOutCallback={() => { navigate('/'); setIsMenuOpen(false); }}>
+                  <button className="flex items-center w-full px-4 py-3 text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:shadow-lg rounded-xl transition-all mt-4">
+                    <LogOut className="h-5 w-5 mr-3" />
+                    Sign Out
+                  </button>
+                </SignOutButton>
               </div>
             </motion.div>
           </motion.div>

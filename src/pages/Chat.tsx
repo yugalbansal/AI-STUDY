@@ -547,8 +547,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
+import { useClerkAuth } from '../contexts/ClerkAuthContext';
 import { getChatResponse } from '../lib/gemini';
 import { vectorSearchService } from '../lib/vectorSearch';
 import { Menu, MessageSquare } from 'lucide-react';
@@ -582,7 +581,7 @@ interface Attachment {
 }
 
 export default function Chat() {
-  const { user } = useAuth();
+  const { user, userId, supabase, loading: authLoading } = useClerkAuth();
   const [chatHistory, setChatHistory] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -595,12 +594,12 @@ export default function Chat() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
 
   useEffect(() => {
-    if (user?.id) {
+    if (!authLoading && userId && supabase) {
       fetchChats();
-    } else {
+    } else if (!authLoading) {
       setInitialLoading(false);
     }
-  }, [user]);
+  }, [userId, authLoading, supabase]);
 
   useEffect(() => {
     if (chatEndRef.current) {
@@ -617,6 +616,7 @@ export default function Chat() {
 
 
   async function fetchChats() {
+    if (!supabase) return;
     try {
       const { data, error } = await supabase
         .from('chats')
@@ -638,13 +638,14 @@ export default function Chat() {
   }
 
   async function fetchChatHistory(chatId: string) {
+    if (!supabase) return;
     try {
       setInitialLoading(true);
       const { data, error } = await supabase
         .from('chat_messages')
         .select('*')
         .eq('chat_id', chatId)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true});
 
       if (error) throw error;
       
@@ -658,7 +659,7 @@ export default function Chat() {
   }
 
   async function createNewChat() {
-    if (!user?.id) return;
+    if (!userId || !supabase) return;
 
     try {
       const timestamp = new Date().toLocaleString('en-US', {
@@ -675,7 +676,7 @@ export default function Chat() {
         .from('chats')
         .insert([{
           title: defaultTitle,
-          user_id: user.id
+          user_id: userId
         }])
         .select()
         .single();
@@ -692,7 +693,7 @@ export default function Chat() {
   }
 
   async function renameChat(chatId: string, newTitle: string) {
-    if (!newTitle.trim()) return;
+    if (!newTitle.trim() || !supabase) return;
 
     try {
       const { error } = await supabase
@@ -712,6 +713,7 @@ export default function Chat() {
   }
 
   async function deleteChat(chatId: string) {
+    if (!supabase) return;
     try {
       await supabase.from('chat_messages').delete().eq('chat_id', chatId);
       await supabase.from('chats').delete().eq('id', chatId);
@@ -731,7 +733,7 @@ export default function Chat() {
   }
 
   const handleSendMessage = useCallback(async ({ input }: { input: string; attachments: Attachment[] }) => {
-    if (!input.trim() || loading || !user?.id || !currentChat) return;
+    if (!input.trim() || loading || !userId || !currentChat || !supabase) return;
 
     setLoading(true);
     setError(null);
@@ -742,7 +744,7 @@ export default function Chat() {
       { 
         id: tempId,
         chat_id: currentChat,
-        user_id: user.id,
+        user_id: userId,
         message: input,
         response: '',
         created_at: new Date().toISOString()
@@ -754,13 +756,13 @@ export default function Chat() {
     try {
       // Don't fetch all documents - vector search in getChatResponse already provides relevant context
       // This prevents massive context overflow (253k+ tokens)
-      const response = await getChatResponse(input, '', user.id, currentChat);
+      const response = await getChatResponse(input, '', userId, currentChat);
 
       const { data, error } = await supabase
         .from('chat_messages')
         .insert([{
           chat_id: currentChat,
-          user_id: user.id,
+          user_id: userId,
           message: input,
           response,
         }])
@@ -779,7 +781,7 @@ export default function Chat() {
         vectorSearchService.storeChatEmbedding(
           currentChat,
           messageData.id,
-          user.id,
+          userId,
           input,
           'user'
         ).catch(error => console.error('Error storing user message embedding:', error));
@@ -787,7 +789,7 @@ export default function Chat() {
         vectorSearchService.storeChatEmbedding(
           currentChat,
           messageData.id,
-          user.id,
+          userId,
           response,
           'assistant'
         ).catch(error => console.error('Error storing assistant response embedding:', error));
@@ -800,7 +802,7 @@ export default function Chat() {
       setLoading(false);
       setIsTyping(false);
     }
-  }, [loading, user, currentChat]);
+  }, [loading, userId, currentChat, supabase]);
 
   const handleStopGenerating = useCallback(() => {
     setLoading(false);
@@ -879,8 +881,8 @@ export default function Chat() {
                 onRenameChat={renameChat}
                 onDeleteChat={deleteChat}
                 onClose={() => setIsSidebarOpen(false)}
-                userEmail={user?.email}
-                userName={user?.user_metadata?.name}
+                userEmail={user?.primaryEmailAddress?.emailAddress}
+                userName={user?.firstName || user?.username}
               />
             ) : (
               // Minimized sidebar (desktop only)

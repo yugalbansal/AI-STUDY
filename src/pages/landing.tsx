@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@clerk/clerk-react';
 import { Helmet } from 'react-helmet-async';
 import { Hero } from '../components/ui/animated-hero';
 import { Navbar1 } from '../components/ui/navbar-1';
@@ -7,6 +8,7 @@ import { BookOpen, MessageSquare, FileText, Mic, Sparkles, Zap, Shield, Users } 
 
 export default function Landing() {
   const navigate = useNavigate();
+  const { isSignedIn } = useAuth();
 
   const handleKnowMore = () => {
     // Scroll to features section
@@ -14,7 +16,13 @@ export default function Landing() {
   };
 
   const handleSignUp = () => {
-    navigate('/login');
+    // If already signed in, go to dashboard
+    if (isSignedIn) {
+      navigate('/dashboard');
+    } else {
+      // Otherwise go to login page
+      navigate('/login');
+    }
   };
 
   const features = [

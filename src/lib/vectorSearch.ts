@@ -1,8 +1,6 @@
 import { supabase } from './supabase';
 import { embeddingService } from '../services/embeddings';
 import {
-  ChatEmbedding,
-  DocumentEmbedding,
   SimilarMessage,
   SimilarDocument,
   ChatContext
@@ -409,7 +407,12 @@ export class VectorSearchService {
       return selected.map((c) => {
         const meta = docMetaById.get(c.document_id);
         return {
-          ...c,
+          id: c.id || '',
+          chunk_index: c.chunk_index || 0,
+          created_at: c.created_at || new Date().toISOString(),
+          document_id: c.document_id,
+          content_chunk: c.content_chunk,
+          similarity: c.similarity,
           document_title: meta?.title,
           document_url: meta?.url ?? undefined
         };
@@ -420,7 +423,7 @@ export class VectorSearchService {
     }
   }
 
-  /**
+  /*_*
    * Get recent chat history for context
    */
   async getRecentChatHistory(

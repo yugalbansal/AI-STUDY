@@ -142,6 +142,9 @@ export const SignInPage: React.FC<SignInPageProps> = ({
                 <a href="#" onClick={(e) => { e.preventDefault(); onResetPassword?.(); }} className="hover:underline text-violet-600 transition-colors">{resetPasswordText}</a>
               </div>
 
+              {/* Clerk CAPTCHA container - required for bot protection */}
+              <div id="clerk-captcha" className="animate-element animate-delay-550"></div>
+
               <button 
                 type="submit" 
                 className="animate-element animate-delay-600 w-full rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 py-4 font-medium text-white hover:from-indigo-700 hover:to-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

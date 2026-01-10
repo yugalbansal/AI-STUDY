@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { useAuth } from '../contexts/AuthContext';
+import { useSignIn, useSignUp } from '@clerk/clerk-react';
 import { SignInPage, Testimonial } from '../components/ui/sign-in';
 import { toast } from 'sonner';
 
@@ -29,11 +29,33 @@ const testimonials: Testimonial[] = [
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
-  const { signIn, signUp, signInWithGoogle } = useAuth();
+  const { signIn, isLoaded: signInLoaded, setActive } = useSignIn();
+  const { signUp, isLoaded: signUpLoaded, setActive: setActiveSignUp } = useSignUp();
   const navigate = useNavigate();
+
+  // Handle email verification callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const clerkStatus = params.get('__clerk_status');
+    
+    if (clerkStatus === 'verified') {
+      toast.success('Email verified! Please sign in with your credentials.');
+      // Clean URL
+      window.history.replaceState({}, '', '/login');
+    } else if (clerkStatus === 'client_mismatch') {
+      toast.info('Email verified! Please sign in with your email and password.');
+      // Clean URL
+      window.history.replaceState({}, '', '/login');
+    } else if (clerkStatus === 'expired') {
+      toast.error('Verification link expired. Please sign up again or contact support.');
+      window.history.replaceState({}, '', '/login');
+    }
+  }, []);
 
   const handleSignIn = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!signInLoaded || !signIn) return;
+
     setIsLoading(true);
 
     const formData = new FormData(event.currentTarget);
@@ -41,13 +63,35 @@ export default function Login() {
     const password = formData.get('password') as string;
 
     try {
-      await signIn(email, password);
-      toast.success('Login successful! Redirecting...');
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 1000);
-    } catch (error: any) {
-      toast.error(error.message || 'Login failed. Please check your credentials.');
+      const result = await signIn.create({
+        identifier: email,
+        password,
+      });
+
+      if (result.status === 'complete') {
+        await setActive({ session: result.createdSessionId });
+        toast.success('Login successful! Redirecting...');
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1000);
+      } else if (result.status === 'needs_identifier') {
+        toast.error('Please provide your email address.');
+      } else if (result.status === 'needs_first_factor') {
+        toast.error('Incorrect password. Please try again.');
+      }
+    } catch (err: any) {
+      console.error('Sign in error:', err);
+      const errorMessage = err.errors?.[0]?.message || err.message || 'Login failed.';
+      
+      if (errorMessage.includes('not found') || errorMessage.includes("couldn't find")) {
+        toast.error('Account not found. Please sign up first or check your email address.');
+      } else if (errorMessage.includes('password')) {
+        toast.error('Incorrect password. Please try again.');
+      } else if (errorMessage.includes('verify') || errorMessage.includes('verification')) {
+        toast.error('Please verify your email before signing in. Check your inbox.');
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -55,6 +99,8 @@ export default function Login() {
 
   const handleSignUp = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!signUpLoaded || !signUp) return;
+
     setIsLoading(true);
 
     const formData = new FormData(event.currentTarget);
@@ -62,28 +108,67 @@ export default function Login() {
     const password = formData.get('password') as string;
 
     try {
-      await signUp(email, password);
-      toast.success('Account created! Please check your email to verify your account.');
-      // Switch to sign in after successful signup
-      setTimeout(() => {
-        setIsSignUp(false);
-      }, 2000);
-    } catch (error: any) {
-      toast.error(error.message || 'Sign up failed. Please try again.');
+      const result = await signUp.create({
+        emailAddress: email,
+        password,
+      });
+
+      // Check if verification is required
+      if (result.status === 'complete') {
+        // Account created without verification required
+        await setActiveSignUp({ session: result.createdSessionId });
+        toast.success('Account created! Redirecting...');
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1000);
+      } else if (result.status === 'missing_requirements') {
+        // Email verification required - explicitly send verification email
+        try {
+          await signUp.prepareEmailAddressVerification({ 
+            strategy: 'email_link',
+            redirectUrl: `${window.location.origin}/login`
+          });
+          toast.success('Account created! Check your email for verification link, then sign in.');
+          console.log('Verification email sent to:', email);
+        } catch (emailErr: any) {
+          console.error('Failed to send verification email:', emailErr);
+          toast.info('Account created! You may need to contact support to verify your email.');
+        }
+        
+        // Switch to sign in after successful signup
+        setTimeout(() => {
+          setIsSignUp(false);
+        }, 3000);
+      } else {
+        // Any other status
+        toast.info('Account created! Please check your email if verification is required.');
+        setTimeout(() => {
+          setIsSignUp(false);
+        }, 2000);
+      }
+    } catch (err: any) {
+      console.error('Sign up error:', err);
+      const errorMessage = err.errors?.[0]?.message || err.message || 'Sign up failed. Please try again.';
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
+    if (!signInLoaded || !signIn) return;
+    
     setIsLoading(true);
     try {
-      await signInWithGoogle();
-      // The redirect will happen automatically, so we don't need to navigate here
+      await signIn.authenticateWithRedirect({
+        strategy: 'oauth_google',
+        redirectUrl: '/sso-callback',
+        redirectUrlComplete: '/dashboard',
+      });
       toast.success('Redirecting to Google...');
-    } catch (error: any) {
-      console.error('Google sign-in error:', error);
-      toast.error(error.message || 'Google sign-in failed. Please try again.');
+    } catch (err: any) {
+      console.error('Google sign-in error:', err);
+      toast.error(err.errors?.[0]?.message || 'Google sign-in failed. Please try again.');
       setIsLoading(false);
     }
   };
