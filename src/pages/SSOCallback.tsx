@@ -60,19 +60,22 @@ export default function SSOCallback() {
 
     if (isSignedIn) {
       console.log('✅ OAuth successful! Redirecting to dashboard...');
-      toast.success('Successfully signed in with Google!');
+      // Don't show success toast here - it causes flashing
       navigate('/dashboard', { replace: true });
       return;
     }
 
-    // Tolerate short delays where Clerk isLoaded=true but the session is still being finalized.
-    const timeoutMs = 4000;
+    // Give Clerk more time to establish session - longer timeout to avoid false errors
+    const timeoutMs = 8000; // Increased from 4000ms
     console.log(`⏳ Not signed in yet; waiting up to ${timeoutMs}ms for finalization...`);
 
     const timeoutId = window.setTimeout(() => {
-      console.log('❌ OAuth finalization timeout - user still not signed in');
-      toast.error('Sign in did not complete. Please try again.');
-      navigate('/login', { replace: true });
+      // Only show error if still not signed in after sufficient time
+      if (!isSignedIn) {
+        console.log('❌ OAuth finalization timeout - user still not signed in');
+        toast.error('Sign in did not complete. Please try again.');
+        navigate('/login', { replace: true });
+      }
     }, timeoutMs);
 
     return () => window.clearTimeout(timeoutId);
