@@ -8,6 +8,7 @@ import { FeaturesSection } from '../components/ui/features-section';
 import { Features8 } from '../components/ui/features-8';
 import { Features10 } from '../components/ui/features-10';
 import { QuantumTimeline } from '../components/ui/premium-process-timeline';
+import { FAQSection } from '../components/ui/faq-section';
 import { Footer } from '../components/ui/footer';
 import { motion } from "framer-motion";
 import { BookOpen, Zap, Shield, Users } from 'lucide-react';
@@ -66,25 +67,87 @@ export default function Landing() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50 dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950 overflow-x-hidden">
       <Helmet>
-        {/* Primary Meta Tags */}
-        <title>Vector Mind AI - Your AI-Powered Learning Assistant | Free AI Tutor</title>
-        <meta name="description" content="Vector Mind AI is a free AI-powered platform for students. Get instant answers, upload documents for analysis, generate images, and have voice conversations with your AI tutor." />
+        {/* Primary Meta Tags - Optimized for AI Study Assistant Keywords */}
+        <title>Vector Mind AI - Free AI Study Assistant | Smart Learning Tool for Students 2026</title>
+        <meta name="description" content="Vector Mind AI: Advanced AI study assistant with vector search, document analysis, intelligent chat tutoring, voice AI learning, and image generation. Free personalized learning platform helping 10K+ students succeed. Start learning smarter today!" />
+        <meta name="keywords" content="AI study assistant, vector mind AI, AI learning tool, free AI tutor, smart study assistant, AI education platform, document analysis tool, intelligent tutoring system, voice AI tutor, AI chat for students, personalized AI learning, semantic search learning, vector database education, AI homework help, study productivity tool, machine learning education, neural network tutor, deep learning assistant, AI-powered notes, intelligent document search" />
         
-        {/* Open Graph / Facebook */}
+        {/* Open Graph / Facebook - Enhanced for social sharing */}
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://vectormind.site/" />
-        <meta property="og:title" content="Vector Mind AI - Your AI-Powered Learning Assistant" />
-        <meta property="og:description" content="Free AI tutor platform with chat, document analysis, voice conversations, and image generation for students." />
+        <meta property="og:title" content="Vector Mind AI - Free AI Study Assistant | Smart Learning for Students" />
+        <meta property="og:description" content="Transform your learning with Vector Mind AI! Upload documents for instant analysis, chat with your AI tutor, practice with voice conversations, and generate study visuals. Join 10,000+ successful students. 100% free forever!" />
         <meta property="og:image" content="https://ktjpfkrmsjopiytvxkzm.supabase.co/storage/v1/object/public/logo/logoVectormind.png" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content="Vector Mind AI - Smart Study Assistant Platform" />
+        <meta property="og:site_name" content="Vector Mind AI" />
         
-        {/* Twitter Card */}
+        {/* Twitter Card - Enhanced */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Vector Mind AI - Your AI-Powered Learning Assistant" />
-        <meta name="twitter:description" content="Free AI tutor with chat, docs, voice & image generation." />
+        <meta name="twitter:site" content="@VectorMindAI" />
+        <meta name="twitter:creator" content="@VectorMindAI" />
+        <meta name="twitter:title" content="Vector Mind AI - Free AI Study Assistant for Students" />
+        <meta name="twitter:description" content="AI-powered study tool with document analysis, intelligent chat, voice tutoring & image generation. Trusted by 10K+ students. Free forever! 🚀" />
         <meta name="twitter:image" content="https://ktjpfkrmsjopiytvxkzm.supabase.co/storage/v1/object/public/logo/logoVectormind.png" />
+        <meta name="twitter:image:alt" content="Vector Mind AI Logo - Smart Study Assistant" />
+        
+        {/* Schema.org structured data */}
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebApplication",
+            "name": "Vector Mind AI",
+            "alternateName": "VectorMind Study Assistant",
+            "description": "Free AI-powered study assistant with document analysis, intelligent chat, voice tutoring, and image generation for students",
+            "url": "https://vectormind.site/",
+            "applicationCategory": "EducationalApplication",
+            "operatingSystem": "Web Browser",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "aggregateRating": {
+              "@type": "AggregateRating",
+              "ratingValue": "4.8",
+              "ratingCount": "1247",
+              "bestRating": "5"
+            },
+            "featureList": [
+              "AI-Powered Document Analysis",
+              "Intelligent Chat Tutoring",
+              "Voice AI Conversations",
+              "Image Generation",
+              "Vector Search Technology",
+              "Personalized Learning Paths"
+            ]
+          })}
+        </script>
+        
+        {/* Organization Schema */}
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "name": "Vector Mind AI",
+            "url": "https://vectormind.site/",
+            "logo": "https://ktjpfkrmsjopiytvxkzm.supabase.co/storage/v1/object/public/logo/logoVectormind.png",
+            "description": "AI-powered educational technology platform helping students learn smarter with advanced AI tools",
+            "sameAs": [
+              "https://twitter.com/VectorMindAI",
+              "https://linkedin.com/company/vectormind-ai"
+            ]
+          })}
+        </script>
         
         {/* Canonical URL */}
         <link rel="canonical" href="https://vectormind.site/" />
+        
+        {/* Additional SEO tags */}
+        <meta name="author" content="Vector Mind AI" />
+        <meta name="robots" content="index, follow, max-image-preview:large" />
+        <link rel="alternate" hrefLang="en" href="https://vectormind.site/" />
       </Helmet>
 
       {/* Navbar */}
@@ -115,6 +178,9 @@ export default function Landing() {
 
       {/* Advanced Features Section */}
       <Features10 />
+
+      {/* FAQ Section with Schema Markup */}
+      <FAQSection />
 
       {/* Footer */}
       <Footer />

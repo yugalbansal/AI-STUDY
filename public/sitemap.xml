@@ -1,23 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
         xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
         http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
   
   <!-- 
-    Vector Mind AI Sitemap
+    Vector Mind AI - Comprehensive SEO Sitemap
     Updated: 2026-01-11
     
-    This sitemap only includes publicly indexable pages.
+    This sitemap includes all publicly indexable pages optimized for search engines.
     Authenticated routes are excluded and protected with noindex meta tags.
+    
+    Target Keywords: AI study assistant, vector mind AI, AI learning tool, 
+    document analysis AI, intelligent tutoring, voice AI tutor, personalized learning
   -->
   
-  <!-- Landing Page (Primary entry point) -->
+  <!-- Landing Page (Primary - Highest Priority) -->
   <url>
     <loc>https://vectormind.site/</loc>
     <lastmod>2026-01-11</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://ktjpfkrmsjopiytvxkzm.supabase.co/storage/v1/object/public/logo/logoVectormind.png</image:loc>
+      <image:title>Vector Mind AI Logo</image:title>
+      <image:caption>AI-powered study assistant platform for students</image:caption>
+    </image:image>
   </url>
   
   <!-- Legal Pages -->
