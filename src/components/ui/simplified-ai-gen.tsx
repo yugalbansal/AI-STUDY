@@ -71,7 +71,6 @@ export function SimplifiedAIImageGenerator() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
-      console.error('Download failed:', err);
       setError('Failed to download image');
     }
   };
@@ -102,18 +101,18 @@ export function SimplifiedAIImageGenerator() {
   };
 
   return (
-    <div className="flex w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-xl">
+    <div className="flex w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-xl">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+      <div className="flex items-center justify-between border-b border-gray-200 dark:border-zinc-700 px-6 py-4">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">AI Image Generation</h3>
-          <p className="text-xs text-gray-500">Create stunning images from text descriptions</p>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">AI Image Generation</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Create stunning images from text descriptions</p>
         </div>
       </div>
 
       {/* Error Display */}
       {error && (
-        <div className="mx-6 mt-4 flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+        <div className="mx-6 mt-4 flex items-center gap-2 rounded-lg border border-red-100 dark:border-red-800 bg-red-50 dark:bg-red-900/30 px-4 py-3 text-sm text-red-600 dark:text-red-400">
           <AlertCircle className="h-4 w-4" />
           <p>{error}</p>
         </div>
@@ -122,12 +121,12 @@ export function SimplifiedAIImageGenerator() {
       <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-4 p-6">
         {/* Prompt */}
         <div className="space-y-2">
-          <Label className="text-sm text-gray-700">What do you want to create?</Label>
+          <Label className="text-sm text-gray-700 dark:text-gray-300">What do you want to create?</Label>
           <Textarea
             value={settings.prompt}
             onChange={(e) => setSettings({ ...settings, prompt: e.target.value })}
             placeholder="Describe the image you want to create... e.g., 'A serene mountain landscape at sunset with a lake reflection'"
-            className="min-h-[100px] resize-none"
+            className="min-h-[100px] resize-none dark:bg-zinc-700 dark:border-zinc-600 dark:text-white dark:placeholder:text-gray-400"
           />
         </div>
 
@@ -135,7 +134,7 @@ export function SimplifiedAIImageGenerator() {
         <Button
           type="submit"
           disabled={isLoading}
-          className="w-full bg-gradient-to-r from-fuchsia-500 to-violet-500 text-white hover:from-fuchsia-600 hover:to-violet-600"
+          className="w-full bg-zinc-700 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-white transition-colors"
         >
           {isLoading ? (
             <>
@@ -153,7 +152,7 @@ export function SimplifiedAIImageGenerator() {
         {/* Generated Image Preview */}
         {generatedImage && (
           <div className="space-y-4">
-            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <div className="rounded-xl border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 p-4">
               <img
                 src={generatedImage}
                 alt="Generated"
@@ -172,7 +171,7 @@ export function SimplifiedAIImageGenerator() {
               />
               {!imageLoaded && (
                 <div className="flex items-center justify-center py-20">
-                  <Loader2 className="h-8 w-8 animate-spin text-fuchsia-500" />
+                  <Loader2 className="h-8 w-8 animate-spin text-zinc-500 dark:text-zinc-400" />
                 </div>
               )}
             </div>

@@ -85,7 +85,6 @@ Add your custom instructions here - modify this text to customize how the AI beh
 
       return aiResponse;
     } catch (error) {
-      console.error('Error generating Gemini response:', error);
       throw error;
     }
   }

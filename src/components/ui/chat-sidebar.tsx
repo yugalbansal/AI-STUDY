@@ -60,19 +60,19 @@ export default function ChatSidebar({
   const displayName = userName || userEmail?.split('@')[0] || 'User';
 
   return (
-    <nav className="h-full bg-white flex flex-col">
+    <nav className="h-full bg-white dark:bg-zinc-900 flex flex-col">
       <div className="flex flex-col h-full">
         {/* User Profile Header */}
-        <div className="h-20 flex items-center px-4 border-b border-gray-200 flex-shrink-0">
+        <div className="h-20 flex items-center px-4 border-b border-gray-200 dark:border-zinc-700 flex-shrink-0">
           <div className="w-full flex items-center gap-x-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
               {displayName.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <span className="block text-gray-700 text-sm font-semibold truncate">
+              <span className="block text-gray-700 dark:text-gray-300 text-sm font-semibold truncate">
                 {displayName}
               </span>
-              <span className="block mt-px text-gray-600 text-xs truncate">
+              <span className="block mt-px text-gray-600 dark:text-gray-400 text-xs truncate">
                 {userEmail || 'user@example.com'}
               </span>
             </div>
@@ -80,7 +80,7 @@ export default function ChatSidebar({
             <div className="relative flex-shrink-0">
               <button
                 ref={profileRef}
-                className="p-1.5 rounded-md text-gray-500 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                className="p-1.5 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-zinc-800 active:bg-gray-100 dark:active:bg-zinc-700 transition-colors"
                 onClick={() => setIsProfileActive((v) => !v)}
                 aria-haspopup="menu"
                 aria-expanded={isProfileActive}
@@ -105,15 +105,15 @@ export default function ChatSidebar({
                 <div
                   id="profile-menu"
                   role="menu"
-                  className="absolute z-50 top-12 right-0 w-64 rounded-lg bg-white shadow-lg border text-sm text-gray-600"
+                  className="absolute z-50 top-12 right-0 w-64 rounded-lg bg-white dark:bg-zinc-800 shadow-lg border border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-300"
                 >
                   <div className="p-2 text-left">
-                    <span className="block text-gray-500/80 p-2 text-xs truncate">
+                    <span className="block text-gray-500 dark:text-gray-400 p-2 text-xs truncate">
                       {userEmail}
                     </span>
                     <button 
                       onClick={() => navigate('/dashboard')}
-                      className="block w-full p-2 text-left rounded-md hover:bg-gray-50 active:bg-gray-100 duration-150"
+                      className="block w-full p-2 text-left rounded-md hover:bg-gray-50 dark:hover:bg-zinc-700 active:bg-gray-100 dark:active:bg-zinc-600 duration-150"
                     >
                       Go to Dashboard
                     </button>
@@ -125,7 +125,7 @@ export default function ChatSidebar({
             {/* Close button for mobile */}
             <button
               onClick={onClose}
-              className="lg:hidden p-1.5 hover:bg-gray-100 rounded-lg touch-manipulation transition-colors flex-shrink-0"
+              className="lg:hidden p-1.5 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg touch-manipulation transition-colors flex-shrink-0 text-gray-700 dark:text-gray-300"
               aria-label="Close sidebar"
             >
               <X className="w-5 h-5" />
@@ -146,15 +146,15 @@ export default function ChatSidebar({
 
         {/* Chat List */}
         <div className="flex-1 overflow-y-auto px-2 min-h-0">
-          <div className="text-xs font-semibold text-gray-500 px-3 py-2 mt-2">
+          <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 px-3 py-2 mt-2">
             Recent Chats
           </div>
           
           {chats.length === 0 ? (
             <div className="text-center py-8 px-4">
-              <MessageSquare className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-              <p className="text-sm text-gray-500">No chats yet</p>
-              <p className="text-xs text-gray-400 mt-1">Create a new chat to get started</p>
+              <MessageSquare className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+              <p className="text-sm text-gray-500 dark:text-gray-400">No chats yet</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Create a new chat to get started</p>
             </div>
           ) : (
             <ul className="space-y-1 pb-4">
@@ -163,8 +163,8 @@ export default function ChatSidebar({
                   <div
                     className={`group relative rounded-lg transition-all ${
                       currentChat === chat.id
-                        ? 'bg-blue-50 border-l-2 border-blue-500'
-                        : 'hover:bg-gray-50'
+                        ? 'bg-blue-50 dark:bg-blue-900/30 border-l-2 border-blue-500 dark:border-blue-600'
+                        : 'hover:bg-gray-50 dark:hover:bg-zinc-800'
                     }`}
                   >
                     {editingChat === chat.id ? (
@@ -179,7 +179,7 @@ export default function ChatSidebar({
                               handleRename(chat.id);
                             }
                           }}
-                          className="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-2 py-1 text-sm border border-blue-300 dark:border-blue-700 dark:bg-zinc-700 dark:text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600"
                           autoFocus
                         />
                       </div>
@@ -189,11 +189,11 @@ export default function ChatSidebar({
                           onClick={() => onSelectChat(chat.id)}
                           className="flex-1 flex items-center min-w-0 text-left"
                         >
-                          <MessageSquare className="w-4 h-4 mr-3 flex-shrink-0 text-gray-400" />
+                          <MessageSquare className="w-4 h-4 mr-3 flex-shrink-0 text-gray-400 dark:text-gray-500" />
                           <span className={`text-sm truncate ${
                             currentChat === chat.id
-                              ? 'font-semibold text-gray-900'
-                              : 'text-gray-700'
+                              ? 'font-semibold text-gray-900 dark:text-white'
+                              : 'text-gray-700 dark:text-gray-300'
                           }`}>
                             {chat.title}
                           </span>
@@ -206,10 +206,10 @@ export default function ChatSidebar({
                               setEditingChat(chat.id);
                               setEditTitle(chat.title);
                             }}
-                            className="p-1.5 hover:bg-blue-100 rounded transition-colors"
+                            className="p-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded transition-colors"
                             title="Rename chat"
                           >
-                            <Edit2 className="w-3.5 h-3.5 text-blue-600" />
+                            <Edit2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                           </button>
                           <button
                             onClick={(e) => {
@@ -218,10 +218,10 @@ export default function ChatSidebar({
                                 onDeleteChat(chat.id);
                               }
                             }}
-                            className="p-1.5 hover:bg-red-100 rounded transition-colors"
+                            className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/50 rounded transition-colors"
                             title="Delete chat"
                           >
-                            <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                            <Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
                           </button>
                         </div>
                       </div>
@@ -234,9 +234,9 @@ export default function ChatSidebar({
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 p-4 flex-shrink-0">
-          <div className="text-xs text-gray-500 text-center">
-            AI Study Platform
+        <div className="border-t border-gray-200 dark:border-zinc-700 p-4 flex-shrink-0">
+          <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
+            Vector Mind AI
           </div>
         </div>
       </div>

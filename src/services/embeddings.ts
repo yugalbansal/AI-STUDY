@@ -33,7 +33,6 @@ export class EmbeddingService {
       // Skip short text
       const cleanText = this.prepareTextForEmbedding(text);
       if (cleanText.length < 15) {
-        console.warn('Text too short for embedding, skipping');
         return this.generateFallbackEmbedding(cleanText);
       }
 
@@ -65,8 +64,6 @@ export class EmbeddingService {
 
       return embedding;
     } catch (error: any) {
-      console.error('Error generating embedding:', error);
-      console.warn('Using fallback embedding due to error');
       return this.generateFallbackEmbedding(text);
     }
   }
@@ -92,7 +89,6 @@ export class EmbeddingService {
       await Promise.all(workers);
       return results;
     } catch (error: any) {
-      console.error('Error generating batch embeddings:', error);
       return texts.map(text => this.generateFallbackEmbedding(text));
     }
   }

@@ -1,5 +1,5 @@
-# Study AI - Robots.txt
-# Updated: 2026-01-07
+# Vector Mind AI - Robots.txt
+# Updated: 2026-01-11
 # Purpose: Guide search engine crawlers and protect user-specific content
 
 User-agent: *
@@ -17,7 +17,7 @@ Disallow: /images
 Disallow: /livecall
 
 # Sitemap location
-Sitemap: https://yugal.site/sitemap.xml
+Sitemap: https://vectormind.site/sitemap.xml
 
 # Crawl-delay for aggressive bots (reduces server load)
 User-agent: SemrushBot

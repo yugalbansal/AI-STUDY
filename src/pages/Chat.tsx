@@ -630,7 +630,6 @@ export default function Chat() {
         setCurrentChat(data[0].id);
       }
     } catch (error) {
-      console.error('Error fetching chats:', error);
       setError('Failed to load chats');
     } finally {
       setInitialLoading(false);
@@ -651,7 +650,6 @@ export default function Chat() {
       
       setChatHistory(data || []);
     } catch (error) {
-      console.error('Error fetching chat history:', error);
       setError('Failed to load chat history');
     } finally {
       setInitialLoading(false);
@@ -687,7 +685,6 @@ export default function Chat() {
       setCurrentChat(data.id);
       setChatHistory([]);
     } catch (error) {
-      console.error('Error creating chat:', error);
       setError('Failed to create new chat');
     }
   }
@@ -707,7 +704,6 @@ export default function Chat() {
         chat.id === chatId ? { ...chat, title: newTitle.trim() } : chat
       ));
     } catch (error) {
-      console.error('Error renaming chat:', error);
       setError('Failed to rename chat');
     }
   }
@@ -727,7 +723,6 @@ export default function Chat() {
         }
       }
     } catch (error) {
-      console.error('Error deleting chat:', error);
       setError('Failed to delete chat');
     }
   }
@@ -784,7 +779,7 @@ export default function Chat() {
           userId,
           input,
           'user'
-        ).catch(error => console.error('Error storing user message embedding:', error));
+        ).catch(() => {});
         
         vectorSearchService.storeChatEmbedding(
           currentChat,
@@ -792,10 +787,9 @@ export default function Chat() {
           userId,
           response,
           'assistant'
-        ).catch(error => console.error('Error storing assistant response embedding:', error));
+        ).catch(() => {});
       }
     } catch (error: any) {
-      console.error('Error processing message:', error);
       setError(`Failed to get response: ${error.message || 'Unknown error'}`);
       setChatHistory(prev => prev.filter(item => item.id !== tempId));
     } finally {
@@ -811,7 +805,7 @@ export default function Chat() {
 
   if (initialLoading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 dark:bg-zinc-900">
         <div
           className={`
             fixed top-0 right-0 z-40
@@ -828,7 +822,7 @@ export default function Chat() {
             ${isSidebarOpen ? 'ml-80' : 'ml-0 lg:ml-16'}
           `}
         >
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400"></div>
         </div>
       </div>
     );
@@ -843,15 +837,15 @@ export default function Chat() {
   return (
     <>
       <Helmet>
-        <title>AI Chat - Study AI</title>
+        <title>AI Chat - Vector Mind AI</title>
         <meta name="robots" content="noindex, nofollow" />
       </Helmet>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 dark:bg-zinc-900">
       {/* Sidebar - Fixed on left side, full height */}
       <div 
         className={`
           fixed inset-y-0 left-0 top-0
-          bg-white border-r border-gray-200 
+          bg-white dark:bg-zinc-900 border-r border-gray-200 dark:border-zinc-700
           transition-all duration-300 ease-in-out
           ${isSidebarOpen ? 'w-80' : 'w-0 lg:w-16'}
           ${!isSidebarOpen && 'lg:border-r-0'}
@@ -889,7 +883,7 @@ export default function Chat() {
               <div className="hidden lg:flex flex-col items-center py-4 space-y-4 h-full">
                 <button
                   onClick={createNewChat}
-                  className="p-3 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-3 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors text-gray-700 dark:text-gray-300"
                   title="New Chat"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -903,8 +897,8 @@ export default function Chat() {
                       onClick={() => setCurrentChat(chat.id)}
                       className={`w-full p-2 rounded-lg transition-colors ${
                         currentChat === chat.id
-                          ? 'bg-blue-100 text-blue-600'
-                          : 'hover:bg-gray-100'
+                          ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400'
+                          : 'hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-700 dark:text-gray-300'
                       }`}
                       title={chat.title}
                     >
@@ -921,9 +915,9 @@ export default function Chat() {
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             className={`
               hidden lg:flex absolute -right-3 top-1/2 -translate-y-1/2
-              w-6 h-12 bg-white border border-gray-200 rounded-r-lg
-              items-center justify-center hover:bg-gray-50 transition-colors
-              shadow-sm z-50
+              w-6 h-12 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-r-lg
+              items-center justify-center hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors
+              shadow-sm z-50 text-gray-700 dark:text-gray-300
             `}
           >
             {isSidebarOpen ? (
@@ -965,29 +959,29 @@ export default function Chat() {
             ${isSidebarOpen ? 'left-80' : 'left-0 lg:left-16'}
           `}
         >
-          <div className="h-full flex flex-col bg-gray-50">
+          <div className="h-full flex flex-col bg-gray-50 dark:bg-zinc-900">
             {/* Chat Header */}
-            <div className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between shadow-sm mt-4">
+            <div className="bg-white dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700 px-4 py-4 flex items-center justify-between shadow-sm mt-4">
               <div className="flex items-center gap-3">
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="lg:hidden p-2 hover:bg-gray-100 dark:hover:bg-zinc-700 rounded-lg transition-colors text-gray-700 dark:text-gray-300"
               >
                 <Menu className="w-5 h-5" />
               </button>
               <div className="flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-gray-500" />
-                <h1 className="font-semibold text-gray-900 truncate max-w-[200px] sm:max-w-none">
+                <MessageSquare className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                <h1 className="font-semibold text-gray-900 dark:text-white truncate max-w-[200px] sm:max-w-none">
                   {currentChat 
                     ? chats.find(c => c.id === currentChat)?.title || 'Chat' 
-                    : 'AI Study Chat'
+                    : 'Vector Mind AI Chat'
                   }
                 </h1>
               </div>
             </div>
             <div className="flex items-center gap-2">
               {chatHistory.length > 0 && (
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
                   {chatHistory.length} {chatHistory.length === 1 ? 'message' : 'messages'}
                 </span>
               )}
@@ -995,18 +989,18 @@ export default function Chat() {
           </div>
 
           {/* Chat Messages Area */}
-          <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
+          <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-zinc-900">
             {currentChat ? (
               chatHistory.length === 0 ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center max-w-md">
-                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <MessageSquare className="w-8 h-8 text-blue-600" />
+                    <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <MessageSquare className="w-8 h-8 text-blue-600 dark:text-blue-400" />
                     </div>
-                    <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
                       Start a New Conversation
                     </h2>
-                    <p className="text-gray-600">
+                    <p className="text-gray-600 dark:text-gray-400">
                       Ask questions about your documents or any topic you'd like to learn about.
                     </p>
                   </div>
@@ -1025,13 +1019,13 @@ export default function Chat() {
             ) : (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center max-w-md">
-                  <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full flex items-center justify-center mx-auto mb-4">
                     <MessageSquare className="w-8 h-8 text-white" />
                   </div>
-                  <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                    Welcome to AI Study Chat
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                    Welcome to Vector Mind AI Chat
                   </h2>
-                  <p className="text-gray-600 mb-4">
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
                     Select a chat from the sidebar or create a new one to get started.
                   </p>
                   <button
@@ -1045,7 +1039,7 @@ export default function Chat() {
             )}
             {error && (
               <div className="max-w-4xl mx-auto mt-4">
-                <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg">
                   {error}
                 </div>
               </div>
@@ -1055,7 +1049,7 @@ export default function Chat() {
 
           {/* Input Area */}
           {currentChat && (
-            <div className="border-t border-gray-200 bg-white p-4">
+            <div className="border-t border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-4">
               <div className="max-w-4xl mx-auto">
                 <PureMultimodalInput
                   chatId={currentChat}

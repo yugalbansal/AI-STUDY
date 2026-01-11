@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { useSignIn, useSignUp } from '@clerk/clerk-react';
+import { useSignIn, useSignUp, useAuth } from '@clerk/clerk-react';
 import { SignInPage, Testimonial } from '../components/ui/sign-in';
 import { toast } from 'sonner';
 
@@ -10,7 +10,7 @@ const testimonials: Testimonial[] = [
     avatarSrc: "https://randomuser.me/api/portraits/women/57.jpg",
     name: "Sarah Chen",
     handle: "@sarahstudies",
-    text: "AI Study Platform transformed my learning! The AI tutor explains complex topics so clearly."
+    text: "Vector Mind AI transformed my learning! The AI tutor explains complex topics so clearly."
   },
   {
     avatarSrc: "https://randomuser.me/api/portraits/men/64.jpg",
@@ -31,7 +31,15 @@ export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
   const { signIn, isLoaded: signInLoaded, setActive } = useSignIn();
   const { signUp, isLoaded: signUpLoaded, setActive: setActiveSignUp } = useSignUp();
+  const { isSignedIn, isLoaded: authLoaded } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect if already signed in
+  useEffect(() => {
+    if (authLoaded && isSignedIn) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [authLoaded, isSignedIn, navigate]);
 
   // Handle email verification callback
   useEffect(() => {
@@ -80,7 +88,6 @@ export default function Login() {
         toast.error('Incorrect password. Please try again.');
       }
     } catch (err: any) {
-      console.error('Sign in error:', err);
       const clerkError = err?.errors?.[0];
       const code = clerkError?.code as string | undefined;
       const errorMessage = clerkError?.message || err?.message || 'Login failed.';
@@ -141,7 +148,6 @@ export default function Login() {
           });
           toast.success('Account created! Check your email for the verification link.');
         } catch (emailErr: any) {
-          console.error('Failed to send verification email:', emailErr);
           const errorMessage = emailErr?.errors?.[0]?.message || emailErr?.message || 'Failed to send verification email.';
           toast.error(errorMessage);
         }
@@ -158,7 +164,6 @@ export default function Login() {
         }, 2000);
       }
     } catch (err: any) {
-      console.error('Sign up error:', err);
       const clerkError = err?.errors?.[0];
 
       // If the email already exists (often because it was created via Google OAuth),
@@ -189,14 +194,13 @@ export default function Login() {
         redirectUrlComplete: '/dashboard',
       });
     } catch (err: any) {
-      console.error('Google sign-in error:', err);
       toast.error(err.errors?.[0]?.message || 'Google sign-in failed. Please try again.');
       setIsLoading(false);
     }
   };
 
   const handleResetPassword = () => {
-    toast.info('Password reset feature coming soon! Please contact support if needed.');
+    navigate('/reset-password');
   };
 
   const handleCreateAccount = () => {
@@ -209,29 +213,32 @@ export default function Login() {
 
   if (isSignUp) {
     return (
-      <SignInPage
-        title={<span className="font-light text-gray-900 tracking-tighter">Create Account</span>}
-        description="Join thousands of students learning smarter with AI"
-        heroImageSrc="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=2160&q=80"
-        testimonials={testimonials}
-        onSignIn={handleSignUp}
-        onGoogleSignIn={handleGoogleSignIn}
-        onResetPassword={handleBackToSignIn}
-        onCreateAccount={handleBackToSignIn}
-        isLoading={isLoading}
-        isSignUpMode={true}
-      />
+      <>
+        <SignInPage
+          title={<span className="font-light text-gray-900 dark:text-white tracking-tighter">Create Account</span>}
+          description="Join thousands of students learning smarter with AI"
+          heroImageSrc="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=2160&q=80"
+          testimonials={testimonials}
+          onSignIn={handleSignUp}
+          onGoogleSignIn={handleGoogleSignIn}
+          onResetPassword={handleBackToSignIn}
+          onCreateAccount={handleBackToSignIn}
+          isLoading={isLoading}
+          isSignUpMode={true}
+          showNavbar={true}
+        />
+      </>
     );
   }
 
   return (
     <>
       <Helmet>
-        <title>Login - Study AI</title>
+        <title>Login - Vector Mind AI</title>
         <meta name="robots" content="noindex, nofollow" />
       </Helmet>
       <SignInPage
-        title={<span className="font-light text-gray-900 tracking-tighter">Welcome Back</span>}
+        title={<span className="font-light text-gray-900 dark:text-white tracking-tighter">Welcome Back</span>}
         description="Sign in to continue your learning journey with AI"
         heroImageSrc="https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=2160&q=80"
         testimonials={testimonials}
@@ -241,6 +248,7 @@ export default function Login() {
         onCreateAccount={handleCreateAccount}
         isLoading={isLoading}
         isSignUpMode={false}
+        showNavbar={true}
       />
     </>
   );

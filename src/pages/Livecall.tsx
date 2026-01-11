@@ -468,10 +468,10 @@ const Livecall = () => {
   return (
     <>
       <Helmet>
-        <title>Voice Call - Study AI</title>
+        <title>Voice Call - Vector Mind AI</title>
         <meta name="robots" content="noindex, nofollow" />
       </Helmet>
-      <div className="relative min-h-screen">
+      <div className="relative min-h-screen bg-white dark:bg-zinc-900">
       <Navbar isFixed />
       
       {/* AI Siri Chat Component */}
@@ -487,7 +487,7 @@ const Livecall = () => {
 
       {/* Floating Control Panel */}
       <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50">
-        <div className="bg-white/90 backdrop-blur-lg rounded-full shadow-2xl border border-gray-200 p-4 flex items-center gap-4">
+        <div className="bg-white/90 dark:bg-zinc-800/90 backdrop-blur-lg rounded-full shadow-2xl border border-gray-200 dark:border-zinc-700 p-4 flex items-center gap-4">
           {/* Main Call Button */}
           <Button
             onClick={handleStartStop}
@@ -523,7 +523,7 @@ const Livecall = () => {
         
         {/* State Indicator (for debugging) */}
         <div className="text-center mt-2">
-          <span className="text-xs text-gray-500 bg-white/80 px-3 py-1 rounded-full">
+          <span className="text-xs text-gray-500 dark:text-gray-400 bg-white/80 dark:bg-zinc-800/80 px-3 py-1 rounded-full">
             State: {currentState}
           </span>
         </div>
@@ -532,8 +532,8 @@ const Livecall = () => {
       {/* Error Message for Unsupported Browser */}
       {!canStart && (
         <div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-50 max-w-md">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 shadow-lg">
-            <p className="text-sm text-yellow-800">
+          <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-900 rounded-lg p-4 shadow-lg">
+            <p className="text-sm text-yellow-800 dark:text-yellow-300">
               ⚠️ Please configure VITE_GROQ_API_KEY and VITE_GEMINI_API_KEY in environment variables
             </p>
           </div>

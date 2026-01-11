@@ -5,8 +5,8 @@
         http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
   
   <!-- 
-    Study AI Sitemap
-    Updated: 2026-01-07
+    Vector Mind AI Sitemap
+    Updated: 2026-01-11
     
     This sitemap only includes publicly indexable pages.
     Authenticated routes are excluded and protected with noindex meta tags.
@@ -14,15 +14,30 @@
   
   <!-- Landing Page (Primary entry point) -->
   <url>
-    <loc>https://yugal.site/</loc>
-    <lastmod>2026-01-07</lastmod>
+    <loc>https://vectormind.site/</loc>
+    <lastmod>2026-01-11</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   
+  <!-- Legal Pages -->
+  <url>
+    <loc>https://vectormind.site/privacy</loc>
+    <lastmod>2026-01-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://vectormind.site/terms</loc>
+    <lastmod>2026-01-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
   <!-- 
     Future public pages to add:
-    - /about (About Study AI & Yugal)
+    - /about (About Vector Mind AI)
     - /features (Detailed feature breakdown)
     - /use-cases (Student success stories)
     - /blog/* (SEO-focused educational content)

@@ -143,7 +143,7 @@ export function AISiriChat({
   };
 
   return (
-    <div className={cn("flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 relative overflow-hidden", className)}>
+    <div className={cn("flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950 relative overflow-hidden", className)}>
       {/* Ambient particles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {particles.map(particle => (
@@ -183,7 +183,17 @@ export function AISiriChat({
         />
       </div>
 
-      <div className="relative z-10 flex flex-col items-center space-y-8 px-4">
+      <div className="relative z-10 flex flex-col items-center space-y-8 px-4 pb-40">
+        {/* AI Voice Assistant Title */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center space-x-2 text-gray-700 dark:text-gray-300 pt-8"
+        >
+          <Sparkles className="w-5 h-5" />
+          <h1 className="text-2xl font-semibold">AI Voice Assistant</h1>
+        </motion.div>
+
         {/* Main voice button */}
         <motion.div
           className="relative"
@@ -291,7 +301,7 @@ export function AISiriChat({
                 isListening ? "bg-blue-500" :
                 isProcessing ? "bg-yellow-500" :
                 isSpeaking ? "bg-green-500" :
-                "bg-gray-300"
+                "bg-gray-300 dark:bg-gray-600"
               )}
               animate={{
                 height: `${Math.max(4, height * 0.6)}px`,
@@ -308,7 +318,7 @@ export function AISiriChat({
         {/* Status and timer */}
         <div className="text-center space-y-2">
           <motion.p
-            className={cn("text-lg font-medium transition-colors", getStatusColor())}
+            className={cn("text-xl font-semibold transition-colors dark:text-white", getStatusColor())}
             animate={{ opacity: [1, 0.7, 1] }}
             transition={{
               duration: 2,
@@ -319,7 +329,7 @@ export function AISiriChat({
           </motion.p>
           
           {duration > 0 && (
-            <p className="text-sm text-gray-500 font-mono">
+            <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">
               {formatTime(duration)}
             </p>
           )}
@@ -350,9 +360,9 @@ export function AISiriChat({
             animate={{ opacity: 1, y: 0 }}
             className="max-w-md w-full"
           >
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-gray-200">
-              <p className="text-xs font-semibold text-gray-500 mb-2">You said:</p>
-              <p className="text-sm text-gray-800">{transcript}</p>
+            <div className="bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-gray-200 dark:border-zinc-700">
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">You said:</p>
+              <p className="text-sm text-gray-800 dark:text-white">{transcript}</p>
             </div>
           </motion.div>
         )}
@@ -364,26 +374,13 @@ export function AISiriChat({
             animate={{ opacity: 1, y: 0 }}
             className="max-w-md w-full"
           >
-            <div className="bg-gradient-to-br from-fuchsia-500/10 to-purple-500/10 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-fuchsia-200">
-              <p className="text-xs font-semibold text-fuchsia-600 mb-2">AI Response:</p>
-              <p className="text-sm text-gray-800">{aiResponse}</p>
+            <div className="bg-gradient-to-br from-fuchsia-500/10 to-purple-500/10 dark:from-fuchsia-500/20 dark:to-purple-500/20 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-fuchsia-200 dark:border-fuchsia-700">
+              <p className="text-xs font-semibold text-fuchsia-600 dark:text-fuchsia-400 mb-2">AI Response:</p>
+              <p className="text-sm text-gray-800 dark:text-white">{aiResponse}</p>
             </div>
           </motion.div>
         )}
 
-        {/* AI indicator */}
-        <motion.div
-          className="flex items-center space-x-2 text-sm text-gray-500"
-          animate={{ opacity: [0.5, 1, 0.5] }}
-          transition={{
-            duration: 3,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        >
-          <Sparkles className="w-4 h-4" />
-          <span>AI Voice Assistant</span>
-        </motion.div>
       </div>
     </div>
   );

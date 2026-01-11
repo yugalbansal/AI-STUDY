@@ -146,10 +146,8 @@ export class VectorSearchService {
         });
 
       if (error) {
-        console.error('Error storing chat embedding:', error);
       }
     } catch (error) {
-      console.error('Error in storeChatEmbedding:', error);
     }
   }
 
@@ -184,7 +182,6 @@ export class VectorSearchService {
           .eq('user_id', userId);
 
         if (docUpdateError) {
-          console.error('Error storing document index embedding:', docUpdateError);
         }
       }
 
@@ -213,10 +210,8 @@ export class VectorSearchService {
         .insert(rows);
 
       if (error) {
-        console.error('Error storing document embeddings:', error);
       }
     } catch (error) {
-      console.error('Error in storeDocumentEmbeddings:', error);
     }
   }
 
@@ -244,13 +239,11 @@ export class VectorSearchService {
       });
 
       if (error) {
-        console.error('Error searching similar chat messages:', error);
         return [];
       }
 
       return data || [];
     } catch (error) {
-      console.error('Error in findSimilarChatMessages:', error);
       return [];
     }
   }
@@ -268,8 +261,6 @@ export class VectorSearchService {
       // Generate embedding for the query
       const queryEmbedding = await embeddingService.generateEmbedding(query);
       
-      console.log(`   🔎 findSimilarDocuments: user=${userId}, limit=${limit}, threshold=0.3`);
-      
       // Use the database function to search for similar documents
       const { data, error } = await supabase.rpc('search_similar_documents', {
         query_embedding: JSON.stringify(queryEmbedding),
@@ -279,15 +270,11 @@ export class VectorSearchService {
       });
 
       if (error) {
-        console.error('Error searching similar documents:', error);
         return [];
       }
 
-      console.log(`   🔎 findSimilarDocuments returned ${data?.length || 0} results`);
-
       return data || [];
     } catch (error) {
-      console.error('Error in findSimilarDocuments:', error);
       return [];
     }
   }
@@ -315,15 +302,10 @@ export class VectorSearchService {
     const docSimilarityThreshold = options?.docSimilarityThreshold ?? 0.25;
     const chunkSimilarityThreshold = options?.chunkSimilarityThreshold ?? 0.25;
 
-    console.log(`🔍 Searching documents for user: ${userId}, query: "${query.substring(0, 50)}..."`);
-    console.log(`   Thresholds - doc: ${docSimilarityThreshold}, chunk: ${chunkSimilarityThreshold}`);
-
     try {
       const supabase = this.requireSupabase();
       const queryEmbedding = await embeddingService.generateEmbedding(query);
       const queryText = this.sanitizeQueryForHybrid(query);
-
-      console.log(`   Query embedding generated: ${queryEmbedding.length} dimensions`);
 
       // Prefer hybrid routing if available (dense + keyword)
       const { data: docMatchesHybrid, error: docHybridError } = await supabase.rpc(
@@ -336,8 +318,6 @@ export class VectorSearchService {
           similarity_threshold: docSimilarityThreshold
         }
       );
-
-      console.log(`   Hybrid search result:`, { found: docMatchesHybrid?.length || 0, error: docHybridError });
 
       let docs: Array<{ document_id: string; title: string; url: string | null }> = [];
 
@@ -378,9 +358,7 @@ export class VectorSearchService {
       }
 
       if (docs.length === 0) {
-        console.log('   ⚠️ No documents matched at doc-level, trying direct chunk search...');
         const fallbackResults = await this.findSimilarDocuments(query, userId, chunkLimit);
-        console.log(`   📦 Direct chunk search found ${fallbackResults.length} chunks`);
         return fallbackResults;
       }
 
@@ -405,12 +383,6 @@ export class VectorSearchService {
       if (!chunkHybridError) {
         chunks = (chunkMatchesHybrid || []) as SimilarDocument[];
       } else {
-        console.warn('Hybrid chunk search failed (falling back):', {
-          message: chunkHybridError.message,
-          details: (chunkHybridError as any).details,
-          hint: (chunkHybridError as any).hint,
-          code: (chunkHybridError as any).code
-        });
         const { data: chunkMatches, error: chunkError } = await supabase.rpc(
           'search_similar_document_chunks_filtered',
           {
@@ -423,10 +395,7 @@ export class VectorSearchService {
         );
 
         if (chunkError) {
-          console.warn('Chunk search with doc filter unavailable, falling back:', chunkError);
-          console.log('   📦 Falling back to direct chunk search...');
           const fallbackResults = await this.findSimilarDocuments(query, userId, chunkLimit);
-          console.log(`   📦 Fallback found ${fallbackResults.length} chunks`);
           return fallbackResults;
         }
 
@@ -454,7 +423,6 @@ export class VectorSearchService {
         };
       });
     } catch (error) {
-      console.error('Error in findSimilarDocumentsLayered:', error);
       return await this.findSimilarDocuments(query, userId, chunkLimit);
     }
   }
@@ -477,13 +445,11 @@ export class VectorSearchService {
         .limit(limit);
 
       if (error) {
-        console.error('Error fetching recent chat history:', error);
         return [];
       }
 
       return (data || []).reverse(); // Return in chronological order
     } catch (error) {
-      console.error('Error in getRecentChatHistory:', error);
       return [];
     }
   }
@@ -515,7 +481,6 @@ export class VectorSearchService {
         relevant_documents: relevantDocuments
       };
     } catch (error) {
-      console.error('Error in buildChatContext:', error);
       return {
         recent_messages: [],
         similar_conversations: [],
@@ -555,16 +520,12 @@ export class VectorSearchService {
       const truncate = (text: string, maxChars: number) =>
         text.length <= maxChars ? text : text.slice(0, maxChars) + '…';
 
-      console.log(`📚 Found ${context.relevant_documents.length} relevant documents:`, context.relevant_documents);
-
       context.relevant_documents.forEach((doc: any, index) => {
         const title = doc.document_title ? ` | ${doc.document_title}` : '';
         const link = doc.document_url ? ` | ${doc.document_url}` : '';
         formattedContext += `${index + 1}. (${(doc.similarity * 100).toFixed(1)}% relevant)${title}${link}: ${truncate(doc.content_chunk, 650)}\n`;
       });
       formattedContext += '\n';
-    } else {
-      console.log('⚠️ No relevant documents found in context');
     }
 
     return formattedContext;
@@ -586,12 +547,8 @@ export class VectorSearchService {
         .lt('created_at', cutoffDate.toISOString());
 
       if (chatError) {
-        console.error('Error cleaning up chat embeddings:', chatError);
       }
-
-      console.log(`Cleaned up chat embeddings older than ${daysOld} days`);
     } catch (error) {
-      console.error('Error in cleanupOldEmbeddings:', error);
     }
   }
 
@@ -606,10 +563,8 @@ export class VectorSearchService {
         .eq('chat_id', chatId);
 
       if (error) {
-        console.error('Error deleting chat embeddings:', error);
       }
     } catch (error) {
-      console.error('Error in deleteChatEmbeddings:', error);
     }
   }
 
@@ -624,10 +579,8 @@ export class VectorSearchService {
         .eq('document_id', documentId);
 
       if (error) {
-        console.error('Error deleting document embeddings:', error);
       }
     } catch (error) {
-      console.error('Error in deleteDocumentEmbeddings:', error);
     }
   }
 }

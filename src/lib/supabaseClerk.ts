@@ -22,11 +22,7 @@ export async function createClerkSupabaseClient(session: SessionResource | null)
   if (session) {
     try {
       token = await session.getToken({ template: jwtTemplate });
-      if (import.meta.env.DEV) {
-        console.log('[supabaseClerk] Got Clerk JWT for Supabase');
-      }
     } catch (err) {
-      console.error(`[supabaseClerk] Failed to get Clerk JWT with template "${jwtTemplate}":`, err);
     }
   }
 
@@ -79,13 +75,11 @@ export async function syncClerkUserToSupabase(
     });
 
     if (error) {
-      console.error('Error syncing user to Supabase:', error);
       return { success: false, error: error.message };
     }
 
     return { success: true };
   } catch (error) {
-    console.error('Exception syncing user:', error);
     return { success: false, error: String(error) };
   }
 }
@@ -109,13 +103,11 @@ export async function isUserSynced(
       .maybeSingle();
 
     if (error) {
-      console.error('Error checking user sync status:', error);
       return false;
     }
 
     return !!data;
   } catch (error) {
-    console.error('Exception checking user sync:', error);
     return false;
   }
 }

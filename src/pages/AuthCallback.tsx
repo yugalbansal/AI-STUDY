@@ -83,7 +83,7 @@ const AuthCallback = () => {
   return (
     <>
       <Helmet>
-        <title>Authenticating... - Study AI</title>
+        <title>Authenticating... - Vector Mind AI</title>
         <meta name="robots" content="noindex, nofollow" />
       </Helmet>
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50">

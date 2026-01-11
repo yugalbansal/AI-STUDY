@@ -20,6 +20,8 @@
     -moz-osx-font-smoothing: grayscale;
     /* Prevent horizontal scrolling */
     overflow-x: hidden;
+    /* Dark mode background */
+    @apply bg-white dark:bg-zinc-900;
   }
   
   /* Better tap targets for mobile */

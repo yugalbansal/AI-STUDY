@@ -9,6 +9,11 @@
   import Livecall from './pages/Livecall';
   import Landing from './pages/landing';
   import SSOCallback from './pages/SSOCallback';
+  import Profile from './pages/Profile';
+  import Settings from './pages/Settings';
+  import ResetPassword from './pages/ResetPassword';
+  import PrivacyPolicy from './pages/PrivacyPolicy';
+  import TermsOfService from './pages/TermsOfService';
   import { ClerkAuthProvider } from './contexts/ClerkAuthContext';
   import { Toaster } from 'sonner';
  
@@ -51,6 +56,9 @@
                 {/* Public routes - no authentication required */}
                 <Route path="/" element={<Landing />} />
                 <Route path="/login" element={<Login />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/privacy" element={<PrivacyPolicy />} />
+                <Route path="/terms" element={<TermsOfService />} />
                 <Route path="/sso-callback" element={<SSOCallback />} />
                   
                 {/* Protected routes - require authentication */}
@@ -91,6 +99,22 @@
                   element={
                     <ProtectedRoute>
                       <Livecall />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/profile" 
+                  element={
+                    <ProtectedRoute>
+                      <Profile />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/settings" 
+                  element={
+                    <ProtectedRoute>
+                      <Settings />
                     </ProtectedRoute>
                   } 
                 />

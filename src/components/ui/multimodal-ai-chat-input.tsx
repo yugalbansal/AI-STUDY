@@ -107,7 +107,7 @@ const Textarea = React.forwardRef<
     <textarea
       className={cn(
         // Adjusted text color, placeholder color, and border/ring colors to grayscale
-        'flex min-h-[80px] w-full rounded-md border border-gray-400 bg-white px-3 py-2 text-base ring-offset-white placeholder:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm text-black', // Added text-black
+        'flex min-h-[80px] w-full rounded-md border border-gray-400 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-base ring-offset-white dark:ring-offset-zinc-900 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-600 dark:focus-visible:ring-zinc-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm text-black dark:text-white', // Added dark mode classes
         className,
       )}
       ref={ref}
@@ -225,10 +225,10 @@ function PureSuggestedActions({
             variant="ghost"
             onClick={() => onSelectAction(suggestedAction.action)}
             className="text-left border rounded-xl px-4 py-3.5 text-sm flex-1 gap-1 sm:flex-col w-full h-auto justify-start items-start
-                       border-gray-300 bg-white hover:bg-gray-100 text-black hover:text-gray-900"
+                       border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-600 text-black dark:text-white hover:text-gray-900 dark:hover:text-gray-200"
           >
             <span className="font-medium">{suggestedAction.title}</span>
-            <span className="text-gray-500">
+            <span className="text-gray-500 dark:text-gray-400">
               {suggestedAction.label}
             </span>
           </Button>
@@ -261,7 +261,7 @@ const PreviewAttachment = ({
 
   return (
     <div data-testid="input-attachment-preview" className="flex flex-col gap-1">
-      <div className="w-20 h-16 aspect-video bg-gray-200 rounded-md relative flex flex-col items-center justify-center overflow-hidden border border-gray-300">
+      <div className="w-20 h-16 aspect-video bg-gray-200 dark:bg-zinc-700 rounded-md relative flex flex-col items-center justify-center overflow-hidden border border-gray-300 dark:border-zinc-600">
         {contentType?.startsWith('image/') && url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -302,7 +302,7 @@ function PureAttachmentsButton({
   return (
     <Button
       data-testid="attachments-button"
-      className="rounded-md rounded-bl-lg p-[7px] h-fit border border-gray-300 hover:bg-gray-200"
+      className="rounded-md rounded-bl-lg p-[7px] h-fit border border-gray-300 dark:border-zinc-600 hover:bg-gray-200 dark:hover:bg-zinc-600 dark:bg-zinc-700 dark:text-white"
       onClick={(event) => {
         event.preventDefault();
         fileInputRef.current?.click();
@@ -361,8 +361,8 @@ function PureSendButton({
   return (
     <Button
       data-testid="send-button"
-      // Uses default variant (bg-black text-white)
-      className="rounded-full p-1.5 h-fit"
+      // Grey/zinc color scheme instead of black
+      className="rounded-full p-1.5 h-fit bg-zinc-800 hover:bg-zinc-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-white"
       onClick={(event) => {
         event.preventDefault();
         if (!isDisabled) {
@@ -646,10 +646,9 @@ function PureMultimodalInput({
         onChange={handleInput}
         className={cn(
           'min-h-[24px] max-h-[calc(75dvh)] overflow-y-auto resize-none rounded-2xl !text-base pb-10',
-          'bg-gray-100 border border-gray-300', 
+          'bg-gray-100 dark:bg-zinc-700 border border-gray-300 dark:border-zinc-600 text-black dark:!text-white placeholder:text-gray-500 dark:placeholder:!text-gray-300', 
           className,
         )}
-        style={{color: 'black'}}
         rows={1}
         autoFocus
         disabled={!canSend || isGenerating || uploadQueue.length > 0}
