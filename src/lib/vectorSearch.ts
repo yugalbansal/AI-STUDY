@@ -268,11 +268,13 @@ export class VectorSearchService {
       // Generate embedding for the query
       const queryEmbedding = await embeddingService.generateEmbedding(query);
       
+      console.log(`   🔎 findSimilarDocuments: user=${userId}, limit=${limit}, threshold=0.3`);
+      
       // Use the database function to search for similar documents
       const { data, error } = await supabase.rpc('search_similar_documents', {
         query_embedding: JSON.stringify(queryEmbedding),
         user_id_param: userId,
-        similarity_threshold: 0.3,
+        similarity_threshold: 0.15,  // Lower threshold to match other searches
         match_count: limit
       });
 
@@ -280,6 +282,8 @@ export class VectorSearchService {
         console.error('Error searching similar documents:', error);
         return [];
       }
+
+      console.log(`   🔎 findSimilarDocuments returned ${data?.length || 0} results`);
 
       return data || [];
     } catch (error) {
@@ -311,10 +315,15 @@ export class VectorSearchService {
     const docSimilarityThreshold = options?.docSimilarityThreshold ?? 0.25;
     const chunkSimilarityThreshold = options?.chunkSimilarityThreshold ?? 0.25;
 
+    console.log(`🔍 Searching documents for user: ${userId}, query: "${query.substring(0, 50)}..."`);
+    console.log(`   Thresholds - doc: ${docSimilarityThreshold}, chunk: ${chunkSimilarityThreshold}`);
+
     try {
       const supabase = this.requireSupabase();
       const queryEmbedding = await embeddingService.generateEmbedding(query);
       const queryText = this.sanitizeQueryForHybrid(query);
+
+      console.log(`   Query embedding generated: ${queryEmbedding.length} dimensions`);
 
       // Prefer hybrid routing if available (dense + keyword)
       const { data: docMatchesHybrid, error: docHybridError } = await supabase.rpc(
@@ -327,6 +336,8 @@ export class VectorSearchService {
           similarity_threshold: docSimilarityThreshold
         }
       );
+
+      console.log(`   Hybrid search result:`, { found: docMatchesHybrid?.length || 0, error: docHybridError });
 
       let docs: Array<{ document_id: string; title: string; url: string | null }> = [];
 
@@ -367,7 +378,10 @@ export class VectorSearchService {
       }
 
       if (docs.length === 0) {
-        return await this.findSimilarDocuments(query, userId, chunkLimit);
+        console.log('   ⚠️ No documents matched at doc-level, trying direct chunk search...');
+        const fallbackResults = await this.findSimilarDocuments(query, userId, chunkLimit);
+        console.log(`   📦 Direct chunk search found ${fallbackResults.length} chunks`);
+        return fallbackResults;
       }
 
       const docIds = docs.map(d => d.document_id);
@@ -410,7 +424,10 @@ export class VectorSearchService {
 
         if (chunkError) {
           console.warn('Chunk search with doc filter unavailable, falling back:', chunkError);
-          return await this.findSimilarDocuments(query, userId, chunkLimit);
+          console.log('   📦 Falling back to direct chunk search...');
+          const fallbackResults = await this.findSimilarDocuments(query, userId, chunkLimit);
+          console.log(`   📦 Fallback found ${fallbackResults.length} chunks`);
+          return fallbackResults;
         }
 
         chunks = (chunkMatches || []) as SimilarDocument[];
@@ -451,6 +468,7 @@ export class VectorSearchService {
     limit: number = 10
   ): Promise<Array<{ message: string; response: string; created_at: string }>> {
     try {
+      const supabase = this.requireSupabase();
       const { data, error } = await supabase
         .from('chat_messages')
         .select('message, response, created_at')
@@ -486,8 +504,8 @@ export class VectorSearchService {
         this.findSimilarDocumentsLayered(query, userId, {
           docLimit: 3,
           chunkLimit: 4,
-          docSimilarityThreshold: 0.25,
-          chunkSimilarityThreshold: 0.25
+          docSimilarityThreshold: 0.15,  // Lower threshold for document-level (was 0.25)
+          chunkSimilarityThreshold: 0.15  // Lower threshold for chunks (was 0.25)
         })
       ]);
 
@@ -537,12 +555,16 @@ export class VectorSearchService {
       const truncate = (text: string, maxChars: number) =>
         text.length <= maxChars ? text : text.slice(0, maxChars) + '…';
 
+      console.log(`📚 Found ${context.relevant_documents.length} relevant documents:`, context.relevant_documents);
+
       context.relevant_documents.forEach((doc: any, index) => {
         const title = doc.document_title ? ` | ${doc.document_title}` : '';
         const link = doc.document_url ? ` | ${doc.document_url}` : '';
         formattedContext += `${index + 1}. (${(doc.similarity * 100).toFixed(1)}% relevant)${title}${link}: ${truncate(doc.content_chunk, 650)}\n`;
       });
       formattedContext += '\n';
+    } else {
+      console.log('⚠️ No relevant documents found in context');
     }
 
     return formattedContext;

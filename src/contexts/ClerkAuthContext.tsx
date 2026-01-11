@@ -29,14 +29,18 @@ export function ClerkAuthProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize Supabase client with Clerk session (only once per session change)
   useEffect(() => {
-    if (sessionLoaded && session) {
-      const client = createClerkSupabaseClient(session);
-      setSupabase(client);
-      vectorSearchService.setSupabaseClient(client);
-    } else if (sessionLoaded && !session) {
-      setSupabase(null);
-      vectorSearchService.setSupabaseClient(null);
+    async function initSupabase() {
+      if (sessionLoaded && session) {
+        const client = await createClerkSupabaseClient(session);
+        setSupabase(client);
+        vectorSearchService.setSupabaseClient(client);
+      } else if (sessionLoaded && !session) {
+        setSupabase(null);
+        vectorSearchService.setSupabaseClient(null);
+      }
     }
+    
+    initSupabase();
   }, [session?.id, sessionLoaded]); // Only recreate when session ID changes
 
   // Sync user to Supabase on first load

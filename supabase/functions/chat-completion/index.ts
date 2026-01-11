@@ -11,8 +11,13 @@ const corsHeaders = {
 };
 
 // FREE MODEL SELECTION STRATEGY
-const selectModel = (prompt: string): string => {
+const selectModel = (prompt: string, hasContext: boolean = false): string => {
   const wordCount = prompt.trim().split(/\s+/).length;
+  
+  // If context is provided, always use better model for accuracy
+  if (hasContext) {
+    return "nousresearch/hermes-3-llama-3.1-405b:free";
+  }
   
   // Short/simple prompts (≤ 20 words) → Fast model
   if (wordCount <= 20) {
@@ -105,11 +110,12 @@ serve(async (req: Request) => {
       ? [{ role: "system", content: systemPrompt }, ...messages]
       : messages;
 
-    // Select model based on last user message
+    // Select model based on last user message and whether we have context
     const lastUserMessage = messages.filter(m => m.role === "user").pop()?.content || "";
-    const selectedModel = selectModel(lastUserMessage);
+    const hasContext = systemPrompt && systemPrompt.includes("RELEVANT DOCUMENTS");
+    const selectedModel = selectModel(lastUserMessage, hasContext);
 
-    console.log(`Selected model: ${selectedModel} (${lastUserMessage.split(/\s+/).length} words)`);
+    console.log(`Selected model: ${selectedModel} (${lastUserMessage.split(/\s+/).length} words, hasContext: ${hasContext})`);
 
     // Try selected model, fallback on error
     let result: { content: string; finishReason: string } | null = null;

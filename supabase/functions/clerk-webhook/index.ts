@@ -19,9 +19,10 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Webhook } from 'https://esm.sh/svix@1';
 
-const CLERK_WEBHOOK_SECRET = Deno.env.get('CLERK_WEBHOOK_SECRET')!;
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, svix-id, svix-timestamp, svix-signature',
+};
 
 interface ClerkUserEvent {
   type: 'user.created' | 'user.updated' | 'user.deleted';
@@ -38,12 +39,34 @@ interface ClerkUserEvent {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   // Only accept POST requests
   if (req.method !== 'POST') {
-    return new Response('Method Not Allowed', { status: 405 });
+    return new Response('Method Not Allowed', { status: 405, headers: corsHeaders });
   }
 
   try {
+    const CLERK_WEBHOOK_SECRET = Deno.env.get('CLERK_WEBHOOK_SECRET');
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_KEY =
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_KEY');
+
+    const missing: string[] = [];
+    if (!CLERK_WEBHOOK_SECRET) missing.push('CLERK_WEBHOOK_SECRET');
+    if (!SUPABASE_URL) missing.push('SUPABASE_URL');
+    if (!SUPABASE_SERVICE_KEY) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+    if (missing.length > 0) {
+      console.error('Missing required env vars:', missing);
+      return new Response(
+        JSON.stringify({ error: 'Missing required env vars', missing }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Get Svix headers for webhook verification
     const svixId = req.headers.get('svix-id');
     const svixTimestamp = req.headers.get('svix-timestamp');
@@ -51,7 +74,14 @@ serve(async (req) => {
 
     if (!svixId || !svixTimestamp || !svixSignature) {
       console.error('Missing Svix headers');
-      return new Response('Missing webhook headers', { status: 400 });
+      return new Response(
+        JSON.stringify({ error: 'Missing Svix headers', has: {
+          'svix-id': !!svixId,
+          'svix-timestamp': !!svixTimestamp,
+          'svix-signature': !!svixSignature,
+        } }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Get request body
@@ -69,7 +99,10 @@ serve(async (req) => {
       }) as ClerkUserEvent;
     } catch (err) {
       console.error('Webhook verification failed:', err);
-      return new Response('Unauthorized', { status: 401 });
+      return new Response(
+        JSON.stringify({ error: 'Webhook verification failed' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Create Supabase client with service role (bypasses RLS)
@@ -88,7 +121,10 @@ serve(async (req) => {
 
       if (!primaryEmail) {
         console.error('No primary email found for user:', id);
-        return new Response('No primary email', { status: 400 });
+        return new Response(
+          JSON.stringify({ error: 'No primary email found', userId: id }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       // Construct full name
@@ -103,7 +139,10 @@ serve(async (req) => {
 
       if (error) {
         console.error('Error syncing user to Supabase:', error);
-        return new Response('Supabase sync failed', { status: 500 });
+        return new Response(
+          JSON.stringify({ error: 'Supabase sync failed', details: error.message, code: (error as any).code ?? null }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       console.log('✅ User synced successfully:', id, primaryEmail);
@@ -118,15 +157,24 @@ serve(async (req) => {
 
       if (error) {
         console.error('Error deleting user from Supabase:', error);
-        return new Response('Supabase delete failed', { status: 500 });
+        return new Response(
+          JSON.stringify({ error: 'Supabase delete failed', details: error.message, code: (error as any).code ?? null }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       console.log('✅ User deleted successfully:', id);
     }
 
-    return new Response('OK', { status: 200 });
+    return new Response(
+      JSON.stringify({ ok: true }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   } catch (error) {
     console.error('Webhook handler error:', error);
-    return new Response('Internal Server Error', { status: 500 });
+    return new Response(
+      JSON.stringify({ error: 'Internal Server Error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 });

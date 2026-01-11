@@ -8,7 +8,7 @@ import type { UserResource, SessionResource } from '@clerk/types';
  * @param session - Clerk session object from useSession()
  * @returns Supabase client with Clerk authentication
  */
-export function createClerkSupabaseClient(session: SessionResource | null): SupabaseClient {
+export async function createClerkSupabaseClient(session: SessionResource | null): Promise<SupabaseClient> {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
   const jwtTemplate = import.meta.env.VITE_CLERK_SUPABASE_JWT_TEMPLATE || 'supabase';
@@ -17,26 +17,22 @@ export function createClerkSupabaseClient(session: SessionResource | null): Supa
     throw new Error('Missing Supabase environment variables');
   }
 
+  // Get the token ONCE when creating the client
+  let token: string | null = null;
+  if (session) {
+    try {
+      token = await session.getToken({ template: jwtTemplate });
+      if (import.meta.env.DEV) {
+        console.log('[supabaseClerk] Got Clerk JWT for Supabase');
+      }
+    } catch (err) {
+      console.error(`[supabaseClerk] Failed to get Clerk JWT with template "${jwtTemplate}":`, err);
+    }
+  }
+
   return createClient(supabaseUrl, supabaseAnonKey, {
     global: {
-      headers: async () => {
-        // Get Clerk session token and inject it into Supabase requests.
-        // IMPORTANT: Use the Supabase JWT template so the token includes the right
-        // claims (especially `role: "authenticated"`) for RLS policies.
-        let token: string | null = null;
-        try {
-          token = (await session?.getToken({ template: jwtTemplate })) || null;
-        } catch {
-          token = (await session?.getToken()) || null;
-          if (import.meta.env.DEV) {
-            console.warn(
-              `[supabaseClerk] Falling back to Clerk default JWT (missing template "${jwtTemplate}"). ` +
-                'RLS may fail unless this token includes role="authenticated".'
-            );
-          }
-        }
-        return token ? { Authorization: `Bearer ${token}` } : {};
-      },
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
     },
     auth: {
       // Disable Supabase auth completely (we use Clerk now)
