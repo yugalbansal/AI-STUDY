@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { SignOutButton, useUser } from '@clerk/clerk-react';
-import { BookOpen, MessageSquare, LayoutDashboard, LogOut, Menu, X, Image, Phone } from 'lucide-react';
+import { BookOpen, MessageSquare, LayoutDashboard, LogOut, Menu, X, Image, Phone, User, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import UserProfile from './UserProfile';
 import { DarkModeToggle } from './DarkModeToggle';
@@ -100,6 +100,7 @@ export default function Navbar({ isFixed = true, className = '' }: NavbarProps =
         {/* Mobile Menu Button */}
         <div className="flex items-center gap-2 md:hidden">
           <DarkModeToggle />
+          <UserProfile />
           <button
             onClick={toggleMenu}
             className="p-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-all"
@@ -193,6 +194,26 @@ export default function Navbar({ isFixed = true, className = '' }: NavbarProps =
                   <Phone className="h-5 w-5 mr-3" />
                   Live Call
                 </Link>
+
+                <div className="border-t border-gray-200 dark:border-zinc-700 my-4"></div>
+
+                <Link
+                  to="/profile"
+                  className="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all"
+                  onClick={toggleMenu}
+                >
+                  <User className="h-5 w-5 mr-3" />
+                  Profile
+                </Link>
+                <Link
+                  to="/settings"
+                  className="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all"
+                  onClick={toggleMenu}
+                >
+                  <Settings className="h-5 w-5 mr-3" />
+                  Settings
+                </Link>
+
                 <div className="pt-4">
                   <SignOutButton redirectUrl="/">
                     <button className="flex items-center w-full px-4 py-3 text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:shadow-lg rounded-xl transition-all">
