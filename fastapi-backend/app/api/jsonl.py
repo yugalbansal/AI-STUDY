@@ -1,8 +1,6 @@
-"""
-JSONL Generation API Endpoints
-"""
+"""JSONL Generation API Endpoints"""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from uuid import uuid4
 import logging
 
@@ -14,6 +12,7 @@ from app.models.schemas import (
 )
 from app.utils.database import db
 from app.utils.auth import verify_document_ownership
+from app.utils.clerk_auth import verify_clerk_token
 from app.services.job_manager import queue_jsonl_job
 from app.services.storage_client import storage_client
 
@@ -21,7 +20,10 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 @router.post("/generate", response_model=GenerateResponse)
-async def generate_jsonl(request: GenerateRequest):
+async def generate_jsonl(
+    request: GenerateRequest,
+    clerk_user_id: str = Depends(verify_clerk_token),
+):
     """
     Start JSONL generation for a document
     
@@ -33,7 +35,7 @@ async def generate_jsonl(request: GenerateRequest):
     """
     try:
         # Verify ownership
-        await verify_document_ownership(request.document_id, request.user_id)
+        await verify_document_ownership(request.document_id, clerk_user_id)
         
         # Get document details
         doc = await db.get_document(request.document_id)
@@ -78,7 +80,7 @@ async def generate_jsonl(request: GenerateRequest):
         await queue_jsonl_job(
             job_id=job_id,
             document_id=request.document_id,
-            user_id=request.user_id,
+            user_id=clerk_user_id,
             file_path=file_path
         )
         
@@ -97,7 +99,10 @@ async def generate_jsonl(request: GenerateRequest):
         raise HTTPException(status_code=500, detail=f"Failed to start JSONL generation: {str(e)}")
 
 @router.get("/status/{job_id}", response_model=StatusResponse)
-async def get_job_status(job_id: str):
+async def get_job_status(
+    job_id: str,
+    clerk_user_id: str = Depends(verify_clerk_token),
+):
     """
     Get status of a JSONL generation job
     
@@ -111,6 +116,10 @@ async def get_job_status(job_id: str):
         doc = await db.get_document_by_job_id(job_id)
         
         if not doc:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        # Prevent job enumeration across users
+        if doc.get("user_id") != clerk_user_id:
             raise HTTPException(status_code=404, detail="Job not found")
         
         return StatusResponse(
@@ -128,7 +137,11 @@ async def get_job_status(job_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to fetch job status: {str(e)}")
 
 @router.get("/download/{document_id}", response_model=DownloadResponse)
-async def get_download_url(document_id: str, user_id: str):
+async def get_download_url(
+    document_id: str,
+    user_id: str | None = None,
+    clerk_user_id: str = Depends(verify_clerk_token),
+):
     """
     Get signed download URL for generated JSONL file
     
@@ -141,7 +154,7 @@ async def get_download_url(document_id: str, user_id: str):
     """
     try:
         # Verify ownership
-        await verify_document_ownership(document_id, user_id)
+        await verify_document_ownership(document_id, clerk_user_id)
         
         # Get document
         doc = await db.get_document(document_id)
@@ -175,7 +188,11 @@ async def get_download_url(document_id: str, user_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to generate download URL: {str(e)}")
 
 @router.post("/retry/{document_id}", response_model=GenerateResponse)
-async def retry_failed_job(document_id: str, user_id: str):
+async def retry_failed_job(
+    document_id: str,
+    user_id: str | None = None,
+    clerk_user_id: str = Depends(verify_clerk_token),
+):
     """
     Retry a failed JSONL generation job
     
@@ -185,7 +202,7 @@ async def retry_failed_job(document_id: str, user_id: str):
     """
     try:
         # Verify ownership
-        await verify_document_ownership(document_id, user_id)
+        await verify_document_ownership(document_id, clerk_user_id)
         
         # Get document
         doc = await db.get_document(document_id)
@@ -223,7 +240,7 @@ async def retry_failed_job(document_id: str, user_id: str):
         await queue_jsonl_job(
             job_id=job_id,
             document_id=document_id,
-            user_id=user_id,
+            user_id=clerk_user_id,
             file_path=file_path
         )
         

@@ -48,14 +48,22 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",") if o.strip()]
+origin_regex = os.getenv("ALLOWED_ORIGIN_REGEX")
+
+# Production setup:
+# - Prefer setting ALLOWED_ORIGINS to your exact frontend URL(s).
+# - Optionally set ALLOWED_ORIGIN_REGEX for preview domains (e.g. Vercel previews).
+cors_kwargs = {
+    "allow_origins": origins,
+    "allow_credentials": True,
+    "allow_methods": ["*"],
+    "allow_headers": ["*"],
+}
+if origin_regex:
+    cors_kwargs["allow_origin_regex"] = origin_regex
+
+app.add_middleware(CORSMiddleware, **cors_kwargs)
 
 app.include_router(jsonl.router, prefix="/api/jsonl", tags=["JSONL Generation"])
 

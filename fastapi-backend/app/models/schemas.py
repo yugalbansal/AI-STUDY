@@ -9,7 +9,7 @@ from datetime import datetime
 class GenerateRequest(BaseModel):
     """Request to generate JSONL for a document"""
     document_id: str = Field(..., description="UUID of the document")
-    user_id: str = Field(..., description="UUID of the user")
+    user_id: Optional[str] = Field(None, description="DEPRECATED: user_id from token")
 
 class GenerateResponse(BaseModel):
     """Response when JSONL generation starts"""

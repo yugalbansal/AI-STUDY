@@ -2,16 +2,18 @@ import { useCallback, useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useDropzone } from 'react-dropzone';
 import { useClerkAuth } from '../contexts/ClerkAuthContext';
+import { useSession } from '@clerk/clerk-react';
 import { Upload, Trash2, Loader2, Link as LinkIcon, FileText, ExternalLink, Calendar, Sparkles, Database, Download, AlertCircle, CheckCircle } from 'lucide-react';
 import { parseDocument } from '../lib/documentParser';
 import { vectorSearchService } from '../lib/vectorSearch';
 import Navbar from '../components/Navbar';
 import { motion } from 'framer-motion';
 
-const FASTAPI_URL = import.meta.env.VITE_FASTAPI_URL || 'http://localhost:8000';
+const FASTAPI_URL = (import.meta.env.VITE_FASTAPI_URL || 'http://localhost:8000').replace(/\/$/, '');
 
 export default function Documents() {
   const { user, userId, supabase, loading: authLoading } = useClerkAuth();
+  const { session } = useSession();
   const [documents, setDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -145,15 +147,21 @@ export default function Documents() {
   }
 
   async function generateJsonl(documentId: string) {
-    if (!userId) return;
+    if (!userId || !session) return;
     
     setGeneratingJsonl({ ...generatingJsonl, [documentId]: true });
     
     try {
+      const token = await session.getToken();
+      if (!token) throw new Error('No authentication token');
+      
       const response = await fetch(`${FASTAPI_URL}/api/jsonl/generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ document_id: documentId, user_id: userId })
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ document_id: documentId })
       });
       
       if (!response.ok) {
@@ -184,7 +192,16 @@ export default function Documents() {
   async function pollJobStatus(jobId: string, documentId: string) {
     const pollInterval = setInterval(async () => {
       try {
-        const response = await fetch(`${FASTAPI_URL}/api/jsonl/status/${jobId}`);
+        if (!session) return;
+        const token = await session.getToken();
+        if (!token) {
+          clearInterval(pollInterval);
+          return;
+        }
+        
+        const response = await fetch(`${FASTAPI_URL}/api/jsonl/status/${jobId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
         
         if (!response.ok) {
           clearInterval(pollInterval);
@@ -226,11 +243,15 @@ export default function Documents() {
   }
 
   async function downloadJsonl(documentId: string) {
-    if (!userId) return;
+    if (!userId || !session) return;
     
     try {
+      const token = await session.getToken();
+      if (!token) throw new Error('No authentication token');
+      
       const response = await fetch(
-        `${FASTAPI_URL}/api/jsonl/download/${documentId}?user_id=${userId}`
+        `${FASTAPI_URL}/api/jsonl/download/${documentId}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
       );
       
       if (!response.ok) {
@@ -248,13 +269,17 @@ export default function Documents() {
   }
 
   async function retryJsonl(documentId: string) {
-    if (!userId) return;
+    if (!userId || !session) return;
     
     setGeneratingJsonl({ ...generatingJsonl, [documentId]: true });
     
     try {
-      const response = await fetch(`${FASTAPI_URL}/api/jsonl/retry/${documentId}?user_id=${userId}`, {
-        method: 'POST'
+      const token = await session.getToken();
+      if (!token) throw new Error('No authentication token');
+      
+      const response = await fetch(`${FASTAPI_URL}/api/jsonl/retry/${documentId}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       
       if (!response.ok) {

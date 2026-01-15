@@ -1,6 +1,4 @@
-"""
-Authentication utilities
-"""
+"""Authentication utilities."""
 
 from fastapi import HTTPException
 from app.utils.database import db
