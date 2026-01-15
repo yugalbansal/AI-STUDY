@@ -153,7 +153,11 @@ export default function Documents() {
     
     try {
       const token = await session.getToken();
-      if (!token) throw new Error('No authentication token');
+      if (!token) {
+        console.error('❌ Failed to get Clerk token');
+        throw new Error('No authentication token');
+      }
+      console.log('✅ Got Clerk token, length:', token.length);
       
       const response = await fetch(`${FASTAPI_URL}/api/jsonl/generate`, {
         method: 'POST',
