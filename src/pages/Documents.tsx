@@ -2,11 +2,13 @@ import { useCallback, useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useDropzone } from 'react-dropzone';
 import { useClerkAuth } from '../contexts/ClerkAuthContext';
-import { Upload, Trash2, Loader2, Link as LinkIcon, FileText, ExternalLink, Calendar, Sparkles } from 'lucide-react';
+import { Upload, Trash2, Loader2, Link as LinkIcon, FileText, ExternalLink, Calendar, Sparkles, Database, Download, AlertCircle, CheckCircle } from 'lucide-react';
 import { parseDocument } from '../lib/documentParser';
 import { vectorSearchService } from '../lib/vectorSearch';
 import Navbar from '../components/Navbar';
 import { motion } from 'framer-motion';
+
+const FASTAPI_URL = import.meta.env.VITE_FASTAPI_URL || 'http://localhost:8000';
 
 export default function Documents() {
   const { user, userId, supabase, loading: authLoading } = useClerkAuth();
@@ -16,6 +18,7 @@ export default function Documents() {
   const [isUploading, setIsUploading] = useState(false);
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
+  const [generatingJsonl, setGeneratingJsonl] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!authLoading && userId && supabase) {
@@ -53,15 +56,34 @@ export default function Documents() {
     setIsUploading(true);
 
     try {
+      // Step 1: Upload file to Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}/${Date.now()}_${file.name}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false,
+          duplex: 'half'
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Step 2: Parse document for embeddings (existing flow)
       const content = await parseDocument(file);
       
+      // Step 3: Insert document record with file path
       const { data, error } = await supabase
         .from('documents')
         .insert({
           title: file.name,
           content,
           type: 'file',
-          user_id: userId
+          user_id: userId,
+          jsonl_file_path: fileName  // Store file path for backend
         })
         .select()
         .single();
@@ -70,7 +92,7 @@ export default function Documents() {
         throw error;
       }
       
-      // Generate and store embeddings for the document asynchronously
+      // Step 4: Generate and store embeddings (existing flow - unchanged)
       if (data) {
         vectorSearchService.storeDocumentEmbeddings(
           data.id,
@@ -86,12 +108,12 @@ export default function Documents() {
     } finally {
       setIsUploading(false);
     }
-  }, [user]);
+  }, [userId, supabase]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
   onDrop,
   accept: {
-    // 'application/pdf': ['.pdf'],
+    'application/pdf': ['.pdf'],
     'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
     'text/plain': ['.txt'],
@@ -119,6 +141,141 @@ export default function Documents() {
       
       setDocuments(documents.filter(doc => doc.id !== id));
     } catch (error) {
+    }
+  }
+
+  async function generateJsonl(documentId: string) {
+    if (!userId) return;
+    
+    setGeneratingJsonl({ ...generatingJsonl, [documentId]: true });
+    
+    try {
+      const response = await fetch(`${FASTAPI_URL}/api/jsonl/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ document_id: documentId, user_id: userId })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to start JSONL generation');
+      }
+      
+      const data = await response.json();
+      
+      // Immediately update UI to show generating status
+      setDocuments(prevDocs => 
+        prevDocs.map(doc => 
+          doc.id === documentId 
+            ? { ...doc, jsonl_status: 'generating', jsonl_job_id: data.job_id }
+            : doc
+        )
+      );
+      
+      // Start polling for status
+      pollJobStatus(data.job_id, documentId);
+      
+    } catch (error: any) {
+      setUploadError(error.message);
+      setGeneratingJsonl({ ...generatingJsonl, [documentId]: false });
+    }
+  }
+
+  async function pollJobStatus(jobId: string, documentId: string) {
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`${FASTAPI_URL}/api/jsonl/status/${jobId}`);
+        
+        if (!response.ok) {
+          clearInterval(pollInterval);
+          setGeneratingJsonl(prev => ({ ...prev, [documentId]: false }));
+          return;
+        }
+        
+        const data = await response.json();
+        
+        if (data.status === 'completed' || data.status === 'failed') {
+          clearInterval(pollInterval);
+          
+          // Immediately update UI with completion status
+          setDocuments(prevDocs => 
+            prevDocs.map(doc => 
+              doc.id === documentId 
+                ? { 
+                    ...doc, 
+                    jsonl_status: data.status,
+                    jsonl_url: data.jsonl_url || doc.jsonl_url,
+                    jsonl_error: data.error || null
+                  }
+                : doc
+            )
+          );
+          
+          setGeneratingJsonl(prev => ({ ...prev, [documentId]: false }));
+          
+          // Fetch full data in background for accuracy
+          fetchDocuments();
+        }
+      } catch (error) {
+        clearInterval(pollInterval);
+        setGeneratingJsonl(prev => ({ ...prev, [documentId]: false }));
+      }
+    }, 1500); // Poll every 1.5 seconds for faster updates
+  }
+
+  async function downloadJsonl(documentId: string) {
+    if (!userId) return;
+    
+    try {
+      const response = await fetch(
+        `${FASTAPI_URL}/api/jsonl/download/${documentId}?user_id=${userId}`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to get download URL');
+      }
+      
+      const data = await response.json();
+      
+      // Open download URL in new tab
+      window.open(data.download_url, '_blank');
+      
+    } catch (error: any) {
+      setUploadError(error.message);
+    }
+  }
+
+  async function retryJsonl(documentId: string) {
+    if (!userId) return;
+    
+    setGeneratingJsonl({ ...generatingJsonl, [documentId]: true });
+    
+    try {
+      const response = await fetch(`${FASTAPI_URL}/api/jsonl/retry/${documentId}?user_id=${userId}`, {
+        method: 'POST'
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to retry');
+      }
+      
+      const data = await response.json();
+      
+      // Immediately update UI to show generating status
+      setDocuments(prevDocs => 
+        prevDocs.map(doc => 
+          doc.id === documentId 
+            ? { ...doc, jsonl_status: 'generating', jsonl_job_id: data.job_id, jsonl_error: null }
+            : doc
+        )
+      );
+      
+      pollJobStatus(data.job_id, documentId);
+      
+    } catch (error: any) {
+      setUploadError(error.message);
+      setGeneratingJsonl({ ...generatingJsonl, [documentId]: false });
     }
   }
 
@@ -241,10 +398,10 @@ export default function Documents() {
                       "Drag & drop or click to select"}
                   </p>
                   <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    PPTX, DOCX, TXT, MD
+                    PDF, PPTX, DOCX, TXT, MD
                   </p>
                   <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                    Tip: Convert documents to Word if format not supported
+                    All formats supported for JSONL generation
                   </p>
                 </div>
               </div>
@@ -374,16 +531,74 @@ export default function Documents() {
                               month: 'short', 
                               day: 'numeric' 
                             })}
+                            {doc.type === 'file' && doc.jsonl_status && (
+                              <>
+                                <span className="text-gray-400">•</span>
+                                {doc.jsonl_status === 'completed' && (
+                                  <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                                    <CheckCircle className="w-4 h-4" />
+                                    JSONL Ready
+                                  </span>
+                                )}
+                                {doc.jsonl_status === 'generating' && (
+                                  <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Generating...
+                                  </span>
+                                )}
+                                {doc.jsonl_status === 'failed' && (
+                                  <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
+                                    <AlertCircle className="w-4 h-4" />
+                                    Failed
+                                  </span>
+                                )}
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
-                      <button
-                        onClick={() => deleteDocument(doc.id)}
-                        className="ml-4 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 p-2 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {doc.type === 'file' && doc.jsonl_file_path && (
+                          <>
+                            {doc.jsonl_status === 'idle' && (
+                              <button
+                                onClick={() => generateJsonl(doc.id)}
+                                disabled={generatingJsonl[doc.id]}
+                                className="text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/50 p-2 rounded-lg transition-all disabled:opacity-50"
+                                title="Generate JSONL Dataset"
+                              >
+                                <Database className="h-5 w-5" />
+                              </button>
+                            )}
+                            {doc.jsonl_status === 'completed' && (
+                              <button
+                                onClick={() => downloadJsonl(doc.id)}
+                                className="text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/50 p-2 rounded-lg transition-all"
+                                title="Download JSONL"
+                              >
+                                <Download className="h-5 w-5" />
+                              </button>
+                            )}
+                            {doc.jsonl_status === 'failed' && (
+                              <button
+                                onClick={() => retryJsonl(doc.id)}
+                                disabled={generatingJsonl[doc.id]}
+                                className="text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/50 p-2 rounded-lg transition-all disabled:opacity-50"
+                                title="Retry JSONL Generation"
+                              >
+                                <Database className="h-5 w-5" />
+                              </button>
+                            )}
+                          </>
+                        )}
+                        <button
+                          onClick={() => deleteDocument(doc.id)}
+                          className="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 p-2 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </div>
                     </div>
                   </motion.div>
                 ))}
