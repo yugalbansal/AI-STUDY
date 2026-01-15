@@ -10,7 +10,7 @@ if os.getenv("ENV") != "production":
     load_dotenv()
 
 from app.api import jsonl
-from app.services.job_manager import recover_stuck_jobs
+from app.services.job_manager import recover_stuck_jobs, start_background_worker, stop_background_worker
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,12 +22,25 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     logger.info("Starting FastAPI backend...")
     try:
+        # Recover jobs interrupted by previous shutdown
         await recover_stuck_jobs()
+        
+        # Start background worker for queue processing
+        await start_background_worker()
+        
         logger.info("Startup complete")
     except Exception as e:
         logger.error(f"Startup error: {e}")
+    
     yield
+    
+    # Shutdown: stop background worker gracefully
     logger.info("Shutting down FastAPI backend...")
+    try:
+        await stop_background_worker()
+        logger.info("Background worker stopped")
+    except Exception as e:
+        logger.error(f"Shutdown error: {e}")
 
 app = FastAPI(
     title="VectorMind JSONL Generator",

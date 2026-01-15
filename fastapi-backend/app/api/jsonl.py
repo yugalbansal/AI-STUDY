@@ -14,7 +14,7 @@ from app.models.schemas import (
 )
 from app.utils.database import db
 from app.utils.auth import verify_document_ownership
-from app.services.job_manager import start_jsonl_job
+from app.services.job_manager import queue_jsonl_job
 from app.services.storage_client import storage_client
 
 router = APIRouter()
@@ -41,10 +41,10 @@ async def generate_jsonl(request: GenerateRequest):
         if not doc:
             raise HTTPException(status_code=404, detail="Document not found")
         
-        # Check if already generating or completed
+        # Check if already queued/processing or completed
         current_status = doc.get('jsonl_status', 'idle')
         
-        if current_status == 'generating':
+        if current_status in ('queued', 'generating', 'processing'):
             raise HTTPException(
                 status_code=409,
                 detail="JSONL generation already in progress for this document"
@@ -67,27 +67,27 @@ async def generate_jsonl(request: GenerateRequest):
         # Create job ID
         job_id = str(uuid4())
         
-        # Update status to 'generating'
+        # Update status to 'queued' (queued state)
         await db.update_document_jsonl_status(
             request.document_id,
-            status='generating',
+            status='queued',
             job_id=job_id
         )
         
-        # Start background job
-        await start_jsonl_job(
+        # Queue the job (background worker will pick it up)
+        await queue_jsonl_job(
             job_id=job_id,
             document_id=request.document_id,
             user_id=request.user_id,
             file_path=file_path
         )
         
-        logger.info(f"Started JSONL generation job {job_id} for document {request.document_id}")
+        logger.info(f"Queued JSONL generation job {job_id} for document {request.document_id}")
         
         return GenerateResponse(
             job_id=job_id,
-            status="started",
-            message="JSONL generation started. Use the job ID to check status."
+            status="queued",
+            message="JSONL generation queued. Use the job ID to check status."
         )
         
     except HTTPException:
@@ -103,7 +103,7 @@ async def get_job_status(job_id: str):
     
     Returns:
     - job_id: Job identifier
-    - status: idle, generating, completed, failed
+    - status: idle, queued, processing, completed, failed
     - jsonl_url: Storage path if completed
     - error: Error message if failed
     """
@@ -211,16 +211,16 @@ async def retry_failed_job(document_id: str, user_id: str):
         # Create new job
         job_id = str(uuid4())
         
-        # Reset status
+        # Reset status (queued)
         await db.update_document_jsonl_status(
             document_id,
-            status='generating',
+            status='queued',
             job_id=job_id,
             error=None  # Clear previous error
         )
         
-        # Start background job
-        await start_jsonl_job(
+        # Queue the job (background worker will pick it up)
+        await queue_jsonl_job(
             job_id=job_id,
             document_id=document_id,
             user_id=user_id,
@@ -231,8 +231,8 @@ async def retry_failed_job(document_id: str, user_id: str):
         
         return GenerateResponse(
             job_id=job_id,
-            status="started",
-            message="JSONL generation restarted"
+            status="queued",
+            message="JSONL generation queued"
         )
         
     except HTTPException:

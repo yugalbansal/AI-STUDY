@@ -163,11 +163,11 @@ export default function Documents() {
       
       const data = await response.json();
       
-      // Immediately update UI to show generating status
+      // Immediately update UI to show queued status
       setDocuments(prevDocs => 
         prevDocs.map(doc => 
           doc.id === documentId 
-            ? { ...doc, jsonl_status: 'generating', jsonl_job_id: data.job_id }
+            ? { ...doc, jsonl_status: 'queued', jsonl_job_id: data.job_id }
             : doc
         )
       );
@@ -193,23 +193,25 @@ export default function Documents() {
         }
         
         const data = await response.json();
-        
-        if (data.status === 'completed' || data.status === 'failed') {
-          clearInterval(pollInterval);
-          
-          // Immediately update UI with completion status
-          setDocuments(prevDocs => 
-            prevDocs.map(doc => 
-              doc.id === documentId 
-                ? { 
-                    ...doc, 
+
+        // Update UI on every poll so we reflect queued -> processing in real time
+        if (data?.status) {
+          setDocuments(prevDocs =>
+            prevDocs.map(doc =>
+              doc.id === documentId
+                ? {
+                    ...doc,
                     jsonl_status: data.status,
                     jsonl_url: data.jsonl_url || doc.jsonl_url,
-                    jsonl_error: data.error || null
+                    jsonl_error: data.error ?? doc.jsonl_error ?? null
                   }
                 : doc
             )
           );
+        }
+        
+        if (data.status === 'completed' || data.status === 'failed') {
+          clearInterval(pollInterval);
           
           setGeneratingJsonl(prev => ({ ...prev, [documentId]: false }));
           
@@ -262,11 +264,11 @@ export default function Documents() {
       
       const data = await response.json();
       
-      // Immediately update UI to show generating status
+      // Immediately update UI to show queued status
       setDocuments(prevDocs => 
         prevDocs.map(doc => 
           doc.id === documentId 
-            ? { ...doc, jsonl_status: 'generating', jsonl_job_id: data.job_id, jsonl_error: null }
+            ? { ...doc, jsonl_status: 'queued', jsonl_job_id: data.job_id, jsonl_error: null }
             : doc
         )
       );
@@ -540,10 +542,16 @@ export default function Documents() {
                                     JSONL Ready
                                   </span>
                                 )}
-                                {doc.jsonl_status === 'generating' && (
+                                {(doc.jsonl_status === 'queued' || doc.jsonl_status === 'generating') && (
                                   <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
                                     <Loader2 className="w-4 h-4 animate-spin" />
-                                    Generating...
+                                    Queued...
+                                  </span>
+                                )}
+                                {doc.jsonl_status === 'processing' && (
+                                  <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Processing...
                                   </span>
                                 )}
                                 {doc.jsonl_status === 'failed' && (

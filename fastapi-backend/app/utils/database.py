@@ -3,6 +3,7 @@ Supabase database client and operations
 """
 
 import os
+from datetime import datetime, timezone
 from supabase import create_client, Client
 from typing import Optional, Dict, Any
 import logging
@@ -55,8 +56,10 @@ class Database:
                 update_data["jsonl_job_id"] = job_id
             if jsonl_url:
                 update_data["jsonl_url"] = jsonl_url
-                update_data["jsonl_created_at"] = "now()"
-            if error:
+                update_data["jsonl_created_at"] = datetime.now(timezone.utc).isoformat()
+
+            # Allow callers to clear the error by passing error=None.
+            if error is not None:
                 update_data["jsonl_error"] = error
             
             self.client.table("documents").update(update_data).eq("id", document_id).execute()
@@ -64,14 +67,94 @@ class Database:
         except Exception as e:
             logger.error(f"Error updating document {document_id}: {e}")
             return False
+
+    async def claim_document_for_processing(self, document_id: str) -> bool:
+        """
+        Atomically claim a queued document for processing.
+
+        SAFETY:
+        - Single UPDATE with a status predicate prevents two workers (or two loop iterations)
+          from claiming the same job.
+        - Returns True only if this call performed the transition to 'processing'.
+        """
+        try:
+            response = (
+                self.client.table("documents")
+                .update({"jsonl_status": "processing"})
+                .eq("id", document_id)
+                .in_("jsonl_status", ["queued", "generating"])  # backward compatible
+                .execute()
+            )
+            return bool(getattr(response, "data", None))
+        except Exception as e:
+            logger.error(f"Error claiming document {document_id} for processing: {e}")
+            return False
     
     async def get_stuck_jobs(self):
-        """Get documents stuck in 'generating' status (for recovery on startup)"""
+        """
+        DEPRECATED: Use get_processing_jobs() instead.
+        Get documents stuck in the queued state (for recovery on startup)
+        """
         try:
-            response = self.client.table("documents").select("id, user_id, jsonl_job_id").eq("jsonl_status", "generating").execute()
+            response = (
+                self.client.table("documents")
+                .select("id, user_id, jsonl_job_id")
+                .in_("jsonl_status", ["queued", "generating"])  # backward compatible
+                .execute()
+            )
             return response.data
         except Exception as e:
             logger.error(f"Error fetching stuck jobs: {e}")
+            return []
+    
+    async def get_queued_jobs(self, limit: int = 10):
+        """
+        Get queued jobs (status = 'queued', backward compatible with 'generating')
+        ordered by creation time (FIFO).
+        
+        ATOMICITY:
+        - Query is read-only, no race condition
+        - Status transition happens in generate_jsonl_task
+        - Multiple queries are safe because each job transitions atomically
+        
+        Args:
+            limit: Maximum number of jobs to return
+            
+        Returns:
+            List of document records with queued status
+        """
+        try:
+            response = (
+                self.client.table("documents")
+                .select("id, user_id, jsonl_job_id, jsonl_file_path, created_at")
+                .in_("jsonl_status", ["queued", "generating"])  # FIFO queue
+                .order("created_at", desc=False)  # FIFO: oldest first
+                .limit(limit)
+                .execute()
+            )
+            return response.data
+        except Exception as e:
+            logger.error(f"Error fetching queued jobs: {e}")
+            return []
+    
+    async def get_processing_jobs(self):
+        """
+        Get jobs currently being processed (status = 'processing').
+        Used for recovery on startup to mark interrupted jobs as failed.
+        
+        Returns:
+            List of document records with status 'processing'
+        """
+        try:
+            response = (
+                self.client.table("documents")
+                .select("id, user_id, jsonl_job_id")
+                .eq("jsonl_status", "processing")
+                .execute()
+            )
+            return response.data
+        except Exception as e:
+            logger.error(f"Error fetching processing jobs: {e}")
             return []
 
 # Global database instance - will be initialized lazily
