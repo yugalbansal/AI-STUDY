@@ -26,7 +26,7 @@
     <priority>1.0</priority>
     <image:image>
       <image:loc>https://ktjpfkrmsjopiytvxkzm.supabase.co/storage/v1/object/public/logo/logoVectormind.png</image:loc>
-      <image:title>Vector Mind AI Logo - Generate JSONL Datasets & AI Study Assistant</image:title>
+      <image:title>Vector Mind AI Logo - Generate JSONL Datasets and AI Study Assistant</image:title>
       <image:caption>Generate JSONL training datasets from PDF, DOCX, PPTX documents free. Plus AI-powered study assistant platform for students and developers</image:caption>
     </image:image>
   </url>
