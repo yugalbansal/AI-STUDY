@@ -1,75 +1,17 @@
-# Vector Mind AI - SEO-Optimized Robots.txt
-# Updated: 2026-01-11
-# Purpose: Guide search engine crawlers, maximize crawl efficiency, protect user content
+# Vector Mind AI - robots.txt
+# https://vectormind.site
+# Last updated: 2026-01-16
 
-# Primary Crawlers - Full Access to Public Pages
 User-agent: *
-# Allow public pages
-Allow: /
+Disallow: /api/
+Disallow: /auth/
+Disallow: /login
+Disallow: /sso-callback
+Disallow: /verify-email
+Disallow: /reset-password
+
+# Public legal pages
 Allow: /privacy
 Allow: /terms
-Allow: /favicon/
-Allow: /*.css$
-Allow: /*.js$
-Allow: /*.png$
-Allow: /*.jpg$
-Allow: /*.webp$
 
-# Block authenticated and user-specific routes (also protected with noindex meta)
-Disallow: /login
-Disallow: /auth/
-Disallow: /dashboard
-Disallow: /chat
-Disallow: /documents
-Disallow: /images
-Disallow: /livecall
-Disallow: /profile
-Disallow: /settings
-Disallow: /api/
-
-# Sitemap location for better indexing
 Sitemap: https://vectormind.site/sitemap.xml
-
-# Crawl-delay for aggressive bots (reduces server load)
-User-agent: SemrushBot
-Crawl-delay: 10
-
-User-agent: AhrefsBot
-Crawl-delay: 10
-
-User-agent: DotBot
-Crawl-delay: 10
-
-User-agent: MJ12bot
-Crawl-delay: 10
-
-# Block known bad bots and scrapers
-User-agent: SemrushBot
-User-agent: AhrefsBot  
-User-agent: MJ12bot
-User-agent: dotbot
-User-agent: BLEXBot
-User-agent: DataForSeoBot
-Disallow: /
-
-# Google-specific directives
-User-agent: Googlebot
-Allow: /
-Disallow: /login
-Disallow: /auth/
-Disallow: /dashboard
-Disallow: /chat
-Disallow: /documents
-Disallow: /images
-Disallow: /livecall
-
-# Bing-specific directives  
-User-agent: Bingbot
-Allow: /
-Disallow: /login
-Disallow: /auth/
-Disallow: /dashboard
-Disallow: /chat
-Disallow: /documents
-Disallow: /images
-Disallow: /livecall

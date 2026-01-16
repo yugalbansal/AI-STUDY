@@ -59,10 +59,12 @@ cors_kwargs = {
     "allow_credentials": True,
     "allow_methods": ["*"],
     "allow_headers": ["*"],
+    "expose_headers": ["*"],
 }
 if origin_regex:
     cors_kwargs["allow_origin_regex"] = origin_regex
 
+logger.info(f"CORS configured with origins: {origins}")
 app.add_middleware(CORSMiddleware, **cors_kwargs)
 
 app.include_router(jsonl.router, prefix="/api/jsonl", tags=["JSONL Generation"])

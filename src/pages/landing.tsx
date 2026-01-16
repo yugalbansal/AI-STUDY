@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Hero } from '../components/ui/animated-hero';
 import { Navbar1 } from '../components/ui/navbar-1';
+import { DatasetGenerationSteps } from '../components/ui/dataset-generation-steps';
 import { FeaturesSection } from '../components/ui/features-section';
 import { Features8 } from '../components/ui/features-8';
 import { Features10 } from '../components/ui/features-10';
@@ -12,6 +13,7 @@ import { FAQSection } from '../components/ui/faq-section';
 import { Footer } from '../components/ui/footer';
 import { motion } from "framer-motion";
 import { BookOpen, Zap, Shield, Users } from 'lucide-react';
+import { TubesBackground } from '../components/ui/neon-flow';
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -67,16 +69,16 @@ export default function Landing() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50 dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950 overflow-x-hidden">
       <Helmet>
-        {/* Primary Meta Tags - Optimized for AI Study Assistant Keywords */}
-        <title>Vector Mind AI - Free AI Study Assistant | Smart Learning Tool for Students 2026</title>
-        <meta name="description" content="Vector Mind AI: Advanced AI study assistant with vector search, document analysis, intelligent chat tutoring, voice AI learning, and image generation. Free personalized learning platform helping 10K+ students succeed. Start learning smarter today!" />
-        <meta name="keywords" content="AI study assistant, vector mind AI, AI learning tool, free AI tutor, smart study assistant, AI education platform, document analysis tool, intelligent tutoring system, voice AI tutor, AI chat for students, personalized AI learning, semantic search learning, vector database education, AI homework help, study productivity tool, machine learning education, neural network tutor, deep learning assistant, AI-powered notes, intelligent document search" />
+        {/* Primary Meta Tags - Optimized for Dataset Generation & AI Study Keywords */}
+        <title>Vector Mind AI: Free JSONL Dataset Generator + AI Study Tools</title>
+        <meta name="description" content="Generate JSONL training datasets from PDFs instantly. Free AI study assistant with document chat, voice tutor, and dataset creation. No signup required." />
+        <meta name="keywords" content="free jsonl generator, pdf to jsonl converter, create training datasets online, ai fine tuning data generator, jsonl dataset maker, machine learning dataset creator, llm training data free, document to jsonl, generate datasets from pdf, free ai study assistant, ai document chat, vector search learning, ai homework helper, intelligent tutoring system" />
         
-        {/* Open Graph / Facebook - Enhanced for social sharing */}
+        {/* Open Graph / Facebook - Enhanced for Dataset Generation & Learning */}
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://vectormind.site/" />
-        <meta property="og:title" content="Vector Mind AI - Free AI Study Assistant | Smart Learning for Students" />
-        <meta property="og:description" content="Transform your learning with Vector Mind AI! Upload documents for instant analysis, chat with your AI tutor, practice with voice conversations, and generate study visuals. Join 10,000+ successful students. 100% free forever!" />
+        <meta property="og:title" content="Vector Mind AI: Free JSONL Dataset Generator + AI Study Tools" />
+        <meta property="og:description" content="Generate JSONL training datasets from PDFs instantly. Free AI study assistant with document chat, voice tutor, and dataset creation. No signup required." />
         <meta property="og:image" content="https://ktjpfkrmsjopiytvxkzm.supabase.co/storage/v1/object/public/logo/logoVectormind.png" />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
@@ -98,8 +100,8 @@ export default function Landing() {
             "@context": "https://schema.org",
             "@type": "WebApplication",
             "name": "Vector Mind AI",
-            "alternateName": "VectorMind Study Assistant",
-            "description": "Free AI-powered study assistant with document analysis, intelligent chat, voice tutoring, and image generation for students",
+            "alternateName": "VectorMind Study Assistant & Dataset Generator",
+            "description": "Vector Mind AI: Generate JSONL training datasets from PDF, DOCX, PPTX documents for FREE. Plus AI-powered study assistant with document analysis, intelligent chat, voice tutoring, and image generation for students and AI developers",
             "url": "https://vectormind.site/",
             "applicationCategory": "EducationalApplication",
             "operatingSystem": "Web Browser",
@@ -115,6 +117,9 @@ export default function Landing() {
               "bestRating": "5"
             },
             "featureList": [
+              "Generate JSONL Datasets from Documents",
+              "AI Training Data Creator",
+              "Dataset Generator for Fine-tuning",
               "AI-Powered Document Analysis",
               "Intelligent Chat Tutoring",
               "Voice AI Conversations",
@@ -154,7 +159,7 @@ export default function Landing() {
       <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-gray-50 dark:from-zinc-900 to-transparent">
         <Navbar1 onGetStarted={handleSignUp} />
       </div>
-
+      {/* <TubesBackground /> */}
       {/* Hero Section with Animated Component */}
       <section id="home" className="relative pt-4">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-100/30 via-transparent to-blue-100/30 blur-3xl pointer-events-none" />
@@ -163,7 +168,31 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* How It Works Timeline */}
+      {/* Dataset Generation Steps - NEW FEATURE */}
+      <DatasetGenerationSteps />
+
+      {/* How AI Study Works Section Header */}
+      <div className="py-12 px-4 bg-white dark:bg-zinc-900 text-center">
+        <motion.h2
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4"
+        >
+          How AI Study Works
+        </motion.h2>
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.1 }}
+          className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto"
+        >
+          Discover how Vector Mind AI's advanced 3-layer RAG architecture processes your documents and delivers precise answers
+        </motion.p>
+      </div>
+
+      {/* How It Works Timeline - AI Study Features */}
       <section id="how-it-works" className="py-16 md:py-20 px-4 bg-gradient-to-b from-white via-gray-50 to-white dark:from-zinc-900 dark:via-zinc-800 dark:to-zinc-900">
         <QuantumTimeline />
       </section>

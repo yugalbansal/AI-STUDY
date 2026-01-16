@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { MessageSquare, FileText, Mic } from 'lucide-react'
+import { MessageSquare, FileText, Mic, Database } from 'lucide-react'
 import { ReactNode } from 'react'
 
 export function FeaturesSection() {
@@ -14,7 +14,21 @@ export function FeaturesSection() {
                         Powerful AI features designed specifically for modern students.
                     </p>
                 </div>
-                <div className="mx-auto mt-8 grid max-w-sm grid-cols-1 md:max-w-none md:grid-cols-3 gap-6 *:text-center md:mt-16">
+                <div className="mx-auto mt-8 grid max-w-sm grid-cols-1 md:max-w-none md:grid-cols-2 lg:grid-cols-4 gap-6 *:text-center md:mt-16">
+                    <Card className="group shadow-black-950/5 dark:bg-zinc-800 dark:border-zinc-700 hover:shadow-xl transition-all duration-300 border-2 border-blue-500/50">
+                        <CardHeader className="pb-3">
+                            <CardDecorator>
+                                <Database className="size-6 text-blue-600 dark:text-blue-400" aria-hidden />
+                            </CardDecorator>
+
+                            <h3 className="mt-6 font-medium dark:text-white">🔥 Generate JSONL Datasets</h3>
+                        </CardHeader>
+
+                        <CardContent>
+                            <p className="text-sm text-gray-600 dark:text-gray-400"><strong>NEW!</strong> Generate training datasets from PDF, DOCX, PPTX documents instantly. Perfect for AI fine-tuning!</p>
+                        </CardContent>
+                    </Card>
+
                     <Card className="group shadow-black-950/5 dark:bg-zinc-800 dark:border-zinc-700 hover:shadow-xl transition-all duration-300">
                         <CardHeader className="pb-3">
                             <CardDecorator>

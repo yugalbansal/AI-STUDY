@@ -7,25 +7,27 @@
   
   <!-- 
     Vector Mind AI - Comprehensive SEO Sitemap
-    Updated: 2026-01-11
+    Updated: 2026-01-16
     
     This sitemap includes all publicly indexable pages optimized for search engines.
     Authenticated routes are excluded and protected with noindex meta tags.
     
-    Target Keywords: AI study assistant, vector mind AI, AI learning tool, 
-    document analysis AI, intelligent tutoring, voice AI tutor, personalized learning
+    Target Keywords: generate jsonl online, generate datasets online, jsonl generator, 
+    dataset generator free, AI study assistant, vector mind AI, AI learning tool, 
+    document analysis AI, intelligent tutoring, voice AI tutor, personalized learning,
+    create training data, AI dataset creator, LLM training data
   -->
   
   <!-- Landing Page (Primary - Highest Priority) -->
   <url>
     <loc>https://vectormind.site/</loc>
-    <lastmod>2026-01-11</lastmod>
+    <lastmod>2026-01-16</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <image:image>
       <image:loc>https://ktjpfkrmsjopiytvxkzm.supabase.co/storage/v1/object/public/logo/logoVectormind.png</image:loc>
-      <image:title>Vector Mind AI Logo</image:title>
-      <image:caption>AI-powered study assistant platform for students</image:caption>
+      <image:title>Vector Mind AI Logo - Generate JSONL Datasets & AI Study Assistant</image:title>
+      <image:caption>Generate JSONL training datasets from PDF, DOCX, PPTX documents free. Plus AI-powered study assistant platform for students and developers</image:caption>
     </image:image>
   </url>
   
@@ -39,7 +41,7 @@
   
   <url>
     <loc>https://vectormind.site/terms</loc>
-    <lastmod>2026-01-11</lastmod>
+    <lastmod>2026-01-16</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
@@ -47,7 +49,8 @@
   <!-- 
     Future public pages to add:
     - /about (About Vector Mind AI)
-    - /features (Detailed feature breakdown)
+    - /features (Detailed feature breakdown including JSONL dataset generation)
+    - /dataset-generator (Dedicated landing page for dataset generation)
     - /use-cases (Student success stories)
     - /blog/* (SEO-focused educational content)
     

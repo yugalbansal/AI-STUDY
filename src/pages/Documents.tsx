@@ -391,7 +391,7 @@ export default function Documents() {
               <span className="bg-gradient-to-r from-blue-600 to-blue-800 dark:from-blue-400 dark:to-purple-500 bg-clip-text text-transparent"> Library</span>
             </h1>
             <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-              Upload documents, add links, and let AI analyze and understand your content
+              Upload documents to generate JSONL training datasets or chat with your documents using AI
             </p>
           </div>
         </div>
@@ -601,10 +601,13 @@ export default function Documents() {
                               <button
                                 onClick={() => generateJsonl(doc.id)}
                                 disabled={generatingJsonl[doc.id]}
-                                className="text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/50 p-2 rounded-lg transition-all disabled:opacity-50"
-                                title="Generate JSONL Dataset"
+                                className="text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/50 p-2 rounded-lg transition-all disabled:opacity-50 group/gen relative"
+                                title="Click to Generate JSONL Dataset"
                               >
                                 <Database className="h-5 w-5" />
+                                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs rounded-lg opacity-0 group-hover/gen:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-lg">
+                                  Click to Generate JSONL
+                                </span>
                               </button>
                             )}
                             {doc.jsonl_status === 'completed' && (
@@ -620,10 +623,13 @@ export default function Documents() {
                               <button
                                 onClick={() => retryJsonl(doc.id)}
                                 disabled={generatingJsonl[doc.id]}
-                                className="text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/50 p-2 rounded-lg transition-all disabled:opacity-50"
-                                title="Retry JSONL Generation"
+                                className="text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/50 p-2 rounded-lg transition-all disabled:opacity-50 group/retry relative"
+                                title="Click to Retry JSONL Generation"
                               >
                                 <Database className="h-5 w-5" />
+                                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs rounded-lg opacity-0 group-hover/retry:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-lg">
+                                  Click to Retry Generation
+                                </span>
                               </button>
                             )}
                           </>

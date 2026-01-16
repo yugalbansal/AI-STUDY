@@ -146,6 +146,17 @@ export default function Dashboard() {
   // Create bento grid items for dashboard features
   const bentoItems: BentoItem[] = [
     {
+      title: "🔥 Generate JSONL Datasets",
+      meta: "NEW - Free Forever",
+      description: "Upload PDF, DOCX, PPTX documents and generate high-quality JSONL training datasets for AI fine-tuning. Go to Documents → Generate Dataset!",
+      icon: <FileText className="w-4 h-4 text-blue-500" />,
+      status: "🆕 New",
+      tags: ["Dataset", "JSONL", "Training Data"],
+      colSpan: 3,
+      hasPersistentHover: true,
+      cta: "Generate Now →"
+    },
+    {
       title: "AI Chat Assistant",
       meta: `${stats.chatCount} conversations`,
       description: "Engage in intelligent conversations with our advanced AI. Get instant answers, explanations, and creative insights.",
@@ -159,10 +170,10 @@ export default function Dashboard() {
     {
       title: "Document Analysis",
       meta: `${stats.documentCount} documents`,
-      description: "Upload and analyze PDFs, Word docs, and text files with AI-powered insights and summaries.",
+      description: "Upload and analyze PDFs, Word docs, and text files with AI-powered insights. Plus generate JSONL datasets!",
       icon: <FileText className="w-4 h-4 text-emerald-500" />,
       status: "Ready",
-      tags: ["Documents", "Analysis"],
+      tags: ["Documents", "Analysis", "Datasets"],
       cta: "Upload →"
     },
     {
@@ -220,7 +231,7 @@ export default function Dashboard() {
               <span className="bg-gradient-to-r from-blue-600 to-blue-800 dark:from-blue-400 dark:to-blue-600 bg-clip-text text-transparent"> Workspace</span>
             </h1>
             <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-              Access all your AI tools in one place. Chat, analyze, create, and innovate with cutting-edge artificial intelligence.
+              Generate JSONL datasets from documents, chat with AI, analyze documents, create images, and more - all in one powerful workspace.
             </p>
           </div>
 
@@ -271,8 +282,8 @@ export default function Dashboard() {
           if (!card) return;
           
           const index = Array.from(card.parentElement?.children || []).indexOf(card);
-          const routes = ['/chat', '/documents', '/images', '/livecall'];
-          if (isAdmin && index === 3) {
+          const routes = ['/documents', '/chat', '/documents', '/images', '/livecall'];
+          if (isAdmin && index === 4) {
             // Scroll to admin section
             document.getElementById('admin-section')?.scrollIntoView({ behavior: 'smooth' });
           } else if (routes[index]) {
