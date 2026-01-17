@@ -9,29 +9,30 @@ import re
 import logging
 import asyncio
 import time
-from typing import List, Dict
+# from typing import List, Dict
+from typing import List, Dict, Any
 from collections import deque
 
 logger = logging.getLogger(__name__)
 
 class LLMClient:
-    """Client for OpenRouter API to generate JSONL training examples with round-robin key management"""
+    """Client for Cerebras API to generate JSONL training examples with round-robin key management"""
     
     def __init__(self):
         # Load multiple API keys (5 keys, each can handle 2 parallel requests = 10 total)
         self.api_keys = []
         for i in range(1, 6):  # Keys 1-5
-            key = os.getenv(f"OPENROUTER_API_KEY_{i}")
+            key = os.getenv(f"CEREBRAS_API_KEY_{i}")
             if key:
                 self.api_keys.append(key)
         
         # Fall back to single key if multiple keys not configured
         if not self.api_keys:
-            single_key = os.getenv("OPENROUTER_API_KEY")
+            single_key = os.getenv("CEREBRAS_API_KEY")
             if single_key:
                 self.api_keys = [single_key]
             else:
-                raise ValueError("At least OPENROUTER_API_KEY or OPENROUTER_API_KEY_1 must be set")
+                raise ValueError("At least CEREBRAS_API_KEY or CEREBRAS_API_KEY_1 must be set")
         
         logger.info(f"Initialized with {len(self.api_keys)} API key(s)")
         
@@ -43,13 +44,19 @@ class LLMClient:
         self.rate_limited_keys: Dict[str, float] = {}
         self.rate_limit_lock = asyncio.Lock()
         
-        self.api_url = "https://openrouter.ai/api/v1/chat/completions"
-        # Use only working free models (verified as of Jan 2026)
-        self.primary_model = "meta-llama/llama-3.3-70b-instruct:free"
+        self.api_url = "https://api.cerebras.ai/v1/chat/completions"
+        # Cerebras models (Jan 2026)
+        self.primary_model = "llama-3.3-70b"
         self.fallback_models = [
-            "google/gemini-2.0-flash-exp:free",
-            "qwen/qwen-2.5-7b-instruct:free",
+            "gpt-oss-120b",
+            "llama3.1-8b",
+            "qwen-3-32b",
         ]
+        
+        # Log configuration for debugging
+        logger.info(f"Cerebras API URL: {self.api_url}")
+        logger.info(f"Primary model: {self.primary_model}")
+        logger.info(f"Fallback models: {self.fallback_models}")
     
     async def generate_jsonl_from_chunk(self, chunk: str, retry_count: int = 3) -> List[str]:
         """
@@ -70,7 +77,7 @@ class LLMClient:
                 try:
                     logger.info(f"Generating JSONL with {model} (attempt {attempt + 1})")
                     
-                    response = await self._call_openrouter(chunk, model)
+                    response = await self._call_cerebras(chunk, model)
                     lines = self._parse_llm_output(response)
                     
                     if len(lines) > 0:
@@ -90,11 +97,11 @@ class LLMClient:
                         logger.warning(f"Rate limit hit, waiting 10s")
                         await asyncio.sleep(10)
                         continue
-                    logger.error(f"HTTP error {e.response.status_code}: {e}")
+                    logger.error(f"HTTP error {e.response.status_code} from {model}: {e.response.text[:500]}")
                     break  # Try next model
                 
                 except Exception as e:
-                    logger.error(f"Unexpected error with {model}: {e}")
+                    logger.error(f"Unexpected error with {model}: {type(e).__name__}: {e}", exc_info=True)
                     break  # Try next model
         
         # All attempts failed
@@ -137,8 +144,8 @@ class LLMClient:
             self.rate_limited_keys[key] = time.time() + 10  # Available again in 10 seconds
             logger.info(f"Key rate-limited, will retry after 10 seconds")
     
-    async def _call_openrouter(self, chunk: str, model: str) -> str:
-        """Call OpenRouter API with round-robin key selection"""
+    async def _call_cerebras(self, chunk: str, model: str) -> str:
+        """Call Cerebras API with round-robin key selection"""
         
         prompt = f"""You are a training data generator for AI tutoring systems. Given the following text, create 4 diverse question-answer pairs in JSONL format suitable for fine-tuning an LLM.
 
@@ -162,28 +169,46 @@ Generate exactly 4 JSONL lines:"""
         # Get an available API key
         api_key = await self._get_available_key()
         
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(
-                self.api_url,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.7,
-                    "max_tokens": 2000
-                }
-            )
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                response = await client.post(
+                    self.api_url,
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": model,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.7,
+                        "max_tokens": 2000,
+                        "top_p": 1
+                    }
+                )
+            except httpx.ConnectError as e:
+                logger.error(f"Connection error to Cerebras API: {e}")
+                raise
+            except httpx.ReadTimeout as e:
+                logger.error(f"Read timeout from Cerebras API: {e}")
+                raise
             
             # Handle rate limit
             if response.status_code == 429:
                 await self._mark_key_rate_limited(api_key)
             
+            # Log error responses before raising
+            if response.status_code != 200:
+                logger.error(f"Cerebras API error {response.status_code}: {response.text[:500]}")
+            
             response.raise_for_status()
             
             data = response.json()
+            
+            # Validate response structure
+            if "choices" not in data or not data["choices"]:
+                logger.error(f"Invalid Cerebras response structure: {data}")
+                raise ValueError("Invalid API response structure")
+            
             return data["choices"][0]["message"]["content"]
     
     def _parse_llm_output(self, llm_response: str) -> List[str]:

@@ -4,13 +4,25 @@ Document loader - downloads and extracts text from documents
 
 import os
 import logging
+import asyncio
 from typing import Optional
-from PyPDF2 import PdfReader
+from concurrent.futures import ThreadPoolExecutor
+
+try:
+    import fitz  # PyMuPDF - much faster than PyPDF2
+    PYMUPDF_AVAILABLE = True
+except ImportError:
+    PYMUPDF_AVAILABLE = False
+    from PyPDF2 import PdfReader
+
 from docx import Document
 from pptx import Presentation
 from app.services.storage_client import storage_client
 
 logger = logging.getLogger(__name__)
+
+# Thread pool for CPU-intensive text extraction
+_extraction_executor = ThreadPoolExecutor(max_workers=4)
 
 class DocumentLoader:
     """Load and extract text from documents"""
@@ -44,17 +56,44 @@ class DocumentLoader:
                 logger.error(f"Failed to download document {file_path}")
                 return None
             
-            # Extract text based on file type
-            if ext == '.pdf':
-                text = self._extract_from_pdf(temp_file_path)
-            elif ext == '.docx':
-                text = self._extract_from_docx(temp_file_path)
-            elif ext in ['.pptx', '.ppt']:
-                text = self._extract_from_pptx(temp_file_path)
-            elif ext in ['.txt', '.md']:
-                text = self._extract_from_text(temp_file_path)
-            else:
-                logger.error(f"Unsupported file type: {ext}")
+            # Extract text based on file type (run in thread pool to avoid blocking)
+            file_size_mb = os.path.getsize(temp_file_path) / (1024 * 1024)
+            logger.info(f"Extracting text from {ext} file ({file_size_mb:.2f} MB)...")
+            
+            try:
+                if ext == '.pdf':
+                    # Run PDF extraction in thread pool with 90 second timeout
+                    # Large PDFs (400+ pages) can take 30-60 seconds
+                    text = await asyncio.wait_for(
+                        asyncio.get_event_loop().run_in_executor(
+                            _extraction_executor,
+                            self._extract_from_pdf,
+                            temp_file_path
+                        ),
+                        timeout=90.0
+                    )
+                elif ext == '.docx':
+                    text = await asyncio.get_event_loop().run_in_executor(
+                        _extraction_executor,
+                        self._extract_from_docx,
+                        temp_file_path
+                    )
+                elif ext in ['.pptx', '.ppt']:
+                    text = await asyncio.get_event_loop().run_in_executor(
+                        _extraction_executor,
+                        self._extract_from_pptx,
+                        temp_file_path
+                    )
+                elif ext in ['.txt', '.md']:
+                    text = self._extract_from_text(temp_file_path)
+                else:
+                    logger.error(f"Unsupported file type: {ext}")
+                    return None
+                    
+                logger.info(f"Extracted {len(text):,} characters from {ext}")
+                
+            except asyncio.TimeoutError:
+                logger.error(f"Timeout extracting text from {file_path} ({file_size_mb:.2f} MB) - extraction took longer than 90 seconds")
                 return None
             
             # Cleanup temp file
@@ -71,13 +110,29 @@ class DocumentLoader:
             return None
     
     def _extract_from_pdf(self, file_path: str) -> str:
-        """Extract text from PDF"""
+        """Extract text from PDF using PyMuPDF (faster) or PyPDF2 fallback"""
         try:
-            reader = PdfReader(file_path)
-            text = ""
-            for page in reader.pages:
-                text += page.extract_text() + "\n\n"
-            return text.strip()
+            if PYMUPDF_AVAILABLE:
+                # PyMuPDF is 5-10x faster for large PDFs
+                doc = fitz.open(file_path)
+                page_count = len(doc)
+                text = ""
+                for page_num in range(page_count):
+                    page = doc[page_num]
+                    text += page.get_text() + "\n\n"
+                doc.close()
+                logger.info(f"Extracted PDF using PyMuPDF ({page_count} pages)")
+                return text.strip()
+            else:
+                # Fallback to PyPDF2
+                from PyPDF2 import PdfReader
+                reader = PdfReader(file_path)
+                page_count = len(reader.pages)
+                text = ""
+                for page in reader.pages:
+                    text += page.extract_text() + "\n\n"
+                logger.info(f"Extracted PDF using PyPDF2 ({page_count} pages)")
+                return text.strip()
         except Exception as e:
             logger.error(f"Error extracting PDF: {e}")
             raise
