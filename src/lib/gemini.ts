@@ -101,14 +101,15 @@ function truncateToTokenLimit(text: string, maxTokens: number): string {
 }
 
 /**
- * Main chat response function using Supabase Edge Function
+ * Main chat response function with streaming support for faster perceived response time
  */
 export async function getChatResponse(
   prompt: string, 
   context: string, 
   userId: string,
   chatId: string,
-  supabaseClient: SupabaseClient
+  supabaseClient: SupabaseClient,
+  onChunk?: (chunk: string) => void
 ): Promise<string> {
   try {
     // Get vector-based context from chat history and documents
@@ -152,29 +153,25 @@ export async function getChatResponse(
   IMPORTANT: Use the following context to provide better, more relevant responses:
   ${finalContext}`;
 
-    // Validate system prompt isn't too large
-    const systemPromptTokens = estimateTokens(systemPrompt);
-    console.log(`System prompt size: ~${systemPromptTokens} tokens`);
-    
-    if (systemPromptTokens > 15000) {
-      console.warn('System prompt is very large, may cause context overflow');
-    }
-
     // Prepare messages for Edge Function
     const messages = [
       { role: 'user', content: prompt }
     ];
 
+    // If streaming callback is provided, use streaming
+    if (onChunk) {
+      return await streamChatResponse(supabaseClient, messages, systemPrompt, onChunk);
+    }
+
+    // Otherwise, use regular request
     const { data, error } = await supabaseClient.functions.invoke('chat-completion', {
-      body: { messages, systemPrompt },
+      body: { messages, systemPrompt, stream: false },
     });
 
     if (error) {
       console.error('Edge Function error:', error);
       throw new Error(`Chat API error: ${error.message}`);
     }
-
-    console.log('Edge Function response:', data);
     
     if (!data || !(data as any).content) {
       console.error('Empty response from Edge Function:', data);
@@ -204,4 +201,67 @@ The AI service is experiencing high demand. Please wait a moment and try again.
     
     return `I apologize, but I encountered an error: ${error.message || 'Unknown error'}. Please try again.`;
   }
+}
+
+/**
+ * Stream chat response for real-time display
+ */
+async function streamChatResponse(
+  supabaseClient: SupabaseClient,
+  messages: Array<{ role: string; content: string }>,
+  systemPrompt: string,
+  onChunk: (chunk: string) => void
+): Promise<string> {
+  const { data, error } = await supabaseClient.functions.invoke('chat-completion', {
+    body: { messages, systemPrompt, stream: true },
+  });
+
+  if (error) {
+    throw new Error(`Chat API error: ${error.message}`);
+  }
+
+  // Deno Edge Functions return Response for streaming
+  if (!(data instanceof Response)) {
+    throw new Error('Expected streaming response');
+  }
+
+  const reader = data.body?.getReader();
+  if (!reader) {
+    throw new Error('No response body');
+  }
+
+  const decoder = new TextDecoder();
+  let fullContent = '';
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === 'data: [DONE]') continue;
+        if (!trimmed.startsWith('data: ')) continue;
+
+        try {
+          const data = JSON.parse(trimmed.slice(6));
+          if (data.content) {
+            fullContent += data.content;
+            onChunk(data.content);
+          }
+        } catch (e) {
+          console.error('Failed to parse SSE line:', trimmed);
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return fullContent;
 }

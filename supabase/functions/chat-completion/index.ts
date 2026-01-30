@@ -1,5 +1,5 @@
 // Supabase Edge Function: chat-completion
-// Purpose: Handle Cerebras chat completions with continuation support
+// Purpose: Handle Cerebras chat completions with streaming support for fast response
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -10,29 +10,24 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// MODEL SELECTION STRATEGY
+// MODEL SELECTION STRATEGY - Optimized for speed
 const selectModel = (prompt: string, hasContext: boolean = false): string => {
   const wordCount = prompt.trim().split(/\s+/).length;
   
-  // If context is provided, use better model for accuracy
-  if (hasContext) {
-    return "gpt-oss-120b";
+  // Always prefer fastest model for better UX
+  if (wordCount <= 50 || !hasContext) {
+    return "llama-3.3-70b"; // Fastest model
   }
   
-  // Short/simple prompts (≤ 20 words) → Fast model
-  if (wordCount <= 20) {
-    return "llama-3.3-70b";
-  }
-  
-  // Long/complex prompts (> 20 words) → Better reasoning model
+  // Use larger model only for complex queries with context
   return "gpt-oss-120b";
 };
 
-// Fallback model order
+// Fallback model order (speed-prioritized)
 const FALLBACK_MODELS = [
-  "gpt-oss-120b",
-  "llama-3.3-70b",
-  "qwen-3-32b",
+  "llama-3.3-70b",    // Fastest - try first
+  "qwen-3-32b",       // Fast alternative
+  "gpt-oss-120b",     // Larger model as last resort
 ];
 
 interface Message {
@@ -43,6 +38,69 @@ interface Message {
 interface RequestBody {
   messages: Message[];
   systemPrompt?: string;
+  stream?: boolean;
+}
+
+async function* streamCerebras(
+  messages: Message[],
+  model: string,
+  apiKey: string
+): AsyncGenerator<string, void, unknown> {
+  const response = await fetch(CEREBRAS_API_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      stream: true,
+      max_completion_tokens: 32768,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Cerebras error (${response.status}): ${error}`);
+  }
+
+  if (!response.body) {
+    throw new Error("No response body");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === "data: [DONE]") continue;
+        if (!trimmed.startsWith("data: ")) continue;
+
+        try {
+          const data = JSON.parse(trimmed.slice(6));
+          const content = data.choices?.[0]?.delta?.content;
+          if (content) {
+            yield content;
+          }
+        } catch (e) {
+          console.error("Failed to parse SSE line:", trimmed);
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 async function callCerebras(
@@ -59,7 +117,8 @@ async function callCerebras(
     body: JSON.stringify({
       model,
       messages,
-      // NO max_tokens - let model respond fully
+      stream: false,
+      max_completion_tokens: 32768,
     }),
   });
 
@@ -87,7 +146,7 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { messages, systemPrompt }: RequestBody = await req.json();
+    const { messages, systemPrompt, stream = true }: RequestBody = await req.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response(
@@ -111,9 +170,37 @@ serve(async (req: Request) => {
     const hasContext = systemPrompt && systemPrompt.includes("RELEVANT DOCUMENTS");
     const selectedModel = selectModel(lastUserMessage, hasContext);
 
-    console.log(`Selected model: ${selectedModel} (${lastUserMessage.split(/\s+/).length} words, hasContext: ${hasContext})`);
+    console.log(`Selected model: ${selectedModel} (streaming: ${stream})`);
 
-    // Try selected model, fallback on error
+    // If streaming is requested, stream the response
+    if (stream) {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const chunk of streamCerebras(finalMessages, selectedModel, CEREBRAS_API_KEY)) {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: chunk })}\n\n`));
+            }
+            controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+            controller.close();
+          } catch (error) {
+            console.error("Streaming error:", error);
+            controller.error(error);
+          }
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+        },
+      });
+    }
+
+    // Non-streaming fallback (for compatibility)
     let result: { content: string; finishReason: string } | null = null;
     let lastError: Error | null = null;
 

@@ -734,25 +734,44 @@ export default function Chat() {
     setError(null);
     
     const tempId = Date.now().toString();
-    setChatHistory(prev => [
-      ...prev, 
-      { 
-        id: tempId,
-        chat_id: currentChat,
-        user_id: userId,
-        message: input,
-        response: '',
-        created_at: new Date().toISOString()
-      }
-    ]);
+    const tempMessage = { 
+      id: tempId,
+      chat_id: currentChat,
+      user_id: userId,
+      message: input,
+      response: '',
+      created_at: new Date().toISOString()
+    };
     
+    setChatHistory(prev => [...prev, tempMessage]);
     setIsTyping(true);
 
     try {
-      // Don't fetch all documents - vector search in getChatResponse already provides relevant context
-      // This prevents massive context overflow (253k+ tokens)
-      const response = await getChatResponse(input, '', userId, currentChat, supabase);
+      let streamedResponse = '';
+      
+      // Stream the response with real-time updates
+      const response = await getChatResponse(
+        input, 
+        '', 
+        userId, 
+        currentChat, 
+        supabase,
+        (chunk: string) => {
+          // Update response in real-time as chunks arrive
+          streamedResponse += chunk;
+          setChatHistory(prev => 
+            prev.map(msg => 
+              msg.id === tempId 
+                ? { ...msg, response: streamedResponse }
+                : msg
+            )
+          );
+        }
+      );
 
+      setIsTyping(false);
+
+      // Save to database
       const { data, error } = await supabase
         .from('chat_messages')
         .insert([{
@@ -765,6 +784,7 @@ export default function Chat() {
 
       if (error) throw error;
 
+      // Replace temp message with saved message
       setChatHistory(prev => {
         const filtered = prev.filter(item => item.id !== tempId);
         return [...filtered, ...(data || [])];
