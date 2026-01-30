@@ -28,7 +28,7 @@ cp .env.example .env
 Required environment variables:
 - `SUPABASE_URL` - Your Supabase project URL
 - `SUPABASE_SERVICE_KEY` - Supabase service role key (from Settings > API)
-- `OPENROUTER_API_KEY` - Your OpenRouter API key
+- `CEREBRAS_API_KEY_1` to `CEREBRAS_API_KEY_5` - Your Cerebras API keys (get free at https://cloud.cerebras.ai)
 - `STORAGE_BUCKET_DOCUMENTS` - Name of Supabase storage bucket for documents (default: "documents")
 - `STORAGE_BUCKET_JSONL` - Name of Supabase storage bucket for JSONL files (default: "jsonl-datasets")
 
@@ -194,7 +194,7 @@ cat downloaded.jsonl | jq .
 
 ### JSONL generation fails
 
-- Check OpenRouter API key is valid
+- Check Cerebras API keys are valid
 - Check document file exists in storage
 - Check backend logs: `journalctl -u jsonl-generator -f` (if using systemd)
 - Check job status via API: `curl http://localhost:8000/api/jsonl/status/{job_id}`
@@ -222,7 +222,7 @@ FastAPI backend:
    1. Downloads file from storage
    2. Extracts text server-side
    3. Chunks text (~800 chars)
-   4. Calls OpenRouter LLM for each chunk
+   4. Calls Cerebras LLM for each chunk
    5. Generates 3-5 JSONL lines per chunk
    6. Uploads JSONL to storage bucket "jsonl-datasets"
         ↓

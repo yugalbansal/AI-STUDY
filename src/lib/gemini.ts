@@ -160,10 +160,12 @@ export async function getChatResponse(
 
     // If streaming callback is provided, use streaming
     if (onChunk) {
+      console.log('Using streaming mode');
       return await streamChatResponse(supabaseClient, messages, systemPrompt, onChunk);
     }
 
     // Otherwise, use regular request
+    console.log('Using non-streaming mode');
     const { data, error } = await supabaseClient.functions.invoke('chat-completion', {
       body: { messages, systemPrompt, stream: false },
     });
@@ -172,6 +174,8 @@ export async function getChatResponse(
       console.error('Edge Function error:', error);
       throw new Error(`Chat API error: ${error.message}`);
     }
+
+    console.log('Edge Function response data type:', typeof data, data);
     
     if (!data || !(data as any).content) {
       console.error('Empty response from Edge Function:', data);
@@ -212,22 +216,36 @@ async function streamChatResponse(
   systemPrompt: string,
   onChunk: (chunk: string) => void
 ): Promise<string> {
-  const { data, error } = await supabaseClient.functions.invoke('chat-completion', {
+  const response = await supabaseClient.functions.invoke('chat-completion', {
     body: { messages, systemPrompt, stream: true },
   });
 
-  if (error) {
-    throw new Error(`Chat API error: ${error.message}`);
+  if (response.error) {
+    throw new Error(`Chat API error: ${response.error.message}`);
   }
 
-  // Deno Edge Functions return Response for streaming
-  if (!(data instanceof Response)) {
-    throw new Error('Expected streaming response');
+  // Check if we got a streaming response (Response object with body)
+  const data = response.data;
+  if (!data) {
+    throw new Error('No response data');
   }
 
-  const reader = data.body?.getReader();
+  // Handle Response object (streaming)
+  let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+  
+  if (data instanceof Response && data.body) {
+    reader = data.body.getReader();
+  } else if (typeof data === 'object' && 'content' in data) {
+    // Non-streaming fallback - return content directly
+    const content = (data as any).content || '';
+    onChunk(content);
+    return content;
+  } else {
+    throw new Error('Invalid response format');
+  }
+
   if (!reader) {
-    throw new Error('No response body');
+    throw new Error('No response body reader');
   }
 
   const decoder = new TextDecoder();
@@ -249,16 +267,29 @@ async function streamChatResponse(
         if (!trimmed.startsWith('data: ')) continue;
 
         try {
-          const data = JSON.parse(trimmed.slice(6));
-          if (data.content) {
-            fullContent += data.content;
-            onChunk(data.content);
+          const parsedData = JSON.parse(trimmed.slice(6));
+          if (parsedData.content) {
+            fullContent += parsedData.content;
+            onChunk(parsedData.content);
           }
         } catch (e) {
           console.error('Failed to parse SSE line:', trimmed);
         }
       }
     }
+  } catch (streamError) {
+    console.error('Streaming error:', streamError);
+    // If streaming fails, return what we have so far
+    if (fullContent) {
+      return fullContent;
+    }
+    throw streamError;
+  } finally {
+    reader.releaseLock();
+  }
+
+  return fullContent;
+}
   } finally {
     reader.releaseLock();
   }
