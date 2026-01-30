@@ -1,40 +1,38 @@
 // Supabase Edge Function: chat-completion
-// Purpose: Handle OpenRouter chat completions with continuation support
+// Purpose: Handle Cerebras chat completions with continuation support
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+const CEREBRAS_API_URL = "https://api.cerebras.ai/v1/chat/completions";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// FREE MODEL SELECTION STRATEGY
+// MODEL SELECTION STRATEGY
 const selectModel = (prompt: string, hasContext: boolean = false): string => {
   const wordCount = prompt.trim().split(/\s+/).length;
   
-  // If context is provided, always use better model for accuracy
+  // If context is provided, use better model for accuracy
   if (hasContext) {
-    return "nousresearch/hermes-3-llama-3.1-405b:free";
+    return "gpt-oss-120b";
   }
   
   // Short/simple prompts (≤ 20 words) → Fast model
   if (wordCount <= 20) {
-    return "meta-llama/llama-3.3-70b-instruct:free";
+    return "llama-3.3-70b";
   }
   
   // Long/complex prompts (> 20 words) → Better reasoning model
-  return "nousresearch/hermes-3-llama-3.1-405b:free";
+  return "gpt-oss-120b";
 };
 
-// Fallback model order (ONLY VERIFIED FREE MODELS)
+// Fallback model order
 const FALLBACK_MODELS = [
-  "nousresearch/hermes-3-llama-3.1-405b:free",
-  "meta-llama/llama-3.3-70b-instruct:free",
-  "deepseek/deepseek-r1-0528:free",
-  "openai/gpt-oss-120b:free",
-  "qwen/qwen3-coder:free",
+  "gpt-oss-120b",
+  "llama-3.3-70b",
+  "qwen-3-32b",
 ];
 
 interface Message {
@@ -47,18 +45,16 @@ interface RequestBody {
   systemPrompt?: string;
 }
 
-async function callOpenRouter(
+async function callCerebras(
   messages: Message[],
   model: string,
   apiKey: string
 ): Promise<{ content: string; finishReason: string }> {
-  const response = await fetch(OPENROUTER_API_URL, {
+  const response = await fetch(CEREBRAS_API_URL, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://auth.yugal.site",
-      "X-Title": "AI Study Platform",
     },
     body: JSON.stringify({
       model,
@@ -69,14 +65,14 @@ async function callOpenRouter(
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`OpenRouter error (${response.status}): ${error}`);
+    throw new Error(`Cerebras error (${response.status}): ${error}`);
   }
 
   const data = await response.json();
   const choice = data.choices?.[0];
   
   if (!choice) {
-    throw new Error("No response from OpenRouter");
+    throw new Error("No response from Cerebras");
   }
 
   return {
@@ -100,9 +96,9 @@ serve(async (req: Request) => {
       );
     }
 
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    if (!OPENROUTER_API_KEY) {
-      throw new Error("OpenRouter API key not configured");
+    const CEREBRAS_API_KEY = Deno.env.get("CEREBRAS_API_KEY_1");
+    if (!CEREBRAS_API_KEY) {
+      throw new Error("Cerebras API key not configured");
     }
 
     // Build final messages array
@@ -123,7 +119,7 @@ serve(async (req: Request) => {
 
     // Try selected model first
     try {
-      result = await callOpenRouter(finalMessages, selectedModel, OPENROUTER_API_KEY);
+      result = await callCerebras(finalMessages, selectedModel, CEREBRAS_API_KEY);
     } catch (error) {
       console.error(`Primary model ${selectedModel} failed:`, error);
       lastError = error;
@@ -136,7 +132,7 @@ serve(async (req: Request) => {
         
         try {
           console.log(`Trying fallback model: ${fallbackModel}`);
-          result = await callOpenRouter(finalMessages, fallbackModel, OPENROUTER_API_KEY);
+          result = await callCerebras(finalMessages, fallbackModel, CEREBRAS_API_KEY);
           break;
         } catch (error) {
           console.error(`Fallback model ${fallbackModel} failed:`, error);
@@ -172,7 +168,7 @@ serve(async (req: Request) => {
       ];
 
       try {
-        result = await callOpenRouter(continuationMessages, selectedModel, OPENROUTER_API_KEY);
+        result = await callCerebras(continuationMessages, selectedModel, CEREBRAS_API_KEY);
         fullContent += " " + result.content;
         attempts++;
       } catch (error) {

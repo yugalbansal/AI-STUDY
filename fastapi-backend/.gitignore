@@ -43,3 +43,7 @@ wheels/
 
 # Logs
 *.log
+
+app.yaml
+cron.yaml
+.gcloudignore
