@@ -290,9 +290,3 @@ async function streamChatResponse(
 
   return fullContent;
 }
-  } finally {
-    reader.releaseLock();
-  }
-
-  return fullContent;
-}
