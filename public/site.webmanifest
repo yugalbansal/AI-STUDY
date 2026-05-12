@@ -1,0 +1,21 @@
+{
+  "name": "Vector Mind AI",
+  "short_name": "Vector Mind",
+  "description": "Free JSONL Dataset Generator for PDFs - Chat with documents, study faster, and create training data for free.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#3b82f6",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "https://ktjpfkrmsjopiytvxkzm.supabase.co/storage/v1/object/public/logo/logoVectormind.png?v=2",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://ktjpfkrmsjopiytvxkzm.supabase.co/storage/v1/object/public/logo/logoVectormind.png?v=2",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

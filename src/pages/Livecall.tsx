@@ -103,17 +103,18 @@ const Livecall = () => {
       console.log('Microphone already active');
       return;
     }
-    
+
     try {
+      // Request microphone with browser's built-in noise suppression
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 16000
+          autoGainControl: true
+          // Let browser choose optimal sample rate
         }
       });
-      
+
       micStreamRef.current = stream;
       console.log('Microphone activated');
     } catch (error) {
@@ -217,9 +218,14 @@ const Livecall = () => {
       console.log('TTS cancelled before starting');
       return;
     }
-    
+
     if (!transitionTo('SPEAKING')) return;
-    
+
+    // Enable audio ducking to prevent feedback during AI speech
+    if (audioProcessorRef.current) {
+      audioProcessorRef.current.enableDucking();
+    }
+
     try {
       // FIX #6: Ensure mic is HARD STOPPED (not just muted)
       console.log('Ensuring microphone is stopped...');
@@ -227,37 +233,37 @@ const Livecall = () => {
         groqSTTRef.current.forceStop();
       }
       await new Promise(resolve => setTimeout(resolve, 200)); // Hardware settling time
-      
+
       // FIX #4 & #5: Check cancellation before TTS
       if (operationIdRef.current !== operationId) {
         console.log('TTS cancelled after mic stop');
         return;
       }
-      
+
       // STEP 2: Play TTS with Groq (BLOCKING) - only if not muted
       if (!isMuted && groqTTSRef.current) {
         console.log('Playing Groq TTS...');
-        
+
         // FIX #4: TTS is fully blocking and abortable
         await groqTTSRef.current.speak(responseText);
-        
+
         console.log('TTS playback completed');
       } else {
         console.log('TTS muted or service unavailable');
       }
-      
+
       // FIX #5: Check cancellation after TTS
       if (operationIdRef.current !== operationId) {
         console.log('Cancelled after TTS, not restarting');
         return;
       }
-      
+
       // STEP 3: Wait before restarting microphone
       await new Promise(resolve => setTimeout(resolve, 500)); // Post-TTS silence buffer
-      
+
       // STEP 4: Transition back to LISTENING
       await transitionToListening();
-      
+
     } catch (error) {
       console.error('Error in SPEAKING state:', error);
       toast.error('Failed to play response');
@@ -274,21 +280,26 @@ const Livecall = () => {
       console.error('Cannot transition to LISTENING from', currentState);
       return;
     }
-    
+
     if (!transitionTo('LISTENING')) return;
-    
+
     // Reset mutex for new listening cycle
     transitionMutexRef.current = false;
-    
+
+    // Ensure ducking is disabled when starting to listen
+    if (audioProcessorRef.current) {
+      audioProcessorRef.current.disableDucking();
+    }
+
     try {
       // STEP 1: Ensure microphone stream is active (BLOCKING)
       await setupMicrophone();
-      
+
       if (!micStreamRef.current) {
         throw new Error('Failed to get microphone stream');
       }
-      
-      // STEP 2: Start audio processor (optional, for gain control)
+
+      // STEP 2: Start audio processor (for gain control and noise handling)
       if (!audioProcessorRef.current) {
         audioProcessorRef.current = new SimpleAudioProcessor();
         try {
@@ -300,20 +311,21 @@ const Livecall = () => {
           console.warn('Audio processor failed, continuing without it');
         }
       }
-      
-      // FIX #1: Start Groq STT recording (NON-BLOCKING START)
+
+      // FIX #1: Start Groq STT recording with PROCESSED audio stream
       console.log('Starting Groq STT recording...');
       if (!groqSTTRef.current) {
         throw new Error('Groq STT service not initialized');
       }
-      
-      await groqSTTRef.current.startRecording(micStreamRef.current);
+
+      // Use processed stream from audio processor if available, otherwise use raw stream
+      const streamToUse = audioProcessorRef.current?.getProcessedStream() || micStreamRef.current;
+      await groqSTTRef.current.startRecording(streamToUse);
       console.log('Recording audio for Groq STT...');
-      
+
       // FIX #1 & #5: Wait for user to finish speaking, then transcribe
-      // Use Voice Activity Detection or simple timer for now
       await waitForUserSpeech();
-      
+
     } catch (error) {
       console.error('Error transitioning to LISTENING:', error);
       toast.error('Failed to start listening');
@@ -322,15 +334,40 @@ const Livecall = () => {
     }
   };
   
-  // FIX #1 & #5: Silence-based VAD - wait for user to stop speaking, then process ONCE
+  // FIX #1 & #5: Improved VAD for noisy environments
   const waitForUserSpeech = async () => {
-    console.log('Listening with silence detection...');
+    console.log('Listening with improved noise-resistant VAD...');
 
-    const SILENCE_THRESHOLD = 0.015; // adjust if needed
-    const SILENCE_DURATION = 800; // ms
+    const MIN_SPEECH_DURATION = 400; // ms - minimum speech to trigger
+    const SILENCE_DURATION = 1200; // ms - longer silence to stop (more tolerant)
+    const MAX_LISTENING_TIME = 15000; // ms - max time to prevent infinite loops
+    const NOISE_FLOOR_SAMPLES = 15; // samples to calculate ambient noise
     const CHECK_INTERVAL = 50; // ms
 
     let silenceStart: number | null = null;
+    let speechStart: number | null = null;
+    let noiseFloor = 0;
+    let sampleCount = 0;
+
+    // Calculate ambient noise floor first
+    console.log('Calibrating ambient noise level...');
+    const calibrationStart = Date.now();
+    while (sampleCount < NOISE_FLOOR_SAMPLES && (Date.now() - calibrationStart) < 1000) {
+      if (!groqSTTRef.current?.isCurrentlyRecording()) {
+        console.log('Recording stopped during calibration');
+        return;
+      }
+      const vol = audioProcessorRef.current?.getCurrentVolume() ?? 0;
+      noiseFloor = Math.max(noiseFloor, vol);
+      sampleCount++;
+      await new Promise(r => setTimeout(r, 30));
+    }
+
+    // Dynamic threshold - at least 1.5x ambient noise, with minimum floor
+    const SPEECH_THRESHOLD = Math.max(noiseFloor * 2.5, 0.02);
+    console.log(`Noise floor: ${noiseFloor.toFixed(4)}, Speech threshold: ${SPEECH_THRESHOLD.toFixed(4)}`);
+
+    const startTime = Date.now();
 
     while (true) {
       // Stop if recording was cancelled
@@ -339,20 +376,41 @@ const Livecall = () => {
         return;
       }
 
+      // Timeout safety - max 15 seconds listening
+      if (Date.now() - startTime > MAX_LISTENING_TIME) {
+        console.log('Max listening time reached, stopping...');
+        break;
+      }
+
       const volume = audioProcessorRef.current?.getCurrentVolume() ?? 0;
 
-      if (volume < SILENCE_THRESHOLD) {
+      if (volume > SPEECH_THRESHOLD) {
+        // User is speaking
+        if (speechStart === null) {
+          speechStart = Date.now();
+          console.log('Speech detected, starting speech timer...');
+        }
+        silenceStart = null;
+      } else {
+        // Below threshold - could be silence or noise
         if (silenceStart === null) {
           silenceStart = Date.now();
+          console.log('Below threshold, starting silence timer...');
         }
 
-        if (Date.now() - silenceStart >= SILENCE_DURATION) {
-          console.log('Silence detected, stopping recording...');
-          break;
+        // Check if user was speaking and then went silent
+        if (speechStart !== null && (Date.now() - silenceStart) >= SILENCE_DURATION) {
+          const speechDuration = Date.now() - speechStart;
+          if (speechDuration >= MIN_SPEECH_DURATION) {
+            console.log(`Speech detected (${speechDuration}ms), stopping recording...`);
+            break;
+          } else {
+            // Too short, ignore and keep listening
+            console.log(`Sound too short (${speechDuration}ms), ignoring...`);
+            speechStart = null;
+            silenceStart = null;
+          }
         }
-      } else {
-        // User is speaking
-        silenceStart = null;
       }
 
       await new Promise(r => setTimeout(r, CHECK_INTERVAL));

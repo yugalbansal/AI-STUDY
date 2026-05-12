@@ -18,19 +18,18 @@ export class SimpleAudioProcessor {
 
   async start(callbacks: SimpleAudioCallbacks): Promise<void> {
     this.callbacks = callbacks;
-    
+
     try {
       console.log('Starting simplified audio processor...');
-      
+
       // Request enhanced microphone with all available noise reduction
       this.stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          sampleRate: 16000,
           channelCount: 1,
-          // Chrome-specific enhancements
+          // Chrome-specific enhancements for better noise handling
           ...(navigator.userAgent.includes('Chrome') && {
             googEchoCancellation: true,
             googAutoGainControl: true,
@@ -39,17 +38,13 @@ export class SimpleAudioProcessor {
             googEchoCancellation2: true,
             googAutoGainControl2: true,
             googNoiseSuppression2: true,
-            googTypingNoiseDetection: true,
-            googExperimentalAutoGainControl: true,
-            googExperimentalEchoCancellation: true,
-            googExperimentalNoiseSuppression: true
+            googTypingNoiseDetection: true
           })
         }
       });
 
-      // Initialize audio context for gain control
+      // Initialize audio context - let browser choose optimal sample rate
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
-        sampleRate: 16000,
         latencyHint: 'interactive'
       });
 
