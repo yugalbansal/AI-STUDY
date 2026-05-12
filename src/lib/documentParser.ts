@@ -2,8 +2,8 @@ import * as mammoth from 'mammoth';
 import JSZip from 'jszip';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure PDF.js worker - use a CDN to avoid bundling issues
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Use a more reliable CDN for the worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 export interface ParsedDocument {
   content: string;
@@ -70,8 +70,7 @@ async function parsePDF(file: File): Promise<string> {
 
           for (let i = 0; i < operators.fnArray.length; i++) {
             // Paint image operator
-            if (operators.fnArray[i] === pdfjsLib.OPS.paintImageXObject ||
-                operators.fnArray[i] === pdfjsLib.OPS.paintJpegXImage) {
+            if (operators.fnArray[i] === pdfjsLib.OPS.paintImageXObject) {
               hasImage = true;
               break;
             }
