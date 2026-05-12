@@ -112,51 +112,28 @@ def detect_dataset_mode(text: str) -> DatasetMode:
     return DatasetMode.THEORY_QA
 
 class LLMClient:
-    """Client for Cerebras API to generate JSONL training examples with round-robin key management"""
-    
+    """Client for OpenCode API (Anthropic-compatible) to generate JSONL training examples"""
+
     def __init__(self):
-        # Load multiple API keys (5 keys, each can handle 2 parallel requests = 10 total)
-        self.api_keys = []
-        for i in range(1, 6):  # Keys 1-5
-            key = os.getenv(f"CEREBRAS_API_KEY_{i}")
-            if key:
-                self.api_keys.append(key)
-        
-        # Fall back to single key if multiple keys not configured
-        if not self.api_keys:
-            single_key = os.getenv("CEREBRAS_API_KEY")
-            if single_key:
-                self.api_keys = [single_key]
-            else:
-                raise ValueError("At least CEREBRAS_API_KEY or CEREBRAS_API_KEY_1 must be set")
-        
-        logger.info(f"Initialized with {len(self.api_keys)} API key(s)")
-        
-        # Round-robin queue for keys
-        self.key_queue = deque(self.api_keys)
-        self.key_lock = asyncio.Lock()
-        
-        # Track rate limit status per key: {key: timestamp_when_available}
-        self.rate_limited_keys: Dict[str, float] = {}
-        self.rate_limit_lock = asyncio.Lock()
-        
-        self.api_url = "https://api.cerebras.ai/v1/chat/completions"
-        # Cerebras models (Jan 2026)
-        self.primary_model = "llama-3.3-70b"
-        self.fallback_models = [
-            "gpt-oss-120b",
-            "llama3.1-8b",
-            "qwen-3-32b",
-        ]
-        
-        # Log configuration for debugging
-        logger.info(f"Cerebras API URL: {self.api_url}")
-        logger.info(f"Primary model: {self.primary_model}")
-        logger.info(f"Fallback models: {self.fallback_models}")
+        # Load OpenCode API key
+        self.api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not self.api_key:
+            self.api_key = os.getenv("CEREBRAS_API_KEY")  # Fallback to Cerebras key if exists
+
+        if not self.api_key:
+            raise ValueError("ANTHROPIC_API_KEY must be set")
+
+        logger.info(f"Initialized with OpenCode API")
+
+        self.api_url = os.getenv("ANTHROPIC_BASE_URL", "https://opencode.ai/zen") + "/v1/messages"
+        self.model = os.getenv("ANTHROPIC_MODEL", "minimax-m2.5-free")
+
+        logger.info(f"OpenCode API URL: {self.api_url}")
+        logger.info(f"Model: {self.model}")
     
     async def generate_jsonl_from_chunk(
-        self, 
-        chunk: str, 
+        self,
+        chunk: str,
         retry_count: int = 3,
         mode: Optional[DatasetMode] = None,
         chunk_metadata: Optional[Dict[str, Any]] = None,
@@ -164,111 +141,73 @@ class LLMClient:
     ) -> List[str]:
         """
         Generate JSONL training examples from a text chunk with automatic mode detection.
-        Uses retry logic with fallback models and applies strict quality controls.
-        ACCUMULATES results across models/retries until target is reached.
-        
+        Uses retry logic and applies strict quality controls.
+        ACCUMULATES results across retries until target is reached.
+
         Args:
             chunk: Text content to generate training data from
-            retry_count: Number of retries per model
+            retry_count: Number of retries
             mode: Dataset mode (auto-detected if None)
             chunk_metadata: Optional metadata (page number, section name) for source anchoring
             target_per_chunk: Target number of examples to accumulate (default 12)
-            
+
         Returns:
             List of valid, quality-filtered JSONL strings
         """
         # Auto-detect mode if not provided
         if mode is None:
             mode = detect_dataset_mode(chunk)
-        
+
         # Check if mode is applicable to this chunk (skip if not)
         if not self._is_mode_applicable(mode, chunk):
             logger.info(f"Mode {mode.value} not applicable to this chunk, skipping")
             return []
-        
+
         collected = []  # Accumulate results across all attempts
-        models = [self.primary_model] + self.fallback_models
-        
-        for model in models:
-            for attempt in range(retry_count):
-                try:
-                    logger.info(f"Generating JSONL with {model} in {mode.value} mode (attempt {attempt + 1}, collected: {len(collected)})")
-                    
-                    response = await self._call_cerebras(chunk, model, mode, chunk_metadata)
+
+        for attempt in range(retry_count):
+            try:
+                    logger.info(f"Generating JSONL with {self.model} in {mode.value} mode (attempt {attempt + 1}, collected: {len(collected)})")
+
+                    response = await self._call_opencode(chunk, mode, chunk_metadata)
                     lines = self._parse_llm_output(response, mode, chunk)
-                    
+
                     if len(lines) > 0:
                         collected.extend(lines)
                         logger.info(f"Added {len(lines)} lines, total collected: {len(collected)}")
-                        
+
                         # Early exit if we've reached target
                         if len(collected) >= target_per_chunk:
                             logger.info(f"Reached target of {target_per_chunk} examples")
                             return collected[:target_per_chunk]
                     else:
-                        logger.warning(f"No valid JSONL lines from {model} after quality filtering")
-                    
+                        logger.warning(f"No valid JSONL lines after quality filtering")
+
                 except httpx.TimeoutException:
-                    logger.warning(f"Timeout on {model}, attempt {attempt + 1}")
+                    logger.warning(f"Timeout on {self.model}, attempt {attempt + 1}")
                     if attempt < retry_count - 1:
                         await asyncio.sleep(2 ** attempt)  # Exponential backoff
                         continue
-                
+
                 except httpx.HTTPStatusError as e:
                     if e.response.status_code == 429:  # Rate limit
                         logger.warning(f"Rate limit hit, waiting 10s")
                         await asyncio.sleep(10)
                         continue
-                    logger.error(f"HTTP error {e.response.status_code} from {model}: {e.response.text[:500]}")
-                    break  # Try next model
-                
+                    logger.error(f"HTTP error {e.response.status_code}: {e.response.text[:500]}")
+                    break
+
                 except Exception as e:
-                    logger.error(f"Unexpected error with {model}: {type(e).__name__}: {e}", exc_info=True)
-                    break  # Try next model
-        
+                    logger.error(f"Unexpected error: {type(e).__name__}: {e}", exc_info=True)
+                    break
+
         # Return whatever we collected
         if len(collected) > 0:
             logger.info(f"Accumulated {len(collected)} examples across all attempts")
         else:
-            logger.error("All models and retries exhausted for this chunk")
+            logger.error("All retries exhausted for this chunk")
         return collected
-    
-    async def _get_available_key(self) -> str:
-        """Get an available API key using round-robin, waiting if all keys are rate-limited"""
-        max_wait_cycles = 5  # Maximum cycles to wait for a key
-        
-        for cycle in range(max_wait_cycles):
-            async with self.key_lock:
-                # Try each key in the queue
-                for _ in range(len(self.key_queue)):
-                    key = self.key_queue[0]
-                    self.key_queue.rotate(-1)  # Move to back of queue
-                    
-                    # Check if this key is rate-limited
-                    async with self.rate_limit_lock:
-                        if key in self.rate_limited_keys:
-                            if time.time() < self.rate_limited_keys[key]:
-                                continue  # Still rate-limited, try next key
-                            else:
-                                # Rate limit expired, remove from tracking
-                                del self.rate_limited_keys[key]
-                    
-                    return key
-            
-            # All keys are rate-limited, wait 2 seconds and try again
-            logger.warning(f"All API keys rate-limited, waiting 2s (cycle {cycle + 1}/{max_wait_cycles})")
-            await asyncio.sleep(2)
-        
-        # Fallback: return first key even if rate-limited
-        async with self.key_lock:
-            return self.key_queue[0]
-    
-    async def _mark_key_rate_limited(self, key: str):
-        """Mark a key as rate-limited for 10 seconds"""
-        async with self.rate_limit_lock:
-            self.rate_limited_keys[key] = time.time() + 10  # Available again in 10 seconds
-            logger.info(f"Key rate-limited, will retry after 10 seconds")
-    
+
     def _is_mode_applicable(self, mode: DatasetMode, chunk: str) -> bool:
         """
         Pre-check if a mode is applicable to a chunk before calling LLM.
@@ -309,19 +248,17 @@ class LLMClient:
         # All other modes are always applicable
         return True
     
-    async def _call_cerebras(
-        self, 
-        chunk: str, 
-        model: str,
+    async def _call_opencode(
+        self,
+        chunk: str,
         mode: DatasetMode,
         chunk_metadata: Optional[Dict[str, Any]] = None
     ) -> str:
         """
-        Call Cerebras API with mode-specific prompts and round-robin key selection.
-        
+        Call OpenCode Anthropic-compatible API.
+
         Args:
             chunk: Text content to generate training data from
-            model: Cerebras model name
             mode: Dataset mode (determines system prompt and output format)
             chunk_metadata: Optional metadata for source anchoring
         """
@@ -332,10 +269,10 @@ class LLMClient:
                 source_context = f"[Source: Page {chunk_metadata['page']}]\n"
             elif 'section' in chunk_metadata:
                 source_context = f"[Source: {chunk_metadata['section']}]\n"
-        
+
         # Mode-specific prompts with fixed system instructions
         if mode == DatasetMode.THEORY_QA:
-            prompt = f"""You are a training data generator for AI tutoring systems. Generate 4 diverse question-answer pairs in JSONL format from the text below.
+            user_content = f"""Generate 4 diverse question-answer pairs in JSONL format from the text below.
 
 MANDATORY RULES:
 - Each line must be valid JSON with a "messages" array
@@ -355,17 +292,17 @@ OUTPUT FORMAT (one JSON object per line, no markdown, no code blocks):
 {{"messages": [{{"role": "system", "content": "{MODE_SYSTEM_PROMPTS[DatasetMode.THEORY_QA]}"}}, {{"role": "user", "content": "How does X work and why?"}}, {{"role": "assistant", "content": "X works by... This is because..."}}]}}
 
 Generate up to 6 high-quality JSONL lines with WHY/HOW reasoning. Only include lines that fully satisfy all rules:"""
-        
+
         elif mode == DatasetMode.CODE_GEN:
-            prompt = f"""You are a training data generator for programming education. Generate 4 diverse code generation examples in JSONL format from the text below.
+            user_content = f"""Generate 4 diverse code generation examples in JSONL format from the text below.
 
 MANDATORY RULES:
 - Each line must be valid JSON with a "messages" array
 - Use roles: "system", "user", "assistant"
 - System message MUST be EXACTLY: "{MODE_SYSTEM_PROMPTS[DatasetMode.CODE_GEN]}"
-- Questions must describe programming tasks or problems from the provided text
+- Questions must describe programming tasks or problems from the text
 - Answers MUST contain ONLY valid, executable code (NO explanations, NO comments, NO markdown)
-- Code must be directly related to concepts in the provided text
+- Code must be directly related to concepts in the text
 - Each line must be complete and parseable JSON
 
 TEXT:
@@ -377,20 +314,16 @@ OUTPUT FORMAT (one JSON object per line, no markdown, no code blocks):
 Generate up to 6 high-quality JSONL lines with CODE ONLY answers. Only include lines that fully satisfy all rules:"""
 
         elif mode == DatasetMode.STRUCTURAL_QA:
-            prompt = f"""You are a training data generator for AI tutoring systems. Generate 4 diverse question-answer pairs in JSONL format from the text below, focusing on definitions, properties, components, and structural details.
+            user_content = f"""Generate 4 diverse question-answer pairs in JSONL format from the text below, focusing on definitions, properties, components, and structural details.
 
 MANDATORY RULES:
 - Each line must be valid JSON with a "messages" array
 - Use roles: "system", "user", "assistant"
 - System message MUST be EXACTLY: "{MODE_SYSTEM_PROMPTS[DatasetMode.STRUCTURAL_QA]}"
 - Questions must ask about WHAT things are, their properties, characteristics, or components
-- Questions must be DIRECTLY answerable from explicit statements in the provided text
-- Questions must focus on: definitions, key properties, components/parts, or explicit structural details
+- Questions must be DIRECTLY answerable from explicit statements in the text
 - Do NOT ask meta questions (author, title, ISBN, publisher, copyright, dedication)
-- Do NOT repeat questions about the same concept
 - Answers must be concise (1-3 sentences), precise, and quote or paraphrase the text directly
-- Answers must NOT include opinions, general knowledge, or external facts
-- Vary question types: "What is X?", "What are the properties of X?", "What components does X have?", "What defines X?"
 - Each line must be complete and parseable JSON
 
 TEXT:
@@ -399,25 +332,18 @@ TEXT:
 OUTPUT FORMAT (one JSON object per line, no markdown, no code blocks):
 {{"messages": [{{"role": "system", "content": "{MODE_SYSTEM_PROMPTS[DatasetMode.STRUCTURAL_QA]}"}}, {{"role": "user", "content": "What is X?"}}, {{"role": "assistant", "content": "X is defined as..."}}]}}
 
-Generate up to 6 high-quality JSONL lines with concise, text-grounded definitions and properties. Only include lines that fully satisfy all rules:"""
-        
+Generate up to 6 high-quality JSONL lines with concise, text-grounded definitions. Only include lines that fully satisfy all rules:"""
+
         elif mode == DatasetMode.TRADEOFFS_QA:
-            prompt = f"""You are a training data generator for AI tutoring systems. Generate 4 diverse question-answer pairs in JSONL format from the text below, focusing on limitations, trade-offs, constraints, and design considerations.
+            user_content = f"""Generate 4 diverse question-answer pairs in JSONL format from the text below, focusing on limitations, trade-offs, constraints, and design considerations.
 
 MANDATORY RULES:
 - Each line must be valid JSON with a "messages" array
 - Use roles: "system", "user", "assistant"
 - System message MUST be EXACTLY: "{MODE_SYSTEM_PROMPTS[DatasetMode.TRADEOFFS_QA]}"
-- Questions must focus on: limitations, trade-offs between alternatives, constraints, design considerations, or problems under certain conditions
-- Questions must be DIRECTLY answerable from explicit statements in the provided text
-- Do NOT ask generic or hypothetical questions not grounded in the document
-- Do NOT ask meta questions (author, title, ISBN, publisher, copyright)
-- Do NOT repeat questions from earlier contexts
-- Answers MUST explain WHY a limitation or trade-off exists (causal reasoning required)
-- Answers must be grounded in the text and demonstrate understanding of constraints
-- Vary question types: "What are the limitations of X?", "What trade-offs exist when using X?", "What constraints does X impose?", "What problems arise when X?"
+- Questions must focus on: limitations, trade-offs, constraints, design considerations
+- Answers MUST explain WHY a limitation or trade-off exists
 - Each line must be complete and parseable JSON
-- STOP if the text does not describe trade-offs, limitations, or constraints
 
 TEXT:
 {source_context}{chunk}
@@ -425,79 +351,64 @@ TEXT:
 OUTPUT FORMAT (one JSON object per line, no markdown, no code blocks):
 {{"messages": [{{"role": "system", "content": "{MODE_SYSTEM_PROMPTS[DatasetMode.TRADEOFFS_QA]}"}}, {{"role": "user", "content": "What are the limitations of X?"}}, {{"role": "assistant", "content": "X is limited by... because..."}}]}}
 
-Generate up to 6 high-quality JSONL lines about limitations, trade-offs, and constraints with WHY explanations. Only include lines that fully satisfy all rules:"""
-        
-        else:  # COMPARATIVE_QA mode
-            prompt = f"""You are a training data generator for AI tutoring systems. Generate 4 diverse question-answer pairs in JSONL format from the text below, focusing on comparisons and relationships between concepts.
+Generate up to 6 high-quality JSONL lines about limitations and trade-offs. Only include lines that fully satisfy all rules:"""
+
+        else:  # COMPARATIVE_QA
+            user_content = f"""Generate 4 diverse question-answer pairs in JSONL format from the text below, focusing on comparisons and relationships between concepts.
 
 MANDATORY RULES:
 - Each line must be valid JSON with a "messages" array
 - Use roles: "system", "user", "assistant"
 - System message MUST be EXACTLY: "{MODE_SYSTEM_PROMPTS[DatasetMode.COMPARATIVE_QA]}"
-- Questions must focus on: comparisons (A vs B), relationships between concepts, or cause-effect links
-- Questions MUST require understanding of MORE THAN ONE concept from the text
-- Questions must be DIRECTLY answerable from explicit comparisons or relationships stated in the text
-- Do NOT invent comparisons or relationships not present in the text
-- Do NOT ask meta questions (author, title, ISBN, publisher, copyright)
-- Do NOT repeat questions from earlier contexts
-- Answers MUST reference BOTH sides of the comparison or relationship explicitly
-- Answers must explain how concepts relate, differ, or connect
-- Vary question types: "How does X compare to Y?", "What is the relationship between X and Y?", "How does X affect Y?", "What distinguishes X from Y?"
+- Questions must focus on comparisons or relationships between concepts
+- Answers must reference BOTH sides of the comparison
 - Each line must be complete and parseable JSON
-- STOP if the text does not contain explicit comparisons or relationships between concepts
 
 TEXT:
 {source_context}{chunk}
 
 OUTPUT FORMAT (one JSON object per line, no markdown, no code blocks):
-{{"messages": [{{"role": "system", "content": "{MODE_SYSTEM_PROMPTS[DatasetMode.COMPARATIVE_QA]}"}}, {{"role": "user", "content": "How does X compare to Y?"}}, {{"role": "assistant", "content": "X differs from Y in that... while Y..."}}]}}
+{{"messages": [{{"role": "system", "content": "{MODE_SYSTEM_PROMPTS[DatasetMode.COMPARATIVE_QA]}"}}, {{"role": "user", "content": "How does X compare to Y?"}}, {{"role": "assistant", "content": "X differs from Y in that..."}}]}}
 
-Generate up to 6 high-quality JSONL lines comparing or relating multiple concepts. Only include lines that fully satisfy all rules:"""
+Generate up to 6 high-quality JSONL lines comparing concepts. Only include lines that fully satisfy all rules:"""
 
-        # Get an available API key
-        api_key = await self._get_available_key()
-        
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        # Call OpenCode Anthropic-compatible API
+        async with httpx.AsyncClient(timeout=60.0) as client:
             try:
                 response = await client.post(
                     self.api_url,
                     headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json"
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                        "anthropic-version": "2023-06-01",
                     },
                     json={
-                        "model": model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": 0.7,
-                        "max_tokens": 2000,
-                        "top_p": 1
+                        "model": self.model,
+                        "messages": [{"role": "user", "content": user_content}],
+                        "max_tokens": 4096,
                     }
                 )
             except httpx.ConnectError as e:
-                logger.error(f"Connection error to Cerebras API: {e}")
+                logger.error(f"Connection error to OpenCode API: {e}")
                 raise
             except httpx.ReadTimeout as e:
-                logger.error(f"Read timeout from Cerebras API: {e}")
+                logger.error(f"Read timeout from OpenCode API: {e}")
                 raise
-            
-            # Handle rate limit
-            if response.status_code == 429:
-                await self._mark_key_rate_limited(api_key)
-            
-            # Log error responses before raising
+
             if response.status_code != 200:
-                logger.error(f"Cerebras API error {response.status_code}: {response.text[:500]}")
-            
+                logger.error(f"OpenCode API error {response.status_code}: {response.text[:500]}")
+
             response.raise_for_status()
-            
+
             data = response.json()
-            
-            # Validate response structure
-            if "choices" not in data or not data["choices"]:
-                logger.error(f"Invalid Cerebras response structure: {data}")
-                raise ValueError("Invalid API response structure")
-            
-            return data["choices"][0]["message"]["content"]
+
+            # Extract content from Anthropic-style response
+            content_blocks = data.get("content", [])
+            text_block = next((b for b in content_blocks if b.get("type") == "text"), None)
+            if not text_block:
+                raise ValueError("No text content in API response")
+
+            return text_block.get("text", "")
     
     def _is_meta_question(self, question: str) -> bool:
         """

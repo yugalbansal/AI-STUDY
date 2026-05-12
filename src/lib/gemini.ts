@@ -104,12 +104,13 @@ function truncateToTokenLimit(text: string, maxTokens: number): string {
  * Main chat response function with streaming support for faster perceived response time
  */
 export async function getChatResponse(
-  prompt: string, 
-  context: string, 
+  prompt: string,
+  context: string,
   userId: string,
   chatId: string,
   supabaseClient: SupabaseClient,
-  onChunk?: (chunk: string) => void
+  onChunk?: (chunk: string) => void,
+  forceStreaming: boolean = false
 ): Promise<string> {
   try {
     // Get vector-based context from chat history and documents
@@ -158,8 +159,8 @@ export async function getChatResponse(
       { role: 'user', content: prompt }
     ];
 
-    // If streaming callback is provided, use streaming
-    if (onChunk) {
+    // Use streaming if callback provided OR if forceStreaming is true
+    if (onChunk || forceStreaming) {
       console.log('Using streaming mode');
       return await streamChatResponse(supabaseClient, messages, systemPrompt, onChunk);
     }

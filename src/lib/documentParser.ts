@@ -1,5 +1,126 @@
 import * as mammoth from 'mammoth';
 import JSZip from 'jszip';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure PDF.js worker - use a CDN to avoid bundling issues
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+export interface ParsedDocument {
+  content: string;
+  metadata?: {
+    pageCount?: number;
+    fileSize: number;
+    mimeType: string;
+  };
+}
+
+/**
+ * Parse a PDF file using pdf.js library
+ * Properly extracts text from PDF documents including image-based PDFs (via OCR fallback message)
+ */
+async function parsePDF(file: File): Promise<string> {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+
+    // Load the PDF document
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const pageCount = pdf.numPages;
+
+    if (pageCount === 0) {
+      throw new Error('PDF has no pages');
+    }
+
+    let fullText = '';
+    const errors: string[] = [];
+
+    // Extract text from each page
+    for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
+      try {
+        const page = await pdf.getPage(pageNum);
+
+        // Try to get text content first
+        const textContent = await page.getTextContent();
+
+        if (textContent.items.length > 0) {
+          // Build text with proper spacing
+          let pageText = '';
+          let lastY: number | null = null;
+
+          for (const item of textContent.items as any[]) {
+            if ('str' in item) {
+              // Check if we need to add a newline (new line detected by Y position change)
+              if (lastY !== null && Math.abs(item.transform[5] - lastY) > 5) {
+                pageText += '\n';
+              }
+              pageText += item.str;
+              lastY = item.transform[5];
+            }
+          }
+
+          if (pageText.trim()) {
+            fullText += `Page ${pageNum}:\n${pageText.trim()}\n\n`;
+          }
+        }
+
+        // If page has no text, check if it's an image-based page
+        if (textContent.items.length === 0) {
+          // Check for image content
+          const operators = await page.getOperatorList();
+          let hasImage = false;
+
+          for (let i = 0; i < operators.fnArray.length; i++) {
+            // Paint image operator
+            if (operators.fnArray[i] === pdfjsLib.OPS.paintImageXObject ||
+                operators.fnArray[i] === pdfjsLib.OPS.paintJpegXImage) {
+              hasImage = true;
+              break;
+            }
+          }
+
+          if (hasImage) {
+            errors.push(`Page ${pageNum}: Image-based (no extractable text)`);
+          }
+        }
+      } catch (pageError) {
+        console.warn(`Error reading page ${pageNum}:`, pageError);
+        errors.push(`Page ${pageNum}: Error reading page`);
+      }
+    }
+
+    // Clean up the extracted text
+    fullText = fullText
+      .replace(/\n{3,}/g, '\n\n')  // Limit consecutive newlines
+      .replace(/[ \t]+/g, ' ')       // Normalize whitespace
+      .replace(/^\s+|\s+$/g, '')     // Trim start/end
+      .trim();
+
+    // Check if we got meaningful text
+    if (!fullText || fullText.length < 50) {
+      if (errors.length > 0) {
+        throw new Error(
+          `PDF appears to be mostly image-based (${errors.length} pages have no extractable text). ` +
+          `Please try: 1) Converting to DOCX/TXT first, or 2) Using an OCR tool to create a text-based PDF`
+        );
+      }
+      throw new Error('No readable text found in PDF');
+    }
+
+    // Return with warning if some pages had issues
+    if (errors.length > 0 && errors.length < pageCount) {
+      console.warn('PDF parsing warnings:', errors);
+      return fullText + '\n\n[Note: Some pages could not be parsed - they may be image-based]';
+    }
+
+    return fullText;
+
+  } catch (error) {
+    console.error('Error parsing PDF:', error);
+    throw new Error(
+      `Failed to parse PDF: ${error instanceof Error ? error.message : 'Unknown error'}. ` +
+      `Please try converting the PDF to a text-based format (DOCX or TXT) first.`
+    );
+  }
+}
 
 /**
  * Parse a DOCX file and extract text content
@@ -22,109 +143,6 @@ async function parseDOCX(file: File): Promise<string> {
   }
 }
 
-export interface ParsedDocument {
-  content: string;
-  metadata?: {
-    pageCount?: number;
-    fileSize: number;
-    mimeType: string;
-  };
-}
-
-/**
- * Parse a PDF file using a simple approach without external workers
- * This is a basic implementation that attempts to extract text
- */
-async function parsePDF(file: File): Promise<string> {
-  try {
-    // For now, we'll use a simple approach that works reliably
-    // This attempts to extract text using basic PDF parsing
-    const arrayBuffer = await file.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    
-    // Convert to string to search for text content
-    let text = '';
-    let textStarted = false;
-    
-    // Simple text extraction - look for text objects in PDF
-    const decoder = new TextDecoder('latin1');
-    const pdfString = decoder.decode(uint8Array);
-    
-    // Look for text streams in the PDF
-    const textRegex = /BT\s+.*?ET/gs;
-    const matches = pdfString.match(textRegex);
-    
-    if (matches) {
-      for (const match of matches) {
-        // Extract text from PDF text objects
-        const textCommands = match.match(/\((.*?)\)\s*Tj/g);
-        if (textCommands) {
-          for (const cmd of textCommands) {
-            const textMatch = cmd.match(/\((.*?)\)/);
-            if (textMatch && textMatch[1]) {
-              text += textMatch[1].replace(/\\n/g, '\n').replace(/\\r/g, '\r') + ' ';
-            }
-          }
-        }
-        
-        // Also look for show text commands
-        const showCommands = match.match(/\[(.*?)\]\s*TJ/g);
-        if (showCommands) {
-          for (const cmd of showCommands) {
-            const arrayMatch = cmd.match(/\[(.*?)\]/);
-            if (arrayMatch && arrayMatch[1]) {
-              // Parse the array content
-              const arrayContent = arrayMatch[1];
-              const textParts = arrayContent.match(/\((.*?)\)/g);
-              if (textParts) {
-                for (const part of textParts) {
-                  const partMatch = part.match(/\((.*?)\)/);
-                  if (partMatch && partMatch[1]) {
-                    text += partMatch[1] + ' ';
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    
-    // If no text found with the above method, try a different approach
-    if (!text.trim()) {
-      // Look for stream objects that might contain text
-      const streamRegex = /stream\s+(.*?)\s+endstream/gs;
-      const streamMatches = pdfString.match(streamRegex);
-      
-      if (streamMatches) {
-        for (const stream of streamMatches) {
-          // Try to find readable text in streams
-          const readableText = stream.match(/[a-zA-Z0-9\s.,!?;:'"()-]{4,}/g);
-          if (readableText) {
-            text += readableText.join(' ') + ' ';
-          }
-        }
-      }
-    }
-    
-    // Clean up the extracted text
-    text = text
-      .replace(/\s+/g, ' ')
-      .replace(/[^\x20-\x7E\n\r\t]/g, '') // Remove non-printable characters
-      .trim();
-    
-    if (!text) {
-      throw new Error('No readable text found in PDF. The PDF might be image-based or encrypted.');
-    }
-    
-    return text;
-    
-  } catch (error) {
-    console.error('Error parsing PDF:', error);
-    throw new Error(`Failed to parse PDF: This PDF might be image-based, encrypted, or in a complex format. Please try converting it to text first.`);
-  }
-}
-
 /**
  * Parse a PPTX file and extract text content
  */
@@ -133,10 +151,10 @@ async function parsePPTX(file: File): Promise<string> {
     const arrayBuffer = await file.arrayBuffer();
     const zip = new JSZip();
     const zipContent = await zip.loadAsync(arrayBuffer);
-    
+
     let fullText = '';
     let slideNumber = 0;
-    
+
     // Get all slide files
     const slideFiles = Object.keys(zipContent.files)
       .filter(filename => filename.match(/ppt\/slides\/slide\d+\.xml$/))
@@ -145,16 +163,16 @@ async function parsePPTX(file: File): Promise<string> {
         const bNum = parseInt(b.match(/slide(\d+)\.xml$/)?.[1] || '0');
         return aNum - bNum;
       });
-    
+
     // Extract text from each slide
     for (const slideFile of slideFiles) {
       slideNumber++;
       try {
         const slideXml = await zipContent.files[slideFile].async('text');
-        
+
         // Parse XML to extract text content
         const textContent = extractTextFromSlideXML(slideXml);
-        
+
         if (textContent.trim()) {
           fullText += `Slide ${slideNumber}:\n${textContent}\n\n`;
         }
@@ -163,7 +181,7 @@ async function parsePPTX(file: File): Promise<string> {
         fullText += `[Error reading slide ${slideNumber}]\n\n`;
       }
     }
-    
+
     // Also try to extract from notes if present
     const noteFiles = Object.keys(zipContent.files)
       .filter(filename => filename.match(/ppt\/notesSlides\/notesSlide\d+\.xml$/))
@@ -172,15 +190,15 @@ async function parsePPTX(file: File): Promise<string> {
         const bNum = parseInt(b.match(/notesSlide(\d+)\.xml$/)?.[1] || '0');
         return aNum - bNum;
       });
-    
+
     if (noteFiles.length > 0) {
       fullText += '\n--- Speaker Notes ---\n\n';
-      
+
       for (let i = 0; i < noteFiles.length; i++) {
         try {
           const noteXml = await zipContent.files[noteFiles[i]].async('text');
           const noteText = extractTextFromSlideXML(noteXml);
-          
+
           if (noteText.trim()) {
             fullText += `Slide ${i + 1} Notes:\n${noteText}\n\n`;
           }
@@ -189,7 +207,7 @@ async function parsePPTX(file: File): Promise<string> {
         }
       }
     }
-    
+
     return fullText.trim();
   } catch (error) {
     console.error('Error parsing PPTX:', error);
@@ -206,7 +224,7 @@ function extractTextFromSlideXML(xmlContent: string): string {
     // Look for text within <a:t> tags (text runs)
     const textMatches = xmlContent.match(/<a:t[^>]*>(.*?)<\/a:t>/gs);
     let extractedText = '';
-    
+
     if (textMatches) {
       for (const match of textMatches) {
         const textContent = match.replace(/<a:t[^>]*>/, '').replace(/<\/a:t>/, '');
@@ -217,13 +235,13 @@ function extractTextFromSlideXML(xmlContent: string): string {
           .replace(/&amp;/g, '&')
           .replace(/&quot;/g, '"')
           .replace(/&apos;/g, "'");
-        
+
         if (decodedText.trim()) {
           extractedText += decodedText.trim() + ' ';
         }
       }
     }
-    
+
     // Also look for text in other common PowerPoint text elements
     const otherTextMatches = xmlContent.match(/<w:t[^>]*>(.*?)<\/w:t>/gs);
     if (otherTextMatches) {
@@ -235,19 +253,19 @@ function extractTextFromSlideXML(xmlContent: string): string {
           .replace(/&amp;/g, '&')
           .replace(/&quot;/g, '"')
           .replace(/&apos;/g, "'");
-        
+
         if (decodedText.trim()) {
           extractedText += decodedText.trim() + ' ';
         }
       }
     }
-    
+
     // Clean up the text
     return extractedText
       .replace(/\s+/g, ' ')
       .replace(/\n\s*\n/g, '\n')
       .trim();
-      
+
   } catch (error) {
     console.warn('Error extracting text from slide XML:', error);
     return '';
@@ -278,7 +296,7 @@ function getFileType(mimeType: string): string {
     'text/plain': 'txt',
     'text/markdown': 'md'
   };
-  
+
   return mimeTypeMap[mimeType] || 'unknown';
 }
 
@@ -293,7 +311,7 @@ function isSupportedFileType(mimeType: string): boolean {
     'text/plain',
     'text/markdown'
   ];
-  
+
   return supportedTypes.includes(mimeType);
 }
 
@@ -306,57 +324,57 @@ export async function parseDocument(file: File): Promise<string> {
   if (!file) {
     throw new Error('No file provided');
   }
-  
+
   console.log('File type:', file.type); // Debug log
-  
+
   if (!isSupportedFileType(file.type)) {
     throw new Error(`Unsupported file type: ${file.type}. Supported types: PDF, DOCX, PPTX, TXT, MD`);
   }
-  
+
   // Check file size (limit to 10MB)
   const maxFileSize = 10 * 1024 * 1024; // 10MB
   if (file.size > maxFileSize) {
     throw new Error(`File size too large. Maximum allowed size is ${maxFileSize / (1024 * 1024)}MB`);
   }
-  
+
   let content: string;
-  
+
   try {
     switch (file.type) {
       case 'application/pdf':
         content = await parsePDF(file);
         break;
-        
+
       case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
         content = await parseDOCX(file);
         break;
-        
+
       case 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
         content = await parsePPTX(file);
         break;
-        
+
       case 'text/plain':
       case 'text/markdown':
         content = await parseTextFile(file);
         break;
-        
+
       default:
         throw new Error(`Unsupported file type: ${file.type}`);
     }
-    
+
     // Validate that we got some content
     if (!content || content.trim().length === 0) {
       throw new Error('No text content found in the document');
     }
-    
+
     // Clean up the content
     content = content
       .replace(/\s+/g, ' ') // Replace multiple whitespace with single space
       .replace(/\n\s*\n/g, '\n\n') // Clean up multiple newlines
       .trim();
-    
+
     return content;
-    
+
   } catch (error) {
     console.error(`Error parsing ${getFileType(file.type).toUpperCase()} file:`, error);
     throw error;
@@ -370,12 +388,12 @@ export async function parseDocument(file: File): Promise<string> {
  */
 export async function parseDocumentWithMetadata(file: File): Promise<ParsedDocument> {
   const content = await parseDocument(file);
-  
+
   const metadata = {
     fileSize: file.size,
     mimeType: file.type
   };
-  
+
   return {
     content,
     metadata

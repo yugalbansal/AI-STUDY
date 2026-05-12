@@ -10,7 +10,7 @@ export class EmbeddingService {
 
   private supabase: SupabaseClient | null = null;
 
-  private readonly MAX_CONCURRENT_EMBEDDINGS = 3;
+  private readonly MAX_CONCURRENT_EMBEDDINGS = 6;
 
   private constructor() {}
 

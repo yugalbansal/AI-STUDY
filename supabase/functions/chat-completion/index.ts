@@ -1,34 +1,12 @@
 // Supabase Edge Function: chat-completion
-// Purpose: Handle Cerebras chat completions with streaming support for fast response
+// Purpose: Handle OpenCode (Anthropic-compatible) chat completions with streaming support
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const CEREBRAS_API_URL = "https://api.cerebras.ai/v1/chat/completions";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-// MODEL SELECTION STRATEGY - Optimized for speed
-const selectModel = (prompt: string, hasContext: boolean = false): string => {
-  const wordCount = prompt.trim().split(/\s+/).length;
-  
-  // Always prefer fastest model for better UX
-  if (wordCount <= 50 || !hasContext) {
-    return "llama-3.3-70b"; // Fastest model
-  }
-  
-  // Use larger model only for complex queries with context
-  return "gpt-oss-120b";
-};
-
-// Fallback model order (speed-prioritized)
-const FALLBACK_MODELS = [
-  "llama-3.3-70b",    // Fastest - try first
-  "qwen-3-32b",       // Fast alternative
-  "gpt-oss-120b",     // Larger model as last resort
-];
 
 interface Message {
   role: string;
@@ -39,105 +17,6 @@ interface RequestBody {
   messages: Message[];
   systemPrompt?: string;
   stream?: boolean;
-}
-
-async function* streamCerebras(
-  messages: Message[],
-  model: string,
-  apiKey: string
-): AsyncGenerator<string, void, unknown> {
-  const response = await fetch(CEREBRAS_API_URL, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      stream: true,
-      max_completion_tokens: 32768,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Cerebras error (${response.status}): ${error}`);
-  }
-
-  if (!response.body) {
-    throw new Error("No response body");
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed === "data: [DONE]") continue;
-        if (!trimmed.startsWith("data: ")) continue;
-
-        try {
-          const data = JSON.parse(trimmed.slice(6));
-          const content = data.choices?.[0]?.delta?.content;
-          if (content) {
-            yield content;
-          }
-        } catch (e) {
-          console.error("Failed to parse SSE line:", trimmed);
-        }
-      }
-    }
-  } finally {
-    reader.releaseLock();
-  }
-}
-
-async function callCerebras(
-  messages: Message[],
-  model: string,
-  apiKey: string
-): Promise<{ content: string; finishReason: string }> {
-  const response = await fetch(CEREBRAS_API_URL, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      stream: false,
-      max_completion_tokens: 32768,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Cerebras error (${response.status}): ${error}`);
-  }
-
-  const data = await response.json();
-  const choice = data.choices?.[0];
-  
-  if (!choice) {
-    throw new Error("No response from Cerebras");
-  }
-
-  return {
-    content: choice.message?.content || "",
-    finishReason: choice.finish_reason || "stop",
-  };
 }
 
 serve(async (req: Request) => {
@@ -155,37 +34,105 @@ serve(async (req: Request) => {
       );
     }
 
-    const CEREBRAS_API_KEY = Deno.env.get("CEREBRAS_API_KEY_1");
-    if (!CEREBRAS_API_KEY) {
-      throw new Error("Cerebras API key not configured");
+    // Read config from environment
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    const ANTHROPIC_BASE_URL = Deno.env.get("ANTHROPIC_BASE_URL") || "https://opencode.ai/zen";
+    const ANTHROPIC_MODEL = Deno.env.get("ANTHROPIC_MODEL") || "minimax-m2.5-free";
+
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY not configured");
     }
 
-    // Build final messages array
-    const finalMessages: Message[] = systemPrompt
-      ? [{ role: "system", content: systemPrompt }, ...messages]
-      : messages;
+    // Build messages array with system prompt prepended to first user message
+    // Anthropic API doesn't support "system" role, so we merge it with user content
+    let anthropicMessages: Message[];
+    if (systemPrompt) {
+      anthropicMessages = messages.map((msg, index) => {
+        if (msg.role === "user" && index === 0) {
+          // Prepend system prompt to first user message
+          return { role: msg.role, content: `${systemPrompt}\n\n${msg.content}` };
+        }
+        return msg;
+      });
+    } else {
+      anthropicMessages = messages;
+    }
 
-    // Select model based on last user message and whether we have context
-    const lastUserMessage = messages.filter(m => m.role === "user").pop()?.content || "";
-    const hasContext = systemPrompt && systemPrompt.includes("RELEVANT DOCUMENTS");
-    const selectedModel = selectModel(lastUserMessage, hasContext);
+    console.log(`Using model: ${ANTHROPIC_MODEL} from ${ANTHROPIC_BASE_URL}, stream: ${stream}`);
 
-    console.log(`Selected model: ${selectedModel} (streaming: ${stream})`);
-
-    // If streaming is requested, stream the response
     if (stream) {
+      // Streaming mode - use Server-Sent Events
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         async start(controller) {
           try {
-            for await (const chunk of streamCerebras(finalMessages, selectedModel, CEREBRAS_API_KEY)) {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: chunk })}\n\n`));
+            const response = await fetch(`${ANTHROPIC_BASE_URL}/v1/messages`, {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${ANTHROPIC_API_KEY}`,
+                "Content-Type": "application/json",
+                "anthropic-beta": "prompt-caching-2025-05-14",
+                "anthropic-version": "2023-06-01",
+              },
+              body: JSON.stringify({
+                model: ANTHROPIC_MODEL,
+                messages: anthropicMessages,
+                max_tokens: 8192,
+                stream: true,
+              }),
+            });
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: errorText })}\n\n`));
+              controller.close();
+              return;
             }
+
+            const reader = response.body!.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split("\n");
+              buffer = lines.pop() || "";
+
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed === "data: [DONE]" || trimmed === "event: message_stop") continue;
+                if (!trimmed.startsWith("data: ") && !trimmed.startsWith("event: ")) continue;
+
+                // Handle both "data: " and plain "event: " formats
+                const jsonStr = trimmed.startsWith("data: ") ? trimmed.slice(6) : trimmed.slice(6);
+                if (!jsonStr) continue;
+
+                try {
+                  const data = JSON.parse(jsonStr);
+
+                  // Handle content block messages
+                  if (data.type === "content_block_delta" && data.delta?.text) {
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: data.delta.text })}\n\n`));
+                  }
+                  // Handle completion
+                  if (data.type === "message_stop") {
+                    controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+                  }
+                } catch (e) {
+                  // Ignore parse errors for non-JSON lines
+                }
+              }
+            }
+
             controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
             controller.close();
           } catch (error) {
             console.error("Streaming error:", error);
-            controller.error(error);
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: error.message })}\n\n`));
+            controller.close();
           }
         },
       });
@@ -200,75 +147,43 @@ serve(async (req: Request) => {
       });
     }
 
-    // Non-streaming fallback (for compatibility)
-    let result: { content: string; finishReason: string } | null = null;
-    let lastError: Error | null = null;
+    // Non-streaming mode
+    const response = await fetch(`${ANTHROPIC_BASE_URL}/v1/messages`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${ANTHROPIC_API_KEY}`,
+        "Content-Type": "application/json",
+        "anthropic-beta": "prompt-caching-2025-05-14",
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: ANTHROPIC_MODEL,
+        messages: anthropicMessages,
+        max_tokens: 8192,
+      }),
+    });
 
-    // Try selected model first
-    try {
-      result = await callCerebras(finalMessages, selectedModel, CEREBRAS_API_KEY);
-    } catch (error) {
-      console.error(`Primary model ${selectedModel} failed:`, error);
-      lastError = error;
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("OpenCode API error:", response.status, errorText);
+      throw new Error(`OpenCode API error (${response.status}): ${errorText}`);
     }
 
-    // Try fallbacks if primary failed
-    if (!result) {
-      for (const fallbackModel of FALLBACK_MODELS) {
-        if (fallbackModel === selectedModel) continue; // Skip already tried model
-        
-        try {
-          console.log(`Trying fallback model: ${fallbackModel}`);
-          result = await callCerebras(finalMessages, fallbackModel, CEREBRAS_API_KEY);
-          break;
-        } catch (error) {
-          console.error(`Fallback model ${fallbackModel} failed:`, error);
-          lastError = error;
-        }
-      }
-    }
+    const data = await response.json();
 
-    if (!result) {
-      console.error("All models failed. Last error:", lastError);
-      throw lastError || new Error("All models failed");
-    }
+    // Extract content from Anthropic-style response
+    const contentBlocks = data.content || [];
+    const textBlock = contentBlocks.find((b: any) => b.type === "text");
+    const content = textBlock?.text || "";
 
-    // Validate we got content
-    if (!result.content || result.content.trim().length === 0) {
-      console.error("Model returned empty content:", result);
+    if (!content || content.trim().length === 0) {
       throw new Error("Model returned empty response. Please try again.");
     }
 
-    // Handle continuation if response was cut off
-    let fullContent = result.content;
-    let attempts = 0;
-    const MAX_CONTINUATIONS = 3;
-
-    while (result.finishReason === "length" && attempts < MAX_CONTINUATIONS) {
-      console.log(`Response truncated, requesting continuation (attempt ${attempts + 1})`);
-      
-      // Add the incomplete response and ask for continuation
-      const continuationMessages: Message[] = [
-        ...finalMessages,
-        { role: "assistant", content: fullContent },
-        { role: "user", content: "Continue your response from where you left off." },
-      ];
-
-      try {
-        result = await callCerebras(continuationMessages, selectedModel, CEREBRAS_API_KEY);
-        fullContent += " " + result.content;
-        attempts++;
-      } catch (error) {
-        console.error("Continuation failed:", error);
-        break;
-      }
-    }
-
     return new Response(
-      JSON.stringify({ 
-        content: fullContent,
-        model: selectedModel,
-        wasContinued: attempts > 0,
+      JSON.stringify({
+        content,
+        model: ANTHROPIC_MODEL,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

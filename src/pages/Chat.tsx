@@ -751,22 +751,23 @@ export default function Chat() {
       
       // Stream the response with real-time updates
       const response = await getChatResponse(
-        input, 
-        '', 
-        userId, 
-        currentChat, 
+        input,
+        '',
+        userId,
+        currentChat,
         supabase,
         (chunk: string) => {
           // Update response in real-time as chunks arrive
           streamedResponse += chunk;
-          setChatHistory(prev => 
-            prev.map(msg => 
-              msg.id === tempId 
+          setChatHistory(prev =>
+            prev.map(msg =>
+              msg.id === tempId
                 ? { ...msg, response: streamedResponse }
                 : msg
             )
           );
-        }
+        },
+        true // enable streaming
       );
 
       setIsTyping(false);
