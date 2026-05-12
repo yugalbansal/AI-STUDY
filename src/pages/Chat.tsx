@@ -592,6 +592,7 @@ export default function Chat() {
   const [currentChat, setCurrentChat] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true); // Desktop sidebar open by default
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [statusMessage, setStatusMessage] = useState<string>('');
 
   useEffect(() => {
     if (!authLoading && userId && supabase) {
@@ -732,9 +733,9 @@ export default function Chat() {
 
     setLoading(true);
     setError(null);
-    
+
     const tempId = Date.now().toString();
-    const tempMessage = { 
+    const tempMessage = {
       id: tempId,
       chat_id: currentChat,
       user_id: userId,
@@ -742,13 +743,21 @@ export default function Chat() {
       response: '',
       created_at: new Date().toISOString()
     };
-    
+
     setChatHistory(prev => [...prev, tempMessage]);
     setIsTyping(true);
+    setStatusMessage('🔍 Analyzing your question...');
 
     try {
       let streamedResponse = '';
-      
+
+      // Progress callback to update status in real-time
+      const handleProgress = (stage: string, message: string) => {
+        if (message) {
+          setStatusMessage(message);
+        }
+      };
+
       // Stream the response with real-time updates
       const response = await getChatResponse(
         input,
@@ -767,8 +776,11 @@ export default function Chat() {
             )
           );
         },
-        true // enable streaming
+        true, // enable streaming
+        handleProgress
       );
+
+      setStatusMessage('');
 
       setIsTyping(false);
 
@@ -1034,7 +1046,17 @@ export default function Chat() {
                       <ChatMessage content={chat.response} isUser={false} />
                     </div>
                   ))}
-                  {isTyping && <ChatMessage content="" isUser={false} isTyping={true} />}
+                  {isTyping && (
+                    <div>
+                      <ChatMessage content="" isUser={false} isTyping={true} />
+                      {statusMessage && (
+                        <div className="mt-2 px-4 py-2 text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                          <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+                          {statusMessage}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             ) : (

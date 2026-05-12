@@ -28,10 +28,13 @@ export default function ChatMessage({ content, isUser, isTyping }: ChatMessagePr
           isUser ? 'bg-blue-100' : 'bg-gray-100'
         }`}>
           {isTyping ? (
-            <div className="flex space-x-2 py-2 px-1">
-              <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="flex flex-col gap-2 py-2">
+              <div className="flex space-x-1.5">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '400ms' }} />
+              </div>
+              <span className="text-xs text-gray-400 italic">Thinking...</span>
             </div>
           ) : (
             <ReactMarkdown

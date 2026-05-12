@@ -1,4 +1,3 @@
-import { EmbeddingRequest, EmbeddingResponse } from '../types/embeddings';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Use Supabase Edge Function for embeddings (avoids CORS + hides API key)
@@ -10,7 +9,8 @@ export class EmbeddingService {
 
   private supabase: SupabaseClient | null = null;
 
-  private readonly MAX_CONCURRENT_EMBEDDINGS = 6;
+  private readonly MAX_CONCURRENT_EMBEDDINGS = 4; // Reduced to avoid rate limiting
+  private readonly EMBEDDING_TIMEOUT_MS = 10000; // 10 second timeout
 
   private constructor() {}
 
@@ -26,71 +26,86 @@ export class EmbeddingService {
   }
 
   /**
-   * Generate embeddings for a single text via Supabase Edge Function
+   * Generate embeddings for a single text via Supabase Edge Function with timeout
    */
   async generateEmbedding(text: string): Promise<number[]> {
+    // Skip short text - use fallback
+    const cleanText = this.prepareTextForEmbedding(text);
+    if (cleanText.length < 15) {
+      return this.generateFallbackEmbedding(cleanText);
+    }
+
+    if (!this.supabase) {
+      console.warn('EmbeddingService: Supabase not initialized, using fallback');
+      return this.generateFallbackEmbedding(text);
+    }
+
+    // Create timeout wrapper
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Embedding generation timeout')), this.EMBEDDING_TIMEOUT_MS);
+    });
+
     try {
-      // Skip short text
-      const cleanText = this.prepareTextForEmbedding(text);
-      if (cleanText.length < 15) {
-        return this.generateFallbackEmbedding(cleanText);
-      }
-
-      if (!this.supabase) {
-        throw new Error('Supabase client not initialized (Clerk session missing)');
-      }
-
-      const { data, error } = await this.supabase.functions.invoke('generate-embedding', {
+      const invokePromise = this.supabase.functions.invoke('generate-embedding', {
         body: { text: cleanText },
       });
 
+      const { data, error } = await Promise.race([invokePromise, timeoutPromise]);
+
       if (error) {
-        throw new Error(`Edge Function error: ${error.message}`);
+        console.warn('Embedding edge function error:', error.message);
+        return this.generateFallbackEmbedding(text);
       }
 
       const embedding = (data as any)?.embedding;
 
       if (!Array.isArray(embedding) || embedding.length === 0) {
-        throw new Error('Invalid embedding format from Edge Function');
+        console.warn('Invalid embedding format from Edge Function');
+        return this.generateFallbackEmbedding(text);
       }
 
+      // Validate dimensions
       if (Number.isFinite(EXPECTED_EMBEDDING_DIMS) && EXPECTED_EMBEDDING_DIMS > 0) {
         if (embedding.length !== EXPECTED_EMBEDDING_DIMS) {
-          throw new Error(
-            `Embedding dimension mismatch: expected ${EXPECTED_EMBEDDING_DIMS}, got ${embedding.length}`
-          );
+          console.warn(`Embedding dimension mismatch: expected ${EXPECTED_EMBEDDING_DIMS}, got ${embedding.length}`);
+          return this.generateFallbackEmbedding(text);
         }
       }
 
       return embedding;
     } catch (error: any) {
+      console.warn('Embedding generation failed, using fallback:', error.message);
       return this.generateFallbackEmbedding(text);
     }
   }
 
   /**
-   * Generate embeddings for multiple texts in batch
-   * Note: Calls Edge Function sequentially (batch not implemented to keep it simple)
+   * Generate embeddings for multiple texts in batch with better concurrency control
    */
   async generateBatchEmbeddings(texts: string[]): Promise<number[][]> {
-    try {
-      const results: number[][] = new Array(texts.length);
-      const queue = texts.map((text, index) => ({ text, index }));
+    if (texts.length === 0) return [];
 
-      const workers = Array.from({ length: Math.min(this.MAX_CONCURRENT_EMBEDDINGS, texts.length) })
-        .map(async () => {
-          while (queue.length > 0) {
-            const item = queue.shift();
-            if (!item) return;
-            results[item.index] = await this.generateEmbedding(item.text);
-          }
-        });
+    const results: number[][] = new Array(texts.length);
 
-      await Promise.all(workers);
-      return results;
-    } catch (error: any) {
-      return texts.map(text => this.generateFallbackEmbedding(text));
+    // Process in batches to avoid overwhelming the edge function
+    const batchSize = this.MAX_CONCURRENT_EMBEDDINGS;
+
+    for (let i = 0; i < texts.length; i += batchSize) {
+      const batch = texts.slice(i, i + batchSize);
+      const batchPromises = batch.map(async (text, batchIdx) => {
+        const globalIdx = i + batchIdx;
+        try {
+          results[globalIdx] = await this.generateEmbedding(text);
+        } catch (error) {
+          console.warn(`Batch embedding ${globalIdx} failed, using fallback`);
+          results[globalIdx] = this.generateFallbackEmbedding(text);
+        }
+      });
+
+      await Promise.all(batchPromises);
     }
+
+    return results;
   }
 
   /**

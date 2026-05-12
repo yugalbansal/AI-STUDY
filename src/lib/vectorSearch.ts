@@ -10,6 +10,10 @@ export class VectorSearchService {
   private static instance: VectorSearchService;
   private supabase: SupabaseClient | null = null;
 
+  // Cache for embeddings to avoid redundant generation
+  private embeddingCache = new Map<string, { embedding: number[]; timestamp: number }>();
+  private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
   private constructor() {}
 
   private sanitizeQueryForHybrid(query: string): string {
@@ -106,7 +110,6 @@ export class VectorSearchService {
 
   public setSupabaseClient(client: SupabaseClient | null) {
     this.supabase = client;
-    // Keep embedding service in sync since it also calls Edge Functions.
     embeddingService.setSupabaseClient(client);
   }
 
@@ -115,6 +118,35 @@ export class VectorSearchService {
       throw new Error('Supabase client not initialized (Clerk session missing)');
     }
     return this.supabase;
+  }
+
+  /**
+   * Get cached embedding or generate and cache a new one
+   */
+  private async getCachedEmbedding(text: string): Promise<number[]> {
+    const cacheKey = text.toLowerCase().substring(0, 500); // Normalize for cache
+    const now = Date.now();
+
+    const cached = this.embeddingCache.get(cacheKey);
+    if (cached && (now - cached.timestamp) < this.CACHE_TTL_MS) {
+      return cached.embedding;
+    }
+
+    const embedding = await embeddingService.generateEmbedding(text);
+    this.embeddingCache.set(cacheKey, { embedding, timestamp: now });
+    return embedding;
+  }
+
+  /**
+   * Clear old cache entries periodically
+   */
+  private pruneCache(): void {
+    const now = Date.now();
+    for (const [key, value] of this.embeddingCache.entries()) {
+      if ((now - value.timestamp) > this.CACHE_TTL_MS) {
+        this.embeddingCache.delete(key);
+      }
+    }
   }
 
   /**
@@ -141,13 +173,15 @@ export class VectorSearchService {
           message_id: messageId,
           user_id: userId,
           content: cleanContent,
-          embedding: JSON.stringify(embedding), // Store as JSON string
+          embedding: JSON.stringify(embedding),
           message_type: messageType
         });
 
       if (error) {
+        console.warn('storeChatEmbedding error:', error);
       }
     } catch (error) {
+      console.warn('storeChatEmbedding error:', error);
     }
   }
 
@@ -170,7 +204,6 @@ export class VectorSearchService {
         .eq('user_id', userId);
 
       // Store a document-level embedding for fast "which document?" routing
-      // (Uses title + a clipped preview to keep it cheap but representative)
       const docRoutingTextRaw = [title, content.slice(0, 4000)].filter(Boolean).join('\n\n');
       const docRoutingText = embeddingService.prepareTextForEmbedding(docRoutingTextRaw);
       if (docRoutingText.trim().length >= 15) {
@@ -182,6 +215,7 @@ export class VectorSearchService {
           .eq('user_id', userId);
 
         if (docUpdateError) {
+          console.warn('storeDocumentEmbeddings doc update error:', docUpdateError);
         }
       }
 
@@ -210,8 +244,10 @@ export class VectorSearchService {
         .insert(rows);
 
       if (error) {
+        console.warn('storeDocumentEmbeddings chunk insert error:', error);
       }
     } catch (error) {
+      console.warn('storeDocumentEmbeddings error:', error);
     }
   }
 
@@ -226,9 +262,9 @@ export class VectorSearchService {
   ): Promise<SimilarMessage[]> {
     try {
       const supabase = this.requireSupabase();
-      // Generate embedding for the query
-      const queryEmbedding = await embeddingService.generateEmbedding(query);
-      
+      // Use cached embedding for better performance
+      const queryEmbedding = await this.getCachedEmbedding(query);
+
       // Use the database function to search for similar messages
       const { data, error } = await supabase.rpc('search_similar_chat_messages', {
         query_embedding: JSON.stringify(queryEmbedding),
@@ -239,11 +275,13 @@ export class VectorSearchService {
       });
 
       if (error) {
+        console.warn('findSimilarChatMessages RPC error:', error.message);
         return [];
       }
 
       return data || [];
     } catch (error) {
+      console.warn('findSimilarChatMessages error:', error);
       return [];
     }
   }
@@ -258,23 +296,25 @@ export class VectorSearchService {
   ): Promise<SimilarDocument[]> {
     try {
       const supabase = this.requireSupabase();
-      // Generate embedding for the query
-      const queryEmbedding = await embeddingService.generateEmbedding(query);
-      
+      // Use cached embedding for better performance
+      const queryEmbedding = await this.getCachedEmbedding(query);
+
       // Use the database function to search for similar documents
       const { data, error } = await supabase.rpc('search_similar_documents', {
         query_embedding: JSON.stringify(queryEmbedding),
         user_id_param: userId,
-        similarity_threshold: 0.15,  // Lower threshold to match other searches
+        similarity_threshold: 0.15,
         match_count: limit
       });
 
       if (error) {
+        console.warn('findSimilarDocuments RPC error:', error.message);
         return [];
       }
 
       return data || [];
     } catch (error) {
+      console.warn('findSimilarDocuments error:', error);
       return [];
     }
   }
@@ -303,8 +343,11 @@ export class VectorSearchService {
     const chunkSimilarityThreshold = options?.chunkSimilarityThreshold ?? 0.25;
 
     try {
+      // Prune old cache entries periodically
+      this.pruneCache();
+
       const supabase = this.requireSupabase();
-      const queryEmbedding = await embeddingService.generateEmbedding(query);
+      const queryEmbedding = await this.getCachedEmbedding(query);
       const queryText = this.sanitizeQueryForHybrid(query);
 
       // Prefer hybrid routing if available (dense + keyword)
@@ -455,25 +498,51 @@ export class VectorSearchService {
   }
 
   /**
-   * Build comprehensive context for a chat message
+   * Build comprehensive context for a chat message with timeout and error resilience
    */
   async buildChatContext(
     query: string,
     userId: string,
-    chatId: string
+    chatId: string,
+    timeoutMs: number = 8000 // 8 second timeout for context building
   ): Promise<ChatContext> {
+    // Helper to run with timeout
+    const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
+      return Promise.race([
+        promise,
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error('Context fetch timeout')), ms)
+        )
+      ]);
+    };
+
     try {
-      // REDUCED LIMITS to prevent context overflow (was causing 253k token error)
-      const [recentMessages, similarConversations, relevantDocuments] = await Promise.all([
-        this.getRecentChatHistory(chatId, userId, 3), // Only last 3 messages (was 5)
-        this.findSimilarChatMessages(query, userId, undefined, 2), // Only 2 similar (was 3)
-        this.findSimilarDocumentsLayered(query, userId, {
+      // Prune cache periodically
+      this.pruneCache();
+
+      // Reduced limits to prevent context overflow
+      const results = await Promise.allSettled([
+        withTimeout(this.getRecentChatHistory(chatId, userId, 3), 2000),
+        withTimeout(this.findSimilarChatMessages(query, userId, undefined, 2), 3000),
+        withTimeout(this.findSimilarDocumentsLayered(query, userId, {
           docLimit: 3,
           chunkLimit: 4,
           docSimilarityThreshold: 0.15,  // Lower threshold for document-level (was 0.25)
           chunkSimilarityThreshold: 0.15  // Lower threshold for chunks (was 0.25)
-        })
+        }), 5000)
       ]);
+
+      // Extract results, fallback to empty on failure
+      const recentMessages = results[0].status === 'fulfilled' ? results[0].value : [];
+      const similarConversations = results[1].status === 'fulfilled' ? results[1].value : [];
+      const relevantDocuments = results[2].status === 'fulfilled' ? results[2].value : [];
+
+      // Log any partial failures
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          console.warn(`Context builder partial failure [${index}]:`, result.reason);
+        }
+      });
 
       return {
         recent_messages: recentMessages,
@@ -481,6 +550,7 @@ export class VectorSearchService {
         relevant_documents: relevantDocuments
       };
     } catch (error) {
+      console.warn('buildChatContext complete failure:', error);
       return {
         recent_messages: [],
         similar_conversations: [],
@@ -536,6 +606,7 @@ export class VectorSearchService {
    */
   async cleanupOldEmbeddings(userId: string, daysOld: number = 30): Promise<void> {
     try {
+      const supabase = this.requireSupabase();
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
@@ -547,8 +618,10 @@ export class VectorSearchService {
         .lt('created_at', cutoffDate.toISOString());
 
       if (chatError) {
+        console.warn('cleanupOldEmbeddings error:', chatError);
       }
     } catch (error) {
+      console.warn('cleanupOldEmbeddings error:', error);
     }
   }
 
@@ -557,14 +630,17 @@ export class VectorSearchService {
    */
   async deleteChatEmbeddings(chatId: string): Promise<void> {
     try {
+      const supabase = this.requireSupabase();
       const { error } = await supabase
         .from('chat_embeddings')
         .delete()
         .eq('chat_id', chatId);
 
       if (error) {
+        console.warn('deleteChatEmbeddings error:', error);
       }
     } catch (error) {
+      console.warn('deleteChatEmbeddings error:', error);
     }
   }
 
@@ -573,14 +649,17 @@ export class VectorSearchService {
    */
   async deleteDocumentEmbeddings(documentId: string): Promise<void> {
     try {
+      const supabase = this.requireSupabase();
       const { error } = await supabase
         .from('document_embeddings')
         .delete()
         .eq('document_id', documentId);
 
       if (error) {
+        console.warn('deleteDocumentEmbeddings error:', error);
       }
     } catch (error) {
+      console.warn('deleteDocumentEmbeddings error:', error);
     }
   }
 }

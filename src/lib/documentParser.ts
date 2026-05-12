@@ -19,105 +19,114 @@ export interface ParsedDocument {
  * Properly extracts text from PDF documents including image-based PDFs (via OCR fallback message)
  */
 async function parsePDF(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+
+  // Load the PDF document
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pageCount = pdf.numPages;
+
+  if (pageCount === 0) {
+    throw new Error('PDF has no pages');
+  }
+
+  // Process pages in PARALLEL for speed (was sequential)
+  const pagePromises: Promise<{ pageNum: number; text: string; error?: string }>[] = [];
+
+  for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
+    pagePromises.push(processPage(pdf, pageNum));
+  }
+
+  // Fire all page requests in parallel
+  const results = await Promise.all(pagePromises);
+
+  // Sort by page number and combine
+  results.sort((a, b) => a.pageNum - b.pageNum);
+
+  let fullText = '';
+  const errors: string[] = [];
+
+  for (const result of results) {
+    if (result.text) {
+      fullText += `Page ${result.pageNum}:\n${result.text}\n\n`;
+    }
+    if (result.error) {
+      errors.push(result.error);
+    }
+  }
+
+  // Clean up the extracted text
+  fullText = fullText
+    .replace(/\n{3,}/g, '\n\n')  // Limit consecutive newlines
+    .replace(/[ \t]+/g, ' ')       // Normalize whitespace
+    .replace(/^\s+|\s+$/g, '')     // Trim start/end
+    .trim();
+
+  // Check if we got meaningful text
+  if (!fullText || fullText.length < 50) {
+    if (errors.length > 0) {
+      throw new Error(
+        `PDF appears to be mostly image-based (${errors.length} pages have no extractable text). ` +
+        `Please try: 1) Converting to DOCX/TXT first, or 2) Using an OCR tool to create a text-based PDF`
+      );
+    }
+    throw new Error('No readable text found in PDF');
+  }
+
+  // Return with warning if some pages had issues
+  if (errors.length > 0 && errors.length < pageCount) {
+    console.warn('PDF parsing warnings:', errors);
+    return fullText + '\n\n[Note: Some pages could not be parsed - they may be image-based]';
+  }
+
+  return fullText;
+}
+
+/**
+ * Process a single page - extracted for parallel execution
+ */
+async function processPage(pdf: any, pageNum: number): Promise<{ pageNum: number; text: string; error?: string }> {
   try {
-    const arrayBuffer = await file.arrayBuffer();
+    const page = await pdf.getPage(pageNum);
+    const textContent = await page.getTextContent();
 
-    // Load the PDF document
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    const pageCount = pdf.numPages;
+    if (textContent.items.length > 0) {
+      // Build text with proper spacing
+      let pageText = '';
+      let lastY: number | null = null;
 
-    if (pageCount === 0) {
-      throw new Error('PDF has no pages');
+      for (const item of textContent.items as any[]) {
+        if ('str' in item) {
+          // Check if we need to add a newline (new line detected by Y position change)
+          if (lastY !== null && Math.abs(item.transform[5] - lastY) > 5) {
+            pageText += '\n';
+          }
+          pageText += item.str;
+          lastY = item.transform[5];
+        }
+      }
+
+      return { pageNum, text: pageText.trim() };
     }
 
-    let fullText = '';
-    const errors: string[] = [];
+    // Check if it's an image-based page
+    const operators = await page.getOperatorList();
+    let hasImage = false;
 
-    // Extract text from each page
-    for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
-      try {
-        const page = await pdf.getPage(pageNum);
-
-        // Try to get text content first
-        const textContent = await page.getTextContent();
-
-        if (textContent.items.length > 0) {
-          // Build text with proper spacing
-          let pageText = '';
-          let lastY: number | null = null;
-
-          for (const item of textContent.items as any[]) {
-            if ('str' in item) {
-              // Check if we need to add a newline (new line detected by Y position change)
-              if (lastY !== null && Math.abs(item.transform[5] - lastY) > 5) {
-                pageText += '\n';
-              }
-              pageText += item.str;
-              lastY = item.transform[5];
-            }
-          }
-
-          if (pageText.trim()) {
-            fullText += `Page ${pageNum}:\n${pageText.trim()}\n\n`;
-          }
-        }
-
-        // If page has no text, check if it's an image-based page
-        if (textContent.items.length === 0) {
-          // Check for image content
-          const operators = await page.getOperatorList();
-          let hasImage = false;
-
-          for (let i = 0; i < operators.fnArray.length; i++) {
-            // Paint image operator
-            if (operators.fnArray[i] === pdfjsLib.OPS.paintImageXObject) {
-              hasImage = true;
-              break;
-            }
-          }
-
-          if (hasImage) {
-            errors.push(`Page ${pageNum}: Image-based (no extractable text)`);
-          }
-        }
-      } catch (pageError) {
-        console.warn(`Error reading page ${pageNum}:`, pageError);
-        errors.push(`Page ${pageNum}: Error reading page`);
+    for (let i = 0; i < operators.fnArray.length; i++) {
+      if (operators.fnArray[i] === pdfjsLib.OPS.paintImageXObject) {
+        hasImage = true;
+        break;
       }
     }
 
-    // Clean up the extracted text
-    fullText = fullText
-      .replace(/\n{3,}/g, '\n\n')  // Limit consecutive newlines
-      .replace(/[ \t]+/g, ' ')       // Normalize whitespace
-      .replace(/^\s+|\s+$/g, '')     // Trim start/end
-      .trim();
-
-    // Check if we got meaningful text
-    if (!fullText || fullText.length < 50) {
-      if (errors.length > 0) {
-        throw new Error(
-          `PDF appears to be mostly image-based (${errors.length} pages have no extractable text). ` +
-          `Please try: 1) Converting to DOCX/TXT first, or 2) Using an OCR tool to create a text-based PDF`
-        );
-      }
-      throw new Error('No readable text found in PDF');
+    if (hasImage) {
+      return { pageNum, text: '', error: `Page ${pageNum}: Image-based` };
     }
 
-    // Return with warning if some pages had issues
-    if (errors.length > 0 && errors.length < pageCount) {
-      console.warn('PDF parsing warnings:', errors);
-      return fullText + '\n\n[Note: Some pages could not be parsed - they may be image-based]';
-    }
-
-    return fullText;
-
-  } catch (error) {
-    console.error('Error parsing PDF:', error);
-    throw new Error(
-      `Failed to parse PDF: ${error instanceof Error ? error.message : 'Unknown error'}. ` +
-      `Please try converting the PDF to a text-based format (DOCX or TXT) first.`
-    );
+    return { pageNum, text: '', error: `Page ${pageNum}: No text` };
+  } catch (pageError) {
+    console.warn(`Error reading page ${pageNum}:`, pageError);
+    return { pageNum, text: '', error: `Page ${pageNum}: Error reading` };
   }
 }
 

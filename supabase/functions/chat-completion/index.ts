@@ -19,6 +19,16 @@ interface RequestBody {
   stream?: boolean;
 }
 
+// Timeout wrapper for fetch calls
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Request timeout after ${ms}ms`)), ms)
+    )
+  ]);
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -40,16 +50,17 @@ serve(async (req: Request) => {
     const ANTHROPIC_MODEL = Deno.env.get("ANTHROPIC_MODEL") || "minimax-m2.5-free";
 
     if (!ANTHROPIC_API_KEY) {
-      throw new Error("ANTHROPIC_API_KEY not configured");
+      return new Response(
+        JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Build messages array with system prompt prepended to first user message
-    // Anthropic API doesn't support "system" role, so we merge it with user content
     let anthropicMessages: Message[];
     if (systemPrompt) {
       anthropicMessages = messages.map((msg, index) => {
         if (msg.role === "user" && index === 0) {
-          // Prepend system prompt to first user message
           return { role: msg.role, content: `${systemPrompt}\n\n${msg.content}` };
         }
         return msg;
@@ -60,13 +71,15 @@ serve(async (req: Request) => {
 
     console.log(`Using model: ${ANTHROPIC_MODEL} from ${ANTHROPIC_BASE_URL}, stream: ${stream}`);
 
+    const REQUEST_TIMEOUT_MS = 60000; // 60 second timeout
+
     if (stream) {
       // Streaming mode - use Server-Sent Events
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         async start(controller) {
           try {
-            const response = await fetch(`${ANTHROPIC_BASE_URL}/v1/messages`, {
+            const responsePromise = fetch(`${ANTHROPIC_BASE_URL}/v1/messages`, {
               method: "POST",
               headers: {
                 "Authorization": `Bearer ${ANTHROPIC_API_KEY}`,
@@ -82,9 +95,11 @@ serve(async (req: Request) => {
               }),
             });
 
+            const response = await withTimeout(responsePromise, REQUEST_TIMEOUT_MS);
+
             if (!response.ok) {
               const errorText = await response.text();
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: errorText })}\n\n`));
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: `API error: ${response.status} - ${errorText}` })}\n\n`));
               controller.close();
               return;
             }
@@ -131,7 +146,7 @@ serve(async (req: Request) => {
             controller.close();
           } catch (error) {
             console.error("Streaming error:", error);
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: error.message })}\n\n`));
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: error.message || "Streaming failed" })}\n\n`));
             controller.close();
           }
         },
@@ -148,7 +163,7 @@ serve(async (req: Request) => {
     }
 
     // Non-streaming mode
-    const response = await fetch(`${ANTHROPIC_BASE_URL}/v1/messages`, {
+    const responsePromise = fetch(`${ANTHROPIC_BASE_URL}/v1/messages`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${ANTHROPIC_API_KEY}`,
@@ -163,10 +178,15 @@ serve(async (req: Request) => {
       }),
     });
 
+    const response = await withTimeout(responsePromise, REQUEST_TIMEOUT_MS);
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error("OpenCode API error:", response.status, errorText);
-      throw new Error(`OpenCode API error (${response.status}): ${errorText}`);
+      return new Response(
+        JSON.stringify({ error: `OpenCode API error (${response.status}): ${errorText}` }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const data = await response.json();
@@ -177,7 +197,10 @@ serve(async (req: Request) => {
     const content = textBlock?.text || "";
 
     if (!content || content.trim().length === 0) {
-      throw new Error("Model returned empty response. Please try again.");
+      return new Response(
+        JSON.stringify({ error: "Model returned empty response. Please try again." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     return new Response(

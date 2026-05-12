@@ -101,6 +101,11 @@ function truncateToTokenLimit(text: string, maxTokens: number): string {
 }
 
 /**
+ * Progress callback type for tracking different stages
+ */
+type ProgressCallback = (stage: 'searching' | 'context' | 'ai_response' | 'streaming' | 'complete', message: string) => void;
+
+/**
  * Main chat response function with streaming support for faster perceived response time
  */
 export async function getChatResponse(
@@ -110,32 +115,45 @@ export async function getChatResponse(
   chatId: string,
   supabaseClient: SupabaseClient,
   onChunk?: (chunk: string) => void,
-  forceStreaming: boolean = false
+  forceStreaming: boolean = false,
+  onProgress?: ProgressCallback
 ): Promise<string> {
   try {
     // Get vector-based context from chat history and documents
     let chatContext: ChatContext | null = null;
     let vectorContext = '';
-    
-    try {
-      // Skip vector search for very short prompts (less than 15 chars)
-      if (prompt.trim().length >= 15) {
-        chatContext = await vectorSearchService.buildChatContext(prompt, userId, chatId);
+
+    // Skip vector search for very short prompts (less than 15 chars)
+    if (prompt.trim().length >= 15) {
+      try {
+        onProgress?.('searching', '🔍 Searching relevant documents...');
+        // Use timeout to avoid blocking the chat response
+        const contextPromise = vectorSearchService.buildChatContext(prompt, userId, chatId, 5000);
+        chatContext = await Promise.race([
+          contextPromise,
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Context timeout')), 5000))
+        ]);
+
+        if (chatContext.relevant_documents.length > 0) {
+          onProgress?.('context', `📄 Found ${chatContext.relevant_documents.length} relevant sections`);
+        } else {
+          onProgress?.('context', '📄 No matching documents found');
+        }
+
         vectorContext = vectorSearchService.formatContextForPrompt(chatContext);
-        
-        // Truncate vector context if too large
         vectorContext = truncateToTokenLimit(vectorContext, MAX_CONTEXT_LENGTH);
-      } else {
-        console.log('Prompt too short for vector search, using direct response');
+      } catch (contextError) {
+        console.warn('Failed to get vector context (timeout or embeddings not ready):', contextError?.message || contextError);
+        onProgress?.('context', '📄 Using general knowledge');
       }
-    } catch (contextError) {
-      console.warn('Failed to get vector context (embeddings may not be ready):', contextError);
     }
+
+    onProgress?.('ai_response', '🤖 Generating response...');
 
     // Combine contexts (if manual context is provided)
     const combinedContext = [vectorContext, context].filter(Boolean).join('\n\n');
     const finalContext = truncateToTokenLimit(combinedContext || 'No context available', MAX_CONTEXT_LENGTH);
-    
+
     // Build system prompt
     const systemPrompt = `You are an AI tutor made by Yugal. Follow these rules strictly:
   1. **CRITICAL**: If RELEVANT DOCUMENTS or RECENT CONVERSATION context is provided below, USE IT to answer questions. Never say you can't access uploaded files.
@@ -161,35 +179,38 @@ export async function getChatResponse(
 
     // Use streaming if callback provided OR if forceStreaming is true
     if (onChunk || forceStreaming) {
-      console.log('Using streaming mode');
-      return await streamChatResponse(supabaseClient, messages, systemPrompt, onChunk);
+      return await streamChatResponse(supabaseClient, messages, systemPrompt, onChunk, onProgress);
     }
 
-    // Otherwise, use regular request
-    console.log('Using non-streaming mode');
-    const { data, error } = await supabaseClient.functions.invoke('chat-completion', {
+    // Otherwise, use regular request with timeout
+    const responsePromise = supabaseClient.functions.invoke('chat-completion', {
       body: { messages, systemPrompt, stream: false },
     });
+
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Chat request timeout (30s)')), 30000)
+    );
+
+    const { data, error } = await Promise.race([responsePromise, timeoutPromise]);
 
     if (error) {
       console.error('Edge Function error:', error);
       throw new Error(`Chat API error: ${error.message}`);
     }
 
-    console.log('Edge Function response data type:', typeof data, data);
-    
     if (!data || !(data as any).content) {
       console.error('Empty response from Edge Function:', data);
       throw new Error('No response from AI service. Please try again.');
     }
-    
+
+    onProgress?.('complete', '');
     return (data as any).content;
-    
+
   } catch (error: any) {
     console.error('Error getting chat response:', error);
-    
+
     // Graceful degradation - return helpful error message
-    if (error.message && error.message.includes('429')) {
+    if (error.message && (error.message.includes('429') || error.message.includes('rate limit'))) {
       return `⚠️ **Rate Limit Reached**
 
 The AI service is experiencing high demand. Please wait a moment and try again.
@@ -203,29 +224,49 @@ The AI service is experiencing high demand. Please wait a moment and try again.
 - Email: studyai.platform@gmail.com
 - GitHub: github.com/yugalbansal`;
     }
-    
+
+    if (error.message && error.message.includes('timeout')) {
+      return `⏱️ **Request Timeout**
+
+The AI service took too long to respond. Please try a shorter question or try again.
+
+💡 **Tips:**
+- Break complex questions into smaller parts
+- Try again in a few seconds`;
+    }
+
     return `I apologize, but I encountered an error: ${error.message || 'Unknown error'}. Please try again.`;
   }
 }
 
 /**
- * Stream chat response for real-time display
+ * Stream chat response for real-time display with better error handling
  */
 async function streamChatResponse(
   supabaseClient: SupabaseClient,
   messages: Array<{ role: string; content: string }>,
   systemPrompt: string,
-  onChunk: (chunk: string) => void
+  onChunk: (chunk: string) => void,
+  onProgress?: ProgressCallback
 ): Promise<string> {
-  const response = await supabaseClient.functions.invoke('chat-completion', {
+  // Notify that we're starting to stream
+  onProgress?.('streaming', '💬 Receiving response...');
+
+  // Timeout wrapper
+  const invokePromise = supabaseClient.functions.invoke('chat-completion', {
     body: { messages, systemPrompt, stream: true },
   });
+
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Chat stream timeout (60s)')), 60000)
+  );
+
+  const response = await Promise.race([invokePromise, timeoutPromise]);
 
   if (response.error) {
     throw new Error(`Chat API error: ${response.error.message}`);
   }
 
-  // Check if we got a streaming response (Response object with body)
   const data = response.data;
   if (!data) {
     throw new Error('No response data');
@@ -233,16 +274,17 @@ async function streamChatResponse(
 
   // Handle Response object (streaming)
   let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
-  
+
   if (data instanceof Response && data.body) {
     reader = data.body.getReader();
   } else if (typeof data === 'object' && 'content' in data) {
     // Non-streaming fallback - return content directly
     const content = (data as any).content || '';
     onChunk(content);
+    onProgress?.('complete', '');
     return content;
   } else {
-    throw new Error('Invalid response format');
+    throw new Error('Invalid response format: expected Response object');
   }
 
   if (!reader) {
@@ -252,6 +294,7 @@ async function streamChatResponse(
   const decoder = new TextDecoder();
   let fullContent = '';
   let buffer = '';
+  let hasNotifiedStreaming = false;
 
   try {
     while (true) {
@@ -269,25 +312,41 @@ async function streamChatResponse(
 
         try {
           const parsedData = JSON.parse(trimmed.slice(6));
+          // Handle error responses in stream
+          if (parsedData.error) {
+            throw new Error(parsedData.error);
+          }
           if (parsedData.content) {
             fullContent += parsedData.content;
             onChunk(parsedData.content);
+
+            // Notify progress after first content arrives
+            if (!hasNotifiedStreaming) {
+              hasNotifiedStreaming = true;
+              onProgress?.('streaming', '✨ Response complete');
+            }
           }
         } catch (e) {
-          console.error('Failed to parse SSE line:', trimmed);
+          // Ignore parse errors for non-JSON lines, but log them
+          if (trimmed.includes('data:')) {
+            console.warn('Failed to parse SSE line:', trimmed.substring(0, 100));
+          }
         }
       }
     }
-  } catch (streamError) {
+  } catch (streamError: any) {
     console.error('Streaming error:', streamError);
-    // If streaming fails, return what we have so far
+    // If streaming fails but we have some content, return what we have
     if (fullContent) {
-      return fullContent;
+      return fullContent + '\n\n[Response was truncated due to an error]';
     }
     throw streamError;
   } finally {
-    reader.releaseLock();
+    if (reader) {
+      reader.releaseLock();
+    }
   }
 
+  onProgress?.('complete', '');
   return fullContent;
 }
