@@ -267,7 +267,7 @@ export class VectorSearchService {
 
       // Use the database function to search for similar messages
       const { data, error } = await supabase.rpc('search_similar_chat_messages', {
-        query_embedding: JSON.stringify(queryEmbedding),
+        query_embedding: queryEmbedding, // Pass as array directly
         user_id_param: userId,
         chat_id_param: chatId || null,
         similarity_threshold: 0.3,
@@ -301,7 +301,7 @@ export class VectorSearchService {
 
       // Use the database function to search for similar documents
       const { data, error } = await supabase.rpc('search_similar_documents', {
-        query_embedding: JSON.stringify(queryEmbedding),
+        query_embedding: queryEmbedding, // Pass as array directly
         user_id_param: userId,
         similarity_threshold: 0.15,
         match_count: limit
@@ -355,7 +355,7 @@ export class VectorSearchService {
         'search_similar_documents_index_hybrid',
         {
           query_text: queryText,
-          query_embedding: JSON.stringify(queryEmbedding),
+          query_embedding: queryEmbedding, // Pass as array directly
           user_id_param: userId,
           match_count: docLimit,
           similarity_threshold: docSimilarityThreshold
@@ -381,7 +381,7 @@ export class VectorSearchService {
         const { data: docMatches, error: docError } = await supabase.rpc(
           'search_similar_documents_index',
           {
-            query_embedding: JSON.stringify(queryEmbedding),
+            query_embedding: queryEmbedding, // Pass as array, not JSON string
             user_id_param: userId,
             similarity_threshold: docSimilarityThreshold,
             match_count: docLimit
@@ -413,7 +413,7 @@ export class VectorSearchService {
         'search_similar_document_chunks_hybrid_filtered',
         {
           query_text: queryText,
-          query_embedding: JSON.stringify(queryEmbedding),
+          query_embedding: queryEmbedding, // Pass as array directly
           user_id_param: userId,
           document_ids: docIds,
           match_count: candidateChunkLimit,
@@ -429,7 +429,7 @@ export class VectorSearchService {
         const { data: chunkMatches, error: chunkError } = await supabase.rpc(
           'search_similar_document_chunks_filtered',
           {
-            query_embedding: JSON.stringify(queryEmbedding),
+            query_embedding: queryEmbedding, // Pass as array directly
             user_id_param: userId,
             document_ids: docIds,
             similarity_threshold: chunkSimilarityThreshold,
