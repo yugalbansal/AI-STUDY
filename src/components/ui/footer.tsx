@@ -11,26 +11,30 @@ function handleScrollTop() {
 const navigation = {
   sections: [
     {
-      name: "Features",
+      name: "Product",
       items: [
-        { name: "AI Chat", href: "/chat" },
-        { name: "Documents", href: "/documents" },
-        { name: "Voice Call", href: "/livecall" },
-        { name: "Image Gen", href: "/imagegen" },
+        { name: "Features", href: "/features" },
+        { name: "Pricing", href: "/pricing" },
+        { name: "How to Use", href: "/how-to-use" },
+        { name: "Use Cases", href: "/use-cases" },
       ],
     },
     {
-      name: "Platform",
+      name: "Company",
       items: [
-        { name: "Dashboard", href: "/dashboard" },
-        { name: "Get Started", href: "/login" },
+        { name: "About Us", href: "/about" },
+        { name: "Contact", href: "/contact" },
+        { name: "Blog", href: "/blog" },
+        { name: "Careers", href: "/careers" },
       ],
     },
     {
       name: "Resources",
       items: [
-        { name: "About", href: "#about" },
-        { name: "Contact", href: "#contact" },
+        { name: "FAQ", href: "/faq" },
+        { name: "Documentation", href: "/how-to-use" },
+        { name: "API", href: "#api" },
+        { name: "Status", href: "#status" },
       ],
     },
     {
@@ -38,6 +42,16 @@ const navigation = {
       items: [
         { name: "Privacy Policy", href: "/privacy" },
         { name: "Terms of Service", href: "/terms" },
+        { name: "Cookie Policy", href: "/cookie-policy" },
+      ],
+    },
+    {
+      name: "Developers",
+      items: [
+        { name: "API Documentation", href: "/api-docs" },
+        { name: "System Status", href: "/status" },
+        { name: "Blog", href: "/blog" },
+        { name: "Careers", href: "/careers" },
       ],
     },
   ],
