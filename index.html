@@ -106,7 +106,7 @@
     <meta name="bingbot" content="index, follow" />
     <link rel="canonical" href="https://vectormind.site/" />
     <link rel="alternate" href="https://vectormind.site/" hreflang="en" />
-    <link rel="alternate" type="application/rss+xml" title="Vector Mind AI Blog" href="/blog/rss" />
+    <link rel="alternate" type="application/rss+xml" title="Vector Mind AI Blog RSS Feed" href="/blog-rss.xml" />
 
     <!-- Mobile / PWA -->
     <meta name="theme-color" content="#3b82f6" />
@@ -134,9 +134,9 @@
     {
       "@context": "https://schema.org",
       "@type": "WebSite",
-      "name": "Vector Mind AI",
+      "name": "Vector Mind AI - Free JSONL Dataset Generator",
       "url": "https://vectormind.site/",
-      "description": "Free JSONL dataset generator for PDFs. Transform documents into AI training data instantly.",
+      "description": "Free JSONL dataset generator for PDFs. Transform documents into AI training data instantly. Also provides AI study assistant, document chat, and voice tutoring.",
       "publisher": {
         "@type": "Organization",
         "name": "Vector Mind AI",
@@ -147,7 +147,7 @@
       },
       "potentialAction": {
         "@type": "SearchAction",
-        "target": "https://vectormind.site/search?q={search_term_string}",
+        "target": "https://vectormind.site/blog?search={search_term_string}",
         "query-input": "required name=search_term_string"
       },
       "about": {
@@ -156,7 +156,42 @@
         "description": "Convert PDFs, DOCX, PPTX to JSONL format for AI model training"
       },
       "serviceType": ["AI Study Assistant", "Dataset Generator", "Document Analysis"],
-      "applicationCategory": "EducationApplication"
+      "applicationCategory": "EducationApplication",
+      "operatingSystem": "Web Browser",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+    </script>
+
+    <!-- BreadcrumbList Schema for Better Navigation -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://vectormind.site/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Features",
+          "item": "https://vectormind.site/features"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Blog",
+          "item": "https://vectormind.site/blog"
+        }
+      ]
     }
     </script>
 
@@ -168,10 +203,14 @@
       "name": "Vector Mind AI",
       "url": "https://vectormind.site/",
       "logo": "https://ktjpfkrmsjopiytvxkzm.supabase.co/storage/v1/object/public/logo/logoVectormind.png",
-      "description": "Free AI-powered platform for generating JSONL datasets from documents and AI study assistance.",
+      "description": "Free AI-powered platform for generating JSONL datasets from documents and AI study assistance. Founded by Yugal Bansal, BTech CSE student.",
+      "founder": {
+        "@type": "Person",
+        "name": "Yugal Bansal",
+        "jobTitle": "Founder & Lead Developer"
+      },
       "sameAs": [
-        "https://twitter.com/vectormind",
-        "https://github.com/vectormind"
+        "https://twitter.com/vectormind"
       ],
       "contactPoint": {
         "@type": "ContactPoint",

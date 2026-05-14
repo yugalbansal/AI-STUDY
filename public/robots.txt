@@ -1,17 +1,42 @@
 # Vector Mind AI - robots.txt
 # https://vectormind.site
-# Last updated: 2026-01-16
+# Last updated: 2026-05-14
 
 User-agent: *
+Allow: /
+
+# Disallow only authenticated routes
 Disallow: /api/
 Disallow: /auth/
-Disallow: /login
-Disallow: /sso-callback
-Disallow: /verify-email
-Disallow: /reset-password
+Disallow: /dashboard
+Disallow: /chat
+Disallow: /documents
+Disallow: /images
+Disallow: /livecall
+Disallow: /profile
+Disallow: /settings
 
-# Public legal pages
+# Public pages that should be indexed
+Allow: /
+Allow: /about
+Allow: /features
+Allow: /how-to-use
+Allow: /use-cases
+Allow: /pricing
+Allow: /contact
+Allow: /faq
+Allow: /careers
+Allow: /blog
+Allow: /blog/*
+Allow: /api-docs
+Allow: /status
+Allow: /cookie-policy
 Allow: /privacy
 Allow: /terms
+Allow: /login
 
+# Sitemap location
 Sitemap: https://vectormind.site/sitemap.xml
+
+# Crawl-delay for polite crawling
+Crawl-delay: 1

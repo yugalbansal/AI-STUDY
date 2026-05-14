@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Vector Mind AI Blog - Latest Articles on JSONL, AI & Education</title>
+    <link>https://vectormind.site/blog</link>
+    <description>Expert articles on JSONL format, PDF to JSONL conversion, AI study tools, LLM fine-tuning, and machine learning. Free guides and tutorials from Vector Mind AI.</description>
+    <language>en-us</language>
+    <lastBuildDate>Wed, 14 May 2026 12:00:00 +0000</lastBuildDate>
+    <atom:link href="https://vectormind.site/blog-rss.xml" rel="self" type="application/rss+xml"/>
+    <image>
+      <url>https://ktjpfkrmsjopiytvxkzm.supabase.co/storage/v1/object/public/logo/logoVectormind.png</url>
+      <title>Vector Mind AI</title>
+      <link>https://vectormind.site</link>
+    </image>
+
+    <item>
+      <title>Complete Guide to PDF to JSONL Conversion for AI Training</title>
+      <link>https://vectormind.site/blog/complete-guide-pdf-to-jsonl-conversion</link>
+      <description>Learn how to transform PDF documents into high-quality JSONL datasets for training large language models. Step-by-step tutorial with best practices.</description>
+      <pubDate>Tue, 13 May 2026 12:00:00 +0000</pubDate>
+      <guid>https://vectormind.site/blog/complete-guide-pdf-to-jsonl-conversion</guid>
+      <author>Yugal Bansal</author>
+      <category>Technical Guide</category>
+    </item>
+
+    <item>
+      <title>JSONL Format: Complete Tutorial for AI Model Training in 2026</title>
+      <link>https://vectormind.site/blog/jsonl-format-complete-tutorial-2026</link>
+      <description>Master JSONL format for AI training. Learn about different schemas, best practices, and how to create high-quality training datasets.</description>
+      <pubDate>Mon, 12 May 2026 12:00:00 +0000</pubDate>
+      <guid>https://vectormind.site/blog/jsonl-format-complete-tutorial-2026</guid>
+      <author>Yugal Bansal</author>
+      <category>Tutorial</category>
+    </item>
+
+    <item>
+      <title>How to Use AI Study Tools to Ace Your Exams in 2026</title>
+      <link>https://vectormind.site/blog/ai-study-tools-ace-exams</link>
+      <description>Discover the best AI-powered study tools and techniques to improve your exam preparation. From document analysis to practice tests.</description>
+      <pubDate>Sun, 11 May 2026 12:00:00 +0000</pubDate>
+      <guid>https://vectormind.site/blog/ai-study-tools-ace-exams</guid>
+      <author>Yugal Bansal</author>
+      <category>Study Tips</category>
+    </item>
+
+    <item>
+      <title>Best Free JSONL Generator Online in 2026 - Complete Comparison</title>
+      <link>https://vectormind.site/blog/free-jsonl-generator-online</link>
+      <description>Compare the top free JSONL generators available online. Find the best tool for converting documents to AI training data.</description>
+      <pubDate>Sat, 10 May 2026 12:00:00 +0000</pubDate>
+      <guid>https://vectormind.site/blog/free-jsonl-generator-online</guid>
+      <author>Yugal Bansal</author>
+      <category>Tools Review</category>
+    </item>
+
+    <item>
+      <title>Document Chat with AI Explained: The Future of Reading</title>
+      <link>https://vectormind.site/blog/document-chat-ai-explained</link>
+      <description>Learn how AI-powered document chat works and how it revolutionizes how we read, analyze, and extract information from documents.</description>
+      <pubDate>Fri, 09 May 2026 12:00:00 +0000</pubDate>
+      <guid>https://vectormind.site/blog/document-chat-ai-explained</guid>
+      <author>Yugal Bansal</author>
+      <category>AI Education</category>
+    </item>
+
+    <item>
+      <title>LLM Fine-Tuning for Beginners: Complete Start Guide 2026</title>
+      <link>https://vectormind.site/blog/llm-fine-tuning-beginners-guide</link>
+      <description>Everything you need to know about fine-tuning large language models. From preparing data to training your first model.</description>
+      <pubDate>Thu, 08 May 2026 12:00:00 +0000</pubDate>
+      <guid>https://vectormind.site/blog/llm-fine-tuning-beginners-guide</guid>
+      <author>Yugal Bansal</author>
+      <category>Machine Learning</category>
+    </item>
+
+    <item>
+      <title>The Future of AI in Education: Trends and Predictions for 2026</title>
+      <link>https://vectormind.site/blog/ai-education-future-2026</link>
+      <description>Explore the latest trends in AI-powered education. From personalized learning to AI tutors, discover what's shaping the future.</description>
+      <pubDate>Wed, 07 May 2026 12:00:00 +0000</pubDate>
+      <guid>https://vectormind.site/blog/ai-education-future-2026</guid>
+      <author>Yugal Bansal</author>
+      <category>AI Education</category>
+    </item>
+
+    <item>
+      <title>How to Generate JSONL Datasets in Batch: Scalable AI Training</title>
+      <link>https://vectormind.site/blog/batch-jsonl-generation-guide</link>
+      <description>Learn efficient methods for generating large-scale JSONL datasets. Save time and resources with batch processing techniques.</description>
+      <pubDate>Tue, 06 May 2026 12:00:00 +0000</pubDate>
+      <guid>https://vectormind.site/blog/batch-jsonl-generation-guide</guid>
+      <author>Yugal Bansal</author>
+      <category>Technical Guide</category>
+    </item>
+
+  </channel>
+</rss>
