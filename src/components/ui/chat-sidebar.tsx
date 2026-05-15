@@ -137,7 +137,7 @@ export default function ChatSidebar({
         <div className="px-4 pt-4 pb-2 flex-shrink-0">
           <button
             onClick={onCreateNewChat}
-            className="w-full flex items-center justify-center px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 active:from-blue-800 active:to-blue-900 transition-all shadow-sm hover:shadow-md touch-manipulation"
+            className="w-full flex items-center justify-center px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 active:from-blue-800 active:to-blue-900 transition-colors duration-150 shadow-sm touch-manipulation"
           >
             <Plus className="w-5 h-5 mr-2 flex-shrink-0" />
             <span className="font-medium">New Chat</span>
@@ -145,7 +145,7 @@ export default function ChatSidebar({
         </div>
 
         {/* Chat List */}
-        <div className="flex-1 overflow-y-auto px-2 min-h-0">
+        <div className="flex-1 overflow-y-auto overscroll-contain scrollbar-mobile px-2 min-h-0" style={{ WebkitOverflowScrolling: 'touch' }}>
           <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 px-3 py-2 mt-2">
             Recent Chats
           </div>
@@ -161,7 +161,7 @@ export default function ChatSidebar({
               {chats.map((chat) => (
                 <li key={chat.id}>
                   <div
-                    className={`group relative rounded-lg transition-all ${
+                    className={`group relative rounded-lg transition-colors duration-150 ${
                       currentChat === chat.id
                         ? 'bg-blue-50 dark:bg-blue-900/30 border-l-2 border-blue-500 dark:border-blue-600'
                         : 'hover:bg-gray-50 dark:hover:bg-zinc-800'
@@ -199,7 +199,7 @@ export default function ChatSidebar({
                           </span>
                         </button>
                         
-                        <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                        <div className="flex items-center space-x-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();

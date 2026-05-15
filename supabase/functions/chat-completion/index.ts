@@ -11,6 +11,7 @@ const corsHeaders = {
 interface Message {
   role: string;
   content: string;
+  imageUrls?: string[];
 }
 
 interface RequestBody {
@@ -44,6 +45,14 @@ serve(async (req: Request) => {
       );
     }
 
+    // Debug: Log incoming messages
+    console.log('[DEBUG] Received messages:', JSON.stringify(messages.map(m => ({
+      role: m.role,
+      contentLength: m.content?.length || 0,
+      imageUrlsCount: m.imageUrls?.length || 0,
+      imageUrls: m.imageUrls?.slice(0, 2)
+    }))));
+
     // Read config from environment
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     const ANTHROPIC_BASE_URL = Deno.env.get("ANTHROPIC_BASE_URL") || "https://opencode.ai/zen";
@@ -61,7 +70,7 @@ serve(async (req: Request) => {
     if (systemPrompt) {
       anthropicMessages = messages.map((msg, index) => {
         if (msg.role === "user" && index === 0) {
-          return { role: msg.role, content: `${systemPrompt}\n\n${msg.content}` };
+          return { role: msg.role, content: `${systemPrompt}\n\n${msg.content}`, imageUrls: msg.imageUrls };
         }
         return msg;
       });
@@ -72,6 +81,65 @@ serve(async (req: Request) => {
     console.log(`Using model: ${ANTHROPIC_MODEL} from ${ANTHROPIC_BASE_URL}, stream: ${stream}`);
 
     const REQUEST_TIMEOUT_MS = 60000; // 60 second timeout
+
+    // Build request body with multimodal support
+    const requestBody: any = {
+      model: ANTHROPIC_MODEL,
+      max_tokens: 8192,
+      stream: true,
+    };
+
+    // Check if any messages have images
+    const hasImages = anthropicMessages.some(msg => msg.imageUrls && msg.imageUrls.length > 0);
+
+    // Debug: Log if images were detected
+    console.log('[DEBUG] hasImages detected:', hasImages);
+    if (hasImages) {
+      const imagesCount = anthropicMessages.reduce((acc, msg) => acc + (msg.imageUrls?.length || 0), 0);
+      console.log('[DEBUG] Total image URLs in messages:', imagesCount);
+    }
+
+    if (hasImages) {
+      // Convert to Anthropic content blocks format for multimodal
+      requestBody.messages = anthropicMessages.map(msg => {
+        if (msg.imageUrls && msg.imageUrls.length > 0) {
+          // Build content blocks: first text block + image blocks
+          const contentBlocks: any[] = [
+            { type: "text", text: msg.content }
+          ];
+          for (const imageUrl of msg.imageUrls) {
+            // Check if it's a base64 data URL or regular URL
+            if (imageUrl.startsWith('data:')) {
+              // Parse base64 data URL: data:image/png;base64,...
+              const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
+              if (matches) {
+                contentBlocks.push({
+                  type: "image",
+                  source: {
+                    type: "base64",
+                    media_type: matches[1],
+                    data: matches[2],
+                  }
+                });
+              }
+            } else {
+              // Regular URL
+              contentBlocks.push({
+                type: "image",
+                source: {
+                  type: "url",
+                  url: imageUrl,
+                }
+              });
+            }
+          }
+          return { role: msg.role, content: contentBlocks };
+        }
+        return msg;
+      });
+    } else {
+      requestBody.messages = anthropicMessages;
+    }
 
     if (stream) {
       // Streaming mode - use Server-Sent Events
@@ -87,18 +155,16 @@ serve(async (req: Request) => {
                 "anthropic-beta": "prompt-caching-2025-05-14",
                 "anthropic-version": "2023-06-01",
               },
-              body: JSON.stringify({
-                model: ANTHROPIC_MODEL,
-                messages: anthropicMessages,
-                max_tokens: 8192,
-                stream: true,
-              }),
+              body: JSON.stringify(requestBody),
             });
 
             const response = await withTimeout(responsePromise, REQUEST_TIMEOUT_MS);
 
             if (!response.ok) {
               const errorText = await response.text();
+              console.error("OpenCode API error:", response.status, errorText);
+              // Log the full request body for debugging
+              console.log("[DEBUG] Request body sent:", JSON.stringify(requestBody).substring(0, 500));
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: `API error: ${response.status} - ${errorText}` })}\n\n`));
               controller.close();
               return;
@@ -172,9 +238,8 @@ serve(async (req: Request) => {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
-        messages: anthropicMessages,
-        max_tokens: 8192,
+        ...requestBody,
+        stream: false,
       }),
     });
 

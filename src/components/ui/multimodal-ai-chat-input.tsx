@@ -17,7 +17,9 @@ import { Loader2 as LoaderIcon, X as XIcon } from 'lucide-react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { twMerge } from 'tailwind-merge';
 
-const clsx = (...args: any[]) => args.filter(Boolean).join(' ');
+type ClassNameValue = string | number | boolean | null | undefined;
+
+const clsx = (...args: ClassNameValue[]) => args.filter(Boolean).join(' ');
 
 // Type Definitions
 interface Attachment {
@@ -37,7 +39,7 @@ interface UIMessage {
 type VisibilityType = 'public' | 'private' | 'unlisted' | string;
 
 // Utility Functions
-const cn = (...inputs: any[]) => {
+const cn = (...inputs: ClassNameValue[]) => {
   return twMerge(clsx(inputs));
 };
 
@@ -263,7 +265,6 @@ const PreviewAttachment = ({
     <div data-testid="input-attachment-preview" className="flex flex-col gap-1">
       <div className="w-20 h-16 aspect-video bg-gray-200 dark:bg-zinc-700 rounded-md relative flex flex-col items-center justify-center overflow-hidden border border-gray-300 dark:border-zinc-600">
         {contentType?.startsWith('image/') && url ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img
             key={url}
             src={url}
@@ -401,6 +402,7 @@ interface MultimodalInputProps {
   canSend: boolean;
   className?: string;
   selectedVisibilityType: VisibilityType;
+  initialInput?: string;
 }
 
 function PureMultimodalInput({
@@ -414,18 +416,28 @@ function PureMultimodalInput({
   canSend,
   className,
   selectedVisibilityType,
+  initialInput = '',
 }: MultimodalInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(initialInput);
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
+  const [shouldAutoFocus, setShouldAutoFocus] = useState(false);
+
+  // Update input when initialInput changes (for reply context)
+  useEffect(() => {
+    if (initialInput) {
+      setInput(initialInput);
+    }
+  }, [initialInput]);
 
   const adjustHeight = () => {
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.style.height = 'auto';
-      textarea.style.height = `${textarea.scrollHeight + 2}px`;
+      const nextHeight = Math.min(textarea.scrollHeight, 192);
+      textarea.style.height = `${nextHeight}px`;
     }
   };
 
@@ -444,13 +456,77 @@ function PureMultimodalInput({
     }
   }, [input]); // Depend only on input
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    setShouldAutoFocus(window.matchMedia('(min-width: 1024px)').matches);
+  }, []);
+
+  useEffect(() => {
+    if (!shouldAutoFocus) return;
+
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus({ preventScroll: true });
+    });
+  }, [shouldAutoFocus]);
+
+  // Handle paste events for images and videos
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const handlePaste = async (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      const files: File[] = [];
+
+      for (const item of items) {
+        // Handle both images and videos
+        if (item.type.startsWith('image/') || item.type.startsWith('video/')) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) {
+            files.push(file);
+          }
+        }
+      }
+
+      if (files.length > 0) {
+        // Add to upload queue
+        setUploadQueue(currentQueue => [...currentQueue, ...files.map(f => f.name)]);
+
+        // Process each file
+        for (const file of files) {
+          const isVideo = file.type.startsWith('video/');
+          const extension = isVideo ? 'mp4' : 'png';
+          const defaultName = isVideo ? `pasted-video-${Date.now()}.${extension}` : `pasted-image-${Date.now()}.${extension}`;
+
+          // Create blob URL for preview
+          const blobUrl = URL.createObjectURL(file);
+          const attachment: Attachment = {
+            url: blobUrl,
+            name: file.name || defaultName,
+            contentType: file.type || (isVideo ? 'video/mp4' : 'image/png'),
+            size: file.size,
+          };
+
+          setAttachments(current => [...current, attachment]);
+          setUploadQueue(current => current.filter(name => name !== file.name));
+        }
+      }
+    };
+
+    textarea.addEventListener('paste', handlePaste);
+    return () => textarea.removeEventListener('paste', handlePaste);
+  }, []);
+
   const handleInput = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(event.target.value);
   };
 
   // Placeholder File Upload Function
   const uploadFile = async (file: File): Promise<Attachment | undefined> => {
-    console.log(`MOCK: Simulating upload for file: ${file.name}`);
     return new Promise((resolve) => {
       setTimeout(() => {
         try {
@@ -462,7 +538,6 @@ function PureMultimodalInput({
             contentType: file.type || 'application/octet-stream',
             size: file.size,
           };
-          console.log(`MOCK: Upload successful for ${file.name}`);
           resolve(mockAttachment);
         } catch (error) {
           console.error('MOCK: Failed to create object URL for preview:', error);
@@ -535,23 +610,30 @@ function PureMultimodalInput({
   );
 
   const submitForm = useCallback(() => {
-     if (input.trim().length === 0 && attachments.length === 0) {
-        console.warn('Please enter a message or add an attachment.');
-        return;
-     }
+    // Allow sending if there's input or attachments
+    // Note: reply context is handled by parent component
+    if (input.trim().length === 0 && attachments.length === 0) {
+      console.warn('Please enter a message or add an attachment.');
+      return;
+    }
+
+    // Store blob URLs before clearing
+    const blobUrlsToRevoke = attachments.filter(att => att.url.startsWith('blob:')).map(att => att.url);
 
     onSendMessage({ input, attachments });
 
-    // Clear input and attachments
+    // Clear input and attachments immediately
     setInput('');
     setAttachments([]);
 
-    // Revoke object URLs for sent attachments
-    attachments.forEach(att => {
-        if (att.url.startsWith('blob:')) {
-            URL.revokeObjectURL(att.url);
+    // Revoke blob URLs after a delay (allow time for message to be saved and displayed)
+    setTimeout(() => {
+      blobUrlsToRevoke.forEach(url => {
+        if (url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
         }
-    });
+      });
+    }, 3000); // 3 second delay before cleanup
 
     resetHeight();
     textareaRef.current?.focus();
@@ -645,12 +727,12 @@ function PureMultimodalInput({
         value={input}
         onChange={handleInput}
         className={cn(
-          'min-h-[24px] max-h-[calc(75dvh)] overflow-y-auto resize-none rounded-2xl !text-base pb-10',
+          'min-h-[56px] max-h-48 overflow-y-auto resize-none rounded-2xl !text-base leading-6 pt-3 pb-11 transition-[height] duration-150 ease-out',
           'bg-gray-100 dark:bg-zinc-700 border border-gray-300 dark:border-zinc-600 text-black dark:!text-white placeholder:text-gray-500 dark:placeholder:!text-gray-300', 
           className,
         )}
         rows={1}
-        autoFocus
+        autoFocus={shouldAutoFocus}
         disabled={!canSend || isGenerating || uploadQueue.length > 0}
         onKeyDown={(event) => {
           if (

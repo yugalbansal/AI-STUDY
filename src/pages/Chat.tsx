@@ -548,9 +548,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useClerkAuth } from '../contexts/ClerkAuthContext';
-import { getChatResponse } from '../lib/gemini';
+import { getChatResponse, captionImages } from '../lib/gemini';
 import { vectorSearchService } from '../lib/vectorSearch';
-import { Menu, MessageSquare } from 'lucide-react';
+import { Menu, MessageSquare, X } from 'lucide-react';
 import ChatMessage from '../components/ChatMessage';
 import Navbar from '../components/Navbar';
 import ChatSidebar from '../components/ui/chat-sidebar';
@@ -570,6 +570,9 @@ interface Message {
   message: string;
   response: string;
   created_at: string;
+  attachments?: Array<{ url: string; name: string; contentType: string }>;
+  replyTo?: string | null;
+  reply_to?: string | null;
 }
 
 // Attachment type for multimodal input
@@ -585,14 +588,32 @@ export default function Chat() {
   const [chatHistory, setChatHistory] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const shouldStickToBottomRef = useRef(true);
+  const scrollFrameRef = useRef<number | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chats, setChats] = useState<Chat[]>([]);
   const [currentChat, setCurrentChat] = useState<string | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // Desktop sidebar open by default
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => (
+    typeof window === 'undefined' ? true : window.matchMedia('(min-width: 1024px)').matches
+  ));
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [statusMessage, setStatusMessage] = useState<string>('');
+  const [replyContext, setReplyContext] = useState<string>('');
+
+  // Stable callback for reply with selection
+  const handleReplyWithSelection = useCallback((text: string) => {
+    setReplyContext(text);
+  }, []);
+
+  const handleMessagesScroll = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    shouldStickToBottomRef.current = distanceFromBottom < 160;
+  }, []);
 
   useEffect(() => {
     if (!authLoading && userId && supabase) {
@@ -603,10 +624,45 @@ export default function Chat() {
   }, [userId, authLoading, supabase]);
 
   useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (typeof window === 'undefined') return;
+
+    const mediaQuery = window.matchMedia('(min-width: 1024px)');
+    const syncSidebarForViewport = () => {
+      setIsSidebarOpen(mediaQuery.matches);
+    };
+
+    syncSidebarForViewport();
+    mediaQuery.addEventListener('change', syncSidebarForViewport);
+    return () => mediaQuery.removeEventListener('change', syncSidebarForViewport);
+  }, []);
+
+  useEffect(() => {
+    shouldStickToBottomRef.current = true;
+  }, [currentChat]);
+
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container || !shouldStickToBottomRef.current) return;
+
+    if (scrollFrameRef.current !== null) {
+      cancelAnimationFrame(scrollFrameRef.current);
     }
-  }, [chatHistory, isTyping]);
+
+    scrollFrameRef.current = requestAnimationFrame(() => {
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: loading || isTyping ? 'auto' : 'smooth',
+      });
+      scrollFrameRef.current = null;
+    });
+
+    return () => {
+      if (scrollFrameRef.current !== null) {
+        cancelAnimationFrame(scrollFrameRef.current);
+        scrollFrameRef.current = null;
+      }
+    };
+  }, [chatHistory, isTyping, loading]);
 
   useEffect(() => {
     if (currentChat) {
@@ -630,7 +686,7 @@ export default function Chat() {
       if (data && data.length > 0 && !currentChat) {
         setCurrentChat(data[0].id);
       }
-    } catch (error) {
+    } catch {
       setError('Failed to load chats');
     } finally {
       setInitialLoading(false);
@@ -649,8 +705,14 @@ export default function Chat() {
 
       if (error) throw error;
       
-      setChatHistory(data || []);
-    } catch (error) {
+      const loadedMessages = (data || []).map((message: Message) => ({
+        ...message,
+        replyTo: message.replyTo ?? message.reply_to ?? null,
+      }));
+
+      shouldStickToBottomRef.current = true;
+      setChatHistory(loadedMessages);
+    } catch {
       setError('Failed to load chat history');
     } finally {
       setInitialLoading(false);
@@ -684,8 +746,9 @@ export default function Chat() {
 
       setChats(prev => [data, ...prev]);
       setCurrentChat(data.id);
+      shouldStickToBottomRef.current = true;
       setChatHistory([]);
-    } catch (error) {
+    } catch {
       setError('Failed to create new chat');
     }
   }
@@ -704,7 +767,7 @@ export default function Chat() {
       setChats(prev => prev.map(chat => 
         chat.id === chatId ? { ...chat, title: newTitle.trim() } : chat
       ));
-    } catch (error) {
+    } catch {
       setError('Failed to rename chat');
     }
   }
@@ -723,113 +786,254 @@ export default function Chat() {
           setChatHistory([]);
         }
       }
-    } catch (error) {
+    } catch {
       setError('Failed to delete chat');
     }
   }
 
-  const handleSendMessage = useCallback(async ({ input }: { input: string; attachments: Attachment[] }) => {
-    if (!input.trim() || loading || !userId || !currentChat || !supabase) return;
+  const handleSendMessage = useCallback(async ({ input, attachments }: { input: string; attachments: Attachment[] }) => {
+    if (loading || !userId || !currentChat || !supabase) return;
+
+    const hasContent = input.trim().length > 0 || attachments.length > 0 || replyContext;
+    if (!hasContent) return;
 
     setLoading(true);
     setError(null);
+
+    // Build user message with reply context if present
+    let userMessage = input.trim();
+    let promptWithContext = userMessage;
+    const replyContextText = replyContext;
+
+    if (replyContextText) {
+      if (!userMessage) {
+        userMessage = 'Continue';
+      }
+      promptWithContext = `Regarding your previous response:\n"${replyContextText}"\n\nCurrent question: ${userMessage}`;
+      setReplyContext('');
+    } else {
+      promptWithContext = userMessage;
+    }
 
     const tempId = Date.now().toString();
     const tempMessage = {
       id: tempId,
       chat_id: currentChat,
       user_id: userId,
-      message: input,
+      message: userMessage,
       response: '',
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      replyTo: replyContextText || null,
     };
 
+    shouldStickToBottomRef.current = true;
     setChatHistory(prev => [...prev, tempMessage]);
     setIsTyping(true);
-    setStatusMessage('🔍 Analyzing your question...');
+    setStatusMessage('Processing...');
+
+    let streamedResponse = '';
+    const processedAttachments: Array<{ url: string; name: string; contentType: string }> = [];
 
     try {
-      let streamedResponse = '';
+      const imageUrls: string[] = [];
 
-      // Progress callback to update status in real-time
-      const handleProgress = (stage: string, message: string) => {
-        if (message) {
-          setStatusMessage(message);
+      // Process attachments - upload to storage and get public URLs
+      if (attachments.length > 0) {
+        setStatusMessage('Uploading images...');
+
+        for (const attachment of attachments) {
+          if (attachment.url.startsWith('blob:')) {
+            // Fetch the blob from blob URL and convert to base64
+            const response = await fetch(attachment.url);
+            if (!response.ok) {
+              setError(`Failed to process image: ${attachment.name}`);
+              continue;
+            }
+            const blob = await response.blob();
+
+            // Convert to base64 for captioning
+            const arrayBuffer = await blob.arrayBuffer();
+            const uint8Array = new Uint8Array(arrayBuffer);
+            let binary = '';
+            for (let i = 0; i < uint8Array.length; i++) {
+              binary += String.fromCharCode(uint8Array[i]);
+            }
+            const base64 = btoa(binary);
+            const dataUrl = `data:${attachment.contentType};base64,${base64}`;
+            imageUrls.push(dataUrl);
+            processedAttachments.push({ url: dataUrl, name: attachment.name, contentType: attachment.contentType });
+
+            // Also save to Supabase storage for document library
+            const filePath = `${userId}/uploads/${Date.now()}_${attachment.name}`;
+            const { error: uploadError } = await supabase.storage
+              .from('documents')
+              .upload(filePath, blob, {
+                cacheControl: '3600',
+                upsert: false,
+              });
+
+            if (!uploadError) {
+              await supabase.from('documents').insert({
+                title: attachment.name,
+                content: `Chat upload: ${attachment.name}`,
+                type: 'file',
+                user_id: userId,
+                jsonl_file_path: filePath,
+              });
+            }
+          } else if (attachment.contentType.startsWith('image/')) {
+            try {
+              const imgResponse = await fetch(attachment.url);
+              if (imgResponse.ok) {
+                const imgBlob = await imgResponse.blob();
+                const arrayBuffer = await imgBlob.arrayBuffer();
+                const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+                const dataUrl = `data:${attachment.contentType};base64,${base64}`;
+                imageUrls.push(dataUrl);
+              }
+            } catch {
+              imageUrls.push(attachment.url);
+            }
+            processedAttachments.push({ url: attachment.url, name: attachment.name, contentType: attachment.contentType });
+          } else {
+            imageUrls.push(attachment.url);
+            processedAttachments.push({ url: attachment.url, name: attachment.name, contentType: attachment.contentType });
+          }
         }
-      };
 
-      // Stream the response with real-time updates
-      const response = await getChatResponse(
-        input,
-        '',
-        userId,
-        currentChat,
-        supabase,
-        (chunk: string) => {
-          // Update response in real-time as chunks arrive
-          streamedResponse += chunk;
-          setChatHistory(prev =>
-            prev.map(msg =>
-              msg.id === tempId
-                ? { ...msg, response: streamedResponse }
-                : msg
-            )
-          );
-        },
-        true, // enable streaming
-        handleProgress
-      );
+        // Caption images using Gemini vision model
+        let imageDescriptions = '';
+        if (imageUrls.length > 0) {
+          setStatusMessage('Analyzing images...');
 
-      setStatusMessage('');
+          const captions = await captionImages(imageUrls);
 
-      setIsTyping(false);
+          if (captions.length > 0) {
+            imageDescriptions = captions.map((c, i) => `Image ${i + 1}: ${c.caption}`).join('\n');
+          }
+        }
 
-      // Save to database
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .insert([{
-          chat_id: currentChat,
-          user_id: userId,
-          message: input,
-          response,
-        }])
-        .select();
+        // Build prompt with image descriptions
+        let enhancedPrompt = promptWithContext;
+        if (imageDescriptions) {
+          enhancedPrompt = `I have ${imageUrls.length} image(s) attached:\n\n${imageDescriptions}\n\n---\n\n${promptWithContext}`;
+        }
 
-      if (error) throw error;
+        setStatusMessage('Getting response...');
 
-      // Replace temp message with saved message
-      setChatHistory(prev => {
-        const filtered = prev.filter(item => item.id !== tempId);
-        return [...filtered, ...(data || [])];
-      });
-
-      // Store embeddings for the new message asynchronously
-      if (data && data[0]) {
-        const messageData = data[0];
-        vectorSearchService.storeChatEmbedding(
-          currentChat,
-          messageData.id,
+        // Stream the response with real-time updates
+        const response = await getChatResponse(
+          enhancedPrompt,
+          '',
           userId,
-          input,
-          'user'
-        ).catch(() => {});
-        
-        vectorSearchService.storeChatEmbedding(
           currentChat,
-          messageData.id,
+          supabase,
+          (chunk: string) => {
+            streamedResponse += chunk;
+            setChatHistory(prev =>
+              prev.map(msg => msg.id === tempId ? { ...msg, response: streamedResponse } : msg)
+            );
+          },
+          true
+        );
+
+        setStatusMessage('');
+        setIsTyping(false);
+
+        // Save to database with attachments
+        const { data, error } = await supabase
+          .from('chat_messages')
+          .insert({
+            chat_id: currentChat,
+            user_id: userId,
+            message: userMessage,
+            response,
+            attachments: processedAttachments.length > 0 ? processedAttachments : null,
+            reply_to: replyContextText,
+          })
+          .select();
+
+        if (error) throw error;
+
+        // Replace temp message with saved message (include replyTo)
+        setChatHistory(prev => {
+          const filtered = prev.filter(item => item.id !== tempId);
+          const newMessages = (data || []).map((msg: Message) => ({ ...msg, replyTo: replyContextText }));
+          return [...filtered, ...newMessages];
+        });
+
+        // Store embeddings for the new message asynchronously
+        if (data && data[0]) {
+          const messageData = data[0];
+          vectorSearchService.storeChatEmbedding(currentChat, messageData.id, userId, input, 'user').catch(() => {});
+          vectorSearchService.storeChatEmbedding(currentChat, messageData.id, userId, response, 'assistant').catch(() => {});
+        }
+      } else {
+        // No attachments - just send text message
+        setStatusMessage('Getting response...');
+
+        const response = await getChatResponse(
+          promptWithContext,
+          '',
           userId,
-          response,
-          'assistant'
-        ).catch(() => {});
+          currentChat,
+          supabase,
+          (chunk: string) => {
+            streamedResponse += chunk;
+            setChatHistory(prev =>
+              prev.map(msg => msg.id === tempId ? { ...msg, response: streamedResponse } : msg)
+            );
+          },
+          true
+        );
+
+        setStatusMessage('');
+        setIsTyping(false);
+
+        // Save to database
+        const { data, error } = await supabase
+          .from('chat_messages')
+          .insert({
+            chat_id: currentChat,
+            user_id: userId,
+            message: userMessage,
+            response,
+            attachments: null,
+            reply_to: replyContextText,
+          })
+          .select();
+
+        if (error) throw error;
+
+        setChatHistory(prev => {
+          const filtered = prev.filter(item => item.id !== tempId);
+          const newMessages = (data || []).map((msg: Message) => ({ ...msg, replyTo: replyContextText }));
+          return [...filtered, ...newMessages];
+        });
+
+        if (data && data[0]) {
+          const messageData = data[0];
+          vectorSearchService.storeChatEmbedding(currentChat, messageData.id, userId, input, 'user').catch(() => {});
+          vectorSearchService.storeChatEmbedding(currentChat, messageData.id, userId, response, 'assistant').catch(() => {});
+        }
       }
-    } catch (error: any) {
-      setError(`Failed to get response: ${error.message || 'Unknown error'}`);
+    } catch (error) {
+      console.error('Error in handleSendMessage:', error);
+      let message = 'Unknown error';
+      if (error instanceof Error) {
+        message = error.message;
+      } else if (error && typeof error === 'object') {
+        // Check for Supabase error format
+        const errObj = error as any;
+        message = errObj.message || errObj.error?.message || JSON.stringify(error);
+      }
+      setError(`Failed to get response: ${message}`);
       setChatHistory(prev => prev.filter(item => item.id !== tempId));
     } finally {
       setLoading(false);
       setIsTyping(false);
     }
-  }, [loading, userId, currentChat, supabase]);
+  }, [loading, userId, currentChat, supabase, replyContext]);
 
   const handleStopGenerating = useCallback(() => {
     setLoading(false);
@@ -842,8 +1046,8 @@ export default function Chat() {
         <div
           className={`
             fixed top-0 right-0 z-40
-            transition-all duration-300 ease-in-out
-            ${isSidebarOpen ? 'left-80' : 'left-0 lg:left-16'}
+            transition-[left] duration-200 ease-out
+            left-0 ${isSidebarOpen ? 'lg:left-80' : 'lg:left-16'}
           `}
         >
           <Navbar isFixed={false} className="w-full" />
@@ -851,8 +1055,8 @@ export default function Chat() {
         <div
           className={`
             flex justify-center items-center h-screen
-            transition-all duration-300 ease-in-out
-            ${isSidebarOpen ? 'ml-80' : 'ml-0 lg:ml-16'}
+            transition-[margin] duration-200 ease-out
+            ml-0 ${isSidebarOpen ? 'lg:ml-80' : 'lg:ml-16'}
           `}
         >
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400"></div>
@@ -879,11 +1083,13 @@ export default function Chat() {
         className={`
           fixed inset-y-0 left-0 top-0
           bg-white dark:bg-zinc-900 border-r border-gray-200 dark:border-zinc-700
-          transition-all duration-300 ease-in-out
-          ${isSidebarOpen ? 'w-80' : 'w-0 lg:w-16'}
-          ${!isSidebarOpen && 'lg:border-r-0'}
+          w-80 max-w-[88vw] lg:max-w-none
+          transform-gpu transition-transform duration-200 ease-out lg:transition-[width] lg:duration-200
+          ${isSidebarOpen ? 'translate-x-0 lg:w-80' : '-translate-x-full lg:translate-x-0 lg:w-16'}
+          ${!isSidebarOpen && 'pointer-events-none lg:pointer-events-auto lg:border-r-0'}
           z-50
           flex flex-col
+          will-change-transform lg:will-change-auto
         `}
       >
           {/* Sidebar Content */}
@@ -968,7 +1174,7 @@ export default function Chat() {
         {/* Mobile Overlay */}
         {isSidebarOpen && (
           <div 
-            className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
+            className="lg:hidden fixed inset-0 bg-black/40 z-40 transition-opacity duration-200"
             onClick={() => setIsSidebarOpen(false)}
           />
         )}
@@ -977,34 +1183,35 @@ export default function Chat() {
         <div
           className={`
             fixed top-0 right-0 z-40
-            transition-all duration-300 ease-in-out
-            ${isSidebarOpen ? 'left-80' : 'left-0 lg:left-16'}
+            transition-[left] duration-200 ease-out
+            left-0 ${isSidebarOpen ? 'lg:left-80' : 'lg:left-16'}
           `}
         >
-          <Navbar isFixed={false} className="w-full" />
+          <Navbar isFixed={false} compactMobile className="w-full" />
         </div>
 
         {/* Main Chat Area - Shifts right with sidebar and below navbar */}
         <div 
           className={`
-            fixed top-16 bottom-0 right-0
-            transition-all duration-300 ease-in-out
-            ${isSidebarOpen ? 'left-80' : 'left-0 lg:left-16'}
+            fixed top-[4.75rem] sm:top-24 lg:top-16 bottom-0 right-0
+            transition-[left] duration-200 ease-out
+            left-0 ${isSidebarOpen ? 'lg:left-80' : 'lg:left-16'}
           `}
         >
           <div className="h-full flex flex-col bg-gray-50 dark:bg-zinc-900">
             {/* Chat Header */}
-            <div className="bg-white dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700 px-4 py-4 flex items-center justify-between shadow-sm mt-4">
+            <div className="bg-white dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700 px-3 sm:px-4 py-2.5 flex items-center justify-between shadow-sm">
               <div className="flex items-center gap-3">
               <button
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                onClick={() => setIsSidebarOpen(true)}
                 className="lg:hidden p-2 hover:bg-gray-100 dark:hover:bg-zinc-700 rounded-lg transition-colors text-gray-700 dark:text-gray-300"
+                aria-label="Open chat sidebar"
               >
                 <Menu className="w-5 h-5" />
               </button>
               <div className="flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                <h1 className="font-semibold text-gray-900 dark:text-white truncate max-w-[200px] sm:max-w-none">
+                <h1 className="font-semibold text-gray-900 dark:text-white truncate max-w-[150px] sm:max-w-none text-sm sm:text-base">
                   {currentChat 
                     ? chats.find(c => c.id === currentChat)?.title || 'Chat' 
                     : 'Vector Mind AI Chat'
@@ -1021,37 +1228,45 @@ export default function Chat() {
             </div>
           </div>
 
-          {/* Chat Messages Area */}
-          <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-zinc-900">
+          {/* Chat Messages Area - improved scroll and mobile */}
+          <div
+            ref={messagesContainerRef}
+            onScroll={handleMessagesScroll}
+            className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y p-2 sm:p-4 bg-gray-50 dark:bg-zinc-900 scrollbar-mobile"
+            style={{ WebkitOverflowScrolling: 'touch', scrollbarGutter: 'stable' }}
+          >
             {currentChat ? (
               chatHistory.length === 0 ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center max-w-md">
-                    <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <MessageSquare className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                <div className="flex items-center justify-center h-full min-h-[50vh]">
+                  <div className="text-center max-w-md px-4">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <MessageSquare className="w-7 h-7 sm:w-8 sm:h-8 text-blue-600 dark:text-blue-400" />
                     </div>
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                    <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-2">
                       Start a New Conversation
                     </h2>
-                    <p className="text-gray-600 dark:text-gray-400">
+                    <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
                       Ask questions about your documents or any topic you'd like to learn about.
                     </p>
                   </div>
                 </div>
               ) : (
-                <div className="max-w-4xl mx-auto space-y-4">
+                <div className="w-full max-w-4xl mx-auto space-y-3 sm:space-y-4 pb-2 overflow-hidden">
                   {chatHistory.map((chat, index) => (
-                    <div key={chat.id || index}>
-                      <ChatMessage content={chat.message} isUser={true} />
-                      <ChatMessage content={chat.response} isUser={false} />
+                    <div
+                      key={chat.id || index}
+                      style={{ contentVisibility: 'auto', containIntrinsicSize: '1px 240px' }}
+                    >
+                      <ChatMessage content={chat.message} isUser={true} attachments={chat.attachments} replyTo={chat.replyTo || null} />
+                      <ChatMessage content={chat.response} isUser={false} onReplyWithSelection={handleReplyWithSelection} />
                     </div>
                   ))}
                   {isTyping && (
                     <div>
                       <ChatMessage content="" isUser={false} isTyping={true} />
                       {statusMessage && (
-                        <div className="mt-2 px-4 py-2 text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                          <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+                        <div className="mt-2 px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                          <span className="inline-block w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full animate-bounce"></span>
                           {statusMessage}
                         </div>
                       )}
@@ -1087,13 +1302,29 @@ export default function Chat() {
                 </div>
               </div>
             )}
-            <div ref={chatEndRef} />
           </div>
 
           {/* Input Area */}
           {currentChat && (
-            <div className="border-t border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-4">
+            <div className="border-t border-gray-200 dark:border-zinc-700 bg-white/95 dark:bg-zinc-800/95 px-3 py-3 sm:p-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-[0_-2px_12px_rgba(0,0,0,0.04)]">
               <div className="max-w-4xl mx-auto">
+                {replyContext && (
+                  <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-blue-700 dark:text-blue-300">
+                        <span className="font-medium">Replying to:</span>
+                        <p className="mt-1 italic line-clamp-2">"{replyContext}"</p>
+                      </div>
+                      <button
+                        onClick={() => setReplyContext('')}
+                        className="text-blue-500 hover:text-blue-700 p-1"
+                        title="Clear context"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <PureMultimodalInput
                   chatId={currentChat}
                   messages={uiMessages}

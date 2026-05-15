@@ -334,6 +334,8 @@ export class VectorSearchService {
       chunkLimit?: number;
       docSimilarityThreshold?: number;
       chunkSimilarityThreshold?: number;
+      filterDocIds?: string[];  // Only search in these documents
+      excludeDocIds?: string[]; // Exclude these documents from results
     }
   ): Promise<Array<SimilarDocument & { document_title?: string; document_url?: string }>> {
     const docLimit = options?.docLimit ?? 4;
@@ -403,6 +405,18 @@ export class VectorSearchService {
       if (docs.length === 0) {
         const fallbackResults = await this.findSimilarDocuments(query, userId, chunkLimit);
         return fallbackResults;
+      }
+
+      // Apply document filtering/exclusion
+      if (options?.filterDocIds && options.filterDocIds.length > 0) {
+        docs = docs.filter(d => options.filterDocIds!.includes(d.document_id));
+      }
+      if (options?.excludeDocIds && options.excludeDocIds.length > 0) {
+        docs = docs.filter(d => !options.excludeDocIds!.includes(d.document_id));
+      }
+
+      if (docs.length === 0) {
+        return [];
       }
 
       const docIds = docs.map(d => d.document_id);
@@ -477,12 +491,12 @@ export class VectorSearchService {
     chatId: string,
     userId: string,
     limit: number = 10
-  ): Promise<Array<{ message: string; response: string; created_at: string }>> {
+  ): Promise<Array<{ message: string; response: string; created_at: string; id: string }>> {
     try {
       const supabase = this.requireSupabase();
       const { data, error } = await supabase
         .from('chat_messages')
-        .select('message, response, created_at')
+        .select('id, message, response, created_at')
         .eq('chat_id', chatId)
         .order('created_at', { ascending: false })
         .limit(limit);
@@ -491,7 +505,7 @@ export class VectorSearchService {
         return [];
       }
 
-      return (data || []).reverse(); // Return in chronological order
+      return (data || []).reverse() as Array<{ message: string; response: string; created_at: string; id: string }>;
     } catch (error) {
       return [];
     }
@@ -499,20 +513,20 @@ export class VectorSearchService {
 
   /**
    * Build comprehensive context for a chat message with timeout and error resilience
+   * @param priorityDocIds - Optional array of document IDs to prioritize in search results
    */
   async buildChatContext(
     query: string,
     userId: string,
     chatId: string,
-    timeoutMs: number = 8000 // 8 second timeout for context building
+    timeoutMs: number = 15000, // Increased to 15 second timeout
+    priorityDocIds?: string[]
   ): Promise<ChatContext> {
-    // Helper to run with timeout
-    const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
+    // Helper to run with timeout - returns undefined on timeout instead of throwing
+    const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T | undefined> => {
       return Promise.race([
         promise,
-        new Promise<T>((_, reject) =>
-          setTimeout(() => reject(new Error('Context fetch timeout')), ms)
-        )
+        new Promise<undefined>(resolve => setTimeout(() => resolve(undefined), ms))
       ]);
     };
 
@@ -520,22 +534,66 @@ export class VectorSearchService {
       // Prune cache periodically
       this.pruneCache();
 
-      // Reduced limits to prevent context overflow
-      const results = await Promise.allSettled([
-        withTimeout(this.getRecentChatHistory(chatId, userId, 3), 2000),
-        withTimeout(this.findSimilarChatMessages(query, userId, undefined, 2), 3000),
-        withTimeout(this.findSimilarDocumentsLayered(query, userId, {
+      // If priority documents are provided, search them first
+      let relevantDocuments: any[] = [];
+
+      if (priorityDocIds && priorityDocIds.length > 0) {
+        // Search specifically in the priority documents - increased timeout to 5s
+        const priorityResults = await withTimeout(
+          this.findSimilarDocumentsLayered(query, userId, {
+            docLimit: priorityDocIds.length,
+            chunkLimit: 6,
+            docSimilarityThreshold: 0.0,  // No threshold - get all chunks from priority docs
+            chunkSimilarityThreshold: 0.0,  // No threshold for priority docs
+            filterDocIds: priorityDocIds  // Only search in these documents
+          }),
+          5000
+        );
+        if (priorityResults) {
+          relevantDocuments = priorityResults;
+        }
+      }
+
+      // Also search general documents for broader context - increased timeout to 5s
+      const generalResults = await withTimeout(
+        this.findSimilarDocumentsLayered(query, userId, {
           docLimit: 3,
           chunkLimit: 4,
-          docSimilarityThreshold: 0.15,  // Lower threshold for document-level (was 0.25)
-          chunkSimilarityThreshold: 0.15  // Lower threshold for chunks (was 0.25)
-        }), 5000)
+          docSimilarityThreshold: 0.15,
+          chunkSimilarityThreshold: 0.15,
+          excludeDocIds: priorityDocIds // Exclude priority docs to avoid duplication
+        }),
+        5000
+      );
+
+      // Combine and dedupe, prioritizing priority document content
+      const allDocs = [...relevantDocuments];
+      if (generalResults) {
+        for (const doc of generalResults) {
+          if (!allDocs.some(d => d.document_id === doc.document_id && d.id === doc.id)) {
+            allDocs.push(doc);
+          }
+        }
+      }
+
+      // Fetch more messages to provide better context for short replies
+      const results = await Promise.allSettled([
+        withTimeout(this.getRecentChatHistory(chatId, userId, 6), 3000),
+        withTimeout(this.findSimilarChatMessages(query, userId, undefined, 2), 3000),
+        // Pass combined documents
+        Promise.resolve(allDocs)
       ]);
 
       // Extract results, fallback to empty on failure
-      const recentMessages = results[0].status === 'fulfilled' ? results[0].value : [];
-      const similarConversations = results[1].status === 'fulfilled' ? results[1].value : [];
-      const relevantDocuments = results[2].status === 'fulfilled' ? results[2].value : [];
+      const recentMessages = results[0].status === 'fulfilled' && results[0].value !== undefined
+        ? results[0].value
+        : [] as any[];
+      const similarConversations = results[1].status === 'fulfilled' && results[1].value !== undefined
+        ? results[1].value
+        : [] as any[];
+      const finalDocuments = results[2].status === 'fulfilled' && results[2].value !== undefined
+        ? results[2].value
+        : [] as any[];
 
       // Log any partial failures
       results.forEach((result, index) => {
@@ -547,7 +605,7 @@ export class VectorSearchService {
       return {
         recent_messages: recentMessages,
         similar_conversations: similarConversations,
-        relevant_documents: relevantDocuments
+        relevant_documents: finalDocuments
       };
     } catch (error) {
       console.warn('buildChatContext complete failure:', error);

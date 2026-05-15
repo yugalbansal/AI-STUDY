@@ -12,9 +12,9 @@ ON CONFLICT (id) DO NOTHING;
 
 -- IMPORTANT: Disable owner_id requirement for documents bucket
 -- This allows Clerk users (non-UUID IDs) to upload files
-UPDATE storage.buckets 
+UPDATE storage.buckets
 SET file_size_limit = 52428800, -- 50MB
-    allowed_mime_types = ARRAY['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'text/plain', 'text/markdown']
+    allowed_mime_types = ARRAY['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'text/plain', 'text/markdown', 'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'video/mp4', 'video/webp', 'audio/mpeg', 'audio/wav']
 WHERE id = 'documents';
 
 -- Drop existing policies (if any)

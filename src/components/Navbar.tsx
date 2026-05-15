@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { SignOutButton, useUser } from '@clerk/clerk-react';
 import { BookOpen, MessageSquare, LayoutDashboard, LogOut, Menu, X, Image, Phone, User, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,11 +16,14 @@ interface NavbarProps {
    * Optional additional classes to apply to the outer wrapper.
    */
   className?: string;
+  /**
+   * Uses tighter spacing on mobile screens. Helpful for app surfaces like chat.
+   */
+  compactMobile?: boolean;
 }
 
-export default function Navbar({ isFixed = true, className = '' }: NavbarProps = {}) {
+export default function Navbar({ isFixed = true, className = '', compactMobile = false }: NavbarProps = {}) {
   const { user } = useUser();
-  const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   if (!user) return null;
@@ -28,7 +31,8 @@ export default function Navbar({ isFixed = true, className = '' }: NavbarProps =
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
   const containerClasses = [
-    'flex justify-center w-full py-6 px-4 bg-gradient-to-b from-gray-50 via-gray-50 to-transparent dark:from-zinc-900 dark:via-zinc-900 dark:to-transparent pointer-events-none',
+    'flex justify-center w-full bg-gradient-to-b from-gray-50 via-gray-50 to-transparent dark:from-zinc-900 dark:via-zinc-900 dark:to-transparent pointer-events-none',
+    compactMobile ? 'py-3 px-3 sm:py-6 sm:px-4' : 'py-6 px-4',
     isFixed ? 'fixed top-0 left-0 right-0 z-50' : 'relative z-40',
     className
   ]
@@ -37,11 +41,13 @@ export default function Navbar({ isFixed = true, className = '' }: NavbarProps =
 
   return (
     <div className={containerClasses}>
-      <nav className="flex items-center justify-between px-6 py-3 bg-white/90 dark:bg-zinc-800/90 backdrop-blur-md rounded-full shadow-lg border border-gray-200/50 dark:border-zinc-700/50 w-full max-w-5xl relative pointer-events-auto">
+      <nav className={`flex items-center justify-between bg-white/90 dark:bg-zinc-800/90 backdrop-blur-md rounded-full shadow-lg border border-gray-200/50 dark:border-zinc-700/50 w-full max-w-5xl relative pointer-events-auto ${
+        compactMobile ? 'px-4 py-2 sm:px-6 sm:py-3' : 'px-6 py-3'
+      }`}>
         {/* Logo */}
         <Link to="/dashboard" className="flex items-center mr-4">
           <motion.div
-            className="w-10 h-10 mr-2 overflow-hidden"
+            className={`${compactMobile ? 'w-9 h-9 sm:w-10 sm:h-10' : 'w-10 h-10'} mr-2 overflow-hidden`}
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
             whileHover={{ rotate: 10 }}
