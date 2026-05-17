@@ -3,7 +3,12 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Copy, Bot, User, FileText, Check, MessageSquare } from 'lucide-react';
+import { Copy, Bot, User, FileText, Check, MessageSquare, Download, Loader2 } from 'lucide-react';
+
+type CodeProps = React.ComponentProps<'code'> & {
+  inline?: boolean;
+  className?: string;
+};
 
 interface ChatMessageProps {
   content: string;
@@ -28,17 +33,17 @@ const MessageAttachments = memo(function MessageAttachments({ attachments }: { a
   if (attachments.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-2 mb-3">
+    <div className="mb-3 flex flex-wrap gap-2">
       {attachments.map((att, idx) => (
         att.contentType.startsWith('image/') ? (
           <img
             key={idx}
             src={att.url}
             alt={att.name || 'Attached image'}
-            className="max-w-full sm:max-w-[300px] max-h-[300px] rounded-lg object-contain"
+            className="max-h-[320px] max-w-full rounded-lg border border-zinc-200 object-contain dark:border-zinc-800 sm:max-w-[320px]"
           />
         ) : (
-          <div key={idx} className="flex items-center gap-2 px-3 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg text-sm">
+          <div key={idx} className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200">
             <FileText size={16} />
             <span>{att.name}</span>
           </div>
@@ -52,28 +57,113 @@ const TypingIndicator = memo(function TypingIndicator() {
   return (
     <div className="flex flex-col gap-2 py-2">
       <div className="flex space-x-1.5">
-        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
-        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
-        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '400ms' }} />
+        <div className="w-2 h-2 bg-zinc-500 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
+        <div className="w-2 h-2 bg-zinc-500 rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
+        <div className="w-2 h-2 bg-zinc-500 rounded-full animate-pulse" style={{ animationDelay: '400ms' }} />
       </div>
-      <span className="text-xs text-gray-400 italic">Thinking...</span>
+      <span className="text-xs text-zinc-400 italic">Thinking...</span>
     </div>
   );
 });
 
+function getPointerPoint(event: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) {
+  if ('changedTouches' in event && event.changedTouches.length > 0) {
+    return { x: event.changedTouches[0].clientX, y: event.changedTouches[0].clientY };
+  }
+
+  if ('clientX' in event) {
+    return { x: event.clientX, y: event.clientY };
+  }
+
+  return null;
+}
+
+function MarkdownImage({ src, alt }: { src?: string; alt?: string }) {
+  const imageSrc = typeof src === 'string' ? src.trim().replace(/^<|>$/g, '') : '';
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [hasFailed, setHasFailed] = useState(false);
+
+  useEffect(() => {
+    setIsLoaded(false);
+    setHasFailed(false);
+  }, [imageSrc]);
+
+  if (!imageSrc) return null;
+
+  return (
+    <span className="my-3 block w-full max-w-xs overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:max-w-sm">
+      <span className="relative block aspect-square w-full overflow-hidden bg-zinc-100 dark:bg-zinc-950">
+        {/* referrerPolicy="no-referrer" prevents the browser from sending the
+            Referer header — Pollinations.ai returns 403 when it sees a Referer.
+            Opening in a new tab works because there's no Referer on navigation. */}
+        <img
+          src={imageSrc}
+          alt={alt || 'Generated image'}
+          referrerPolicy="no-referrer"
+          className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-300 ${isLoaded && !hasFailed ? 'opacity-100' : 'opacity-0'}`}
+          onLoad={() => setIsLoaded(true)}
+          onError={() => setHasFailed(true)}
+        />
+
+        {!isLoaded && !hasFailed && (
+          <span className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-4 text-center bg-zinc-100 dark:bg-zinc-950">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm dark:bg-zinc-900">
+              <Loader2 className="h-5 w-5 animate-spin text-zinc-700 dark:text-zinc-200" />
+            </span>
+            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-200">Generating image…</span>
+          </span>
+        )}
+
+        {hasFailed && (
+          <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center bg-zinc-100 dark:bg-zinc-950">
+            <span className="text-2xl">🖼️</span>
+            <span className="text-sm text-zinc-500 dark:text-zinc-400">Image could not be loaded.</span>
+            <a
+              href={imageSrc}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-blue-500 underline hover:text-blue-700"
+            >
+              Open in browser
+            </a>
+          </span>
+        )}
+      </span>
+
+      <span className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200 px-3 py-2 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+        <span className="min-w-0 truncate">{alt || 'Generated image'}</span>
+        <a
+          href={imageSrc}
+          download={alt || 'generated-image'}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <Download size={13} />
+          Download
+        </a>
+      </span>
+    </span>
+  );
+}
+
 const MarkdownMessage = memo(function MarkdownMessage({
   content,
   onCopyCode,
+  isUser,
 }: {
   content: string;
   onCopyCode: (code: string) => void;
+  isUser?: boolean;
 }) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
-      className="min-w-0 max-w-full overflow-hidden text-sm sm:text-base leading-relaxed [overflow-wrap:anywhere]"
+      className={`min-w-0 max-w-full overflow-hidden text-sm leading-7 [overflow-wrap:anywhere] sm:text-[15px] ${isUser ? 'text-white' : 'text-zinc-800 dark:text-zinc-100'}`}
       components={{
-        code({ inline, className, children, ...props }) {
+        code(props) {
+          const { inline, className, children, ...codeProps } = props as CodeProps;
           const match = /language-(\w+)/.exec(className || '');
           const code = String(children).replace(/\n$/, '');
 
@@ -82,17 +172,16 @@ const MarkdownMessage = memo(function MarkdownMessage({
               <div className="relative my-4 min-w-0 max-w-full overflow-x-auto">
                 <button
                   onClick={() => onCopyCode(code)}
-                  className="absolute top-2 right-2 p-1 rounded bg-gray-700 text-white hover:bg-gray-600 transition-colors z-10"
+                  className="absolute top-2 right-2 z-10 rounded bg-zinc-700 p-1 text-white transition-colors hover:bg-zinc-600"
                   title="Copy code"
                 >
                   <Copy size={16} />
                 </button>
                 <SyntaxHighlighter
                   language={match[1]}
-                  style={vscDarkPlus}
+                  style={vscDarkPlus as Record<string, React.CSSProperties>}
                   PreTag="div"
                   className="rounded-md !mt-0 !max-w-full text-xs sm:text-sm"
-                  {...props}
                 >
                   {code}
                 </SyntaxHighlighter>
@@ -100,17 +189,17 @@ const MarkdownMessage = memo(function MarkdownMessage({
             );
           }
           return inline ? (
-            <code className="bg-gray-200 dark:bg-gray-700 rounded px-1.5 py-0.5 text-sm font-mono" {...props}>
+            <code className="rounded bg-zinc-200 px-1.5 py-0.5 font-mono text-sm dark:bg-zinc-800" {...codeProps}>
               {children}
             </code>
           ) : (
-            <code {...props}>{children}</code>
+            <code {...codeProps}>{children}</code>
           );
         },
         table({ children, ...props }) {
           return (
-            <div className="max-w-full overflow-x-auto my-4">
-              <table className="min-w-full w-max divide-y divide-gray-300 border border-gray-300 rounded-lg" {...props}>
+            <div className="my-4 max-w-full overflow-x-auto">
+              <table className="w-max min-w-full divide-y divide-zinc-300 rounded-lg border border-zinc-300 dark:divide-zinc-700 dark:border-zinc-700" {...props}>
                 {children}
               </table>
             </div>
@@ -118,35 +207,35 @@ const MarkdownMessage = memo(function MarkdownMessage({
         },
         thead({ children, ...props }) {
           return (
-            <thead className="bg-gray-50 dark:bg-gray-800" {...props}>
+            <thead className="bg-zinc-100 dark:bg-zinc-900" {...props}>
               {children}
             </thead>
           );
         },
         tbody({ children, ...props }) {
           return (
-            <tbody className="divide-y divide-gray-200 bg-white dark:bg-gray-900" {...props}>
+            <tbody className="divide-y divide-zinc-200 bg-white dark:divide-zinc-800 dark:bg-zinc-950" {...props}>
               {children}
             </tbody>
           );
         },
         tr({ children, ...props }) {
           return (
-            <tr className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" {...props}>
+            <tr className="transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900" {...props}>
               {children}
             </tr>
           );
         },
         th({ children, ...props }) {
           return (
-            <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-900 dark:text-gray-100 uppercase" {...props}>
+            <th className="px-3 py-3 text-left text-xs font-semibold uppercase text-zinc-900 dark:text-zinc-100 sm:px-4" {...props}>
               {children}
             </th>
           );
         },
         td({ children, ...props }) {
           return (
-            <td className="px-3 sm:px-4 py-3 text-sm text-gray-700 dark:text-gray-300" {...props}>
+            <td className="px-3 py-3 text-sm text-zinc-700 dark:text-zinc-300 sm:px-4" {...props}>
               {children}
             </td>
           );
@@ -202,14 +291,14 @@ const MarkdownMessage = memo(function MarkdownMessage({
         },
         blockquote({ children, ...props }) {
           return (
-            <blockquote className="border-l-4 border-gray-300 pl-4 italic my-2 text-gray-600 dark:text-gray-400" {...props}>
+            <blockquote className="my-2 border-l-4 border-zinc-300 pl-4 italic text-zinc-600 dark:border-zinc-700 dark:text-zinc-400" {...props}>
               {children}
             </blockquote>
           );
         },
         strong({ children, ...props }) {
           return (
-            <strong className="font-semibold text-gray-900 dark:text-gray-100" {...props}>
+            <strong className="font-semibold text-zinc-950 dark:text-zinc-50" {...props}>
               {children}
             </strong>
           );
@@ -222,7 +311,12 @@ const MarkdownMessage = memo(function MarkdownMessage({
           );
         },
         hr({ ...props }) {
-          return <hr className="my-4 border-t border-gray-300" {...props} />;
+          return <hr className="my-4 border-t border-zinc-300 dark:border-zinc-700" {...props} />;
+        },
+        img({ src, alt, ...props }) {
+          void props;
+          const imageSrc = typeof src === 'string' ? src : String(src || '');
+          return <MarkdownImage src={imageSrc} alt={alt || 'Generated image'} />;
         },
       }}
     >
@@ -236,6 +330,8 @@ function ChatMessageComponent({ content, isUser, isTyping, onReplyWithSelection,
   const [copied, setCopied] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const selectedRangeRef = useRef<Range | null>(null);
+  const selectionStartedInsideRef = useRef(false);
+  const selectionEndPointRef = useRef<{ x: number; y: number } | null>(null);
 
   // Ensure attachments is always an array
   const safeAttachments = attachments || [];
@@ -268,8 +364,8 @@ function ChatMessageComponent({ content, isUser, isTyping, onReplyWithSelection,
   }, [fallbackCopy]);
 
   const copyCode = useCallback((code: string) => {
-    navigator.clipboard.writeText(code);
-  }, []);
+    void copyToClipboard(code);
+  }, [copyToClipboard]);
 
   const restoreSelection = useCallback(() => {
     const range = selectedRangeRef.current;
@@ -282,6 +378,7 @@ function ChatMessageComponent({ content, isUser, isTyping, onReplyWithSelection,
 
   const handleSelectionEnd = useCallback(() => {
     if (isTyping) return;
+    selectionStartedInsideRef.current = false;
 
     window.setTimeout(() => {
       const selection = window.getSelection();
@@ -294,24 +391,57 @@ function ChatMessageComponent({ content, isUser, isTyping, onReplyWithSelection,
         selectionRange &&
         contentRef.current?.contains(selectionRange.commonAncestorContainer)
       ) {
-        const rect = selectionRange.getBoundingClientRect();
         const isMobileToolbar = window.matchMedia('(max-width: 640px)').matches;
-        const clampedX = Math.min(Math.max(rect.left + rect.width / 2, 88), window.innerWidth - 88);
-        const clampedY = Math.min(Math.max(rect.top - 10, 86), window.innerHeight - 96);
+        const rangeRect = selectionRange.getBoundingClientRect();
+        
+        // Use the selection end position directly from the range
+        const anchorX = rangeRect.right;
+        const anchorY = rangeRect.bottom;
+        
+        const toolbarHalfWidth = 48;
+        const toolbarHeight = 36;
+        const clampedX = Math.min(Math.max(anchorX, toolbarHalfWidth + 8), window.innerWidth - toolbarHalfWidth - 8);
+        // Position below the selection, not constrained to a high minimum
+        const clampedY = anchorY + 6;
 
         selectedRangeRef.current = selectionRange.cloneRange();
-        setSelectionPopover({
-          x: clampedX,
-          y: clampedY,
-          text: selectedText,
-          placement: isMobileToolbar ? 'bottom' : 'floating',
+        requestAnimationFrame(() => {
+          setSelectionPopover({
+            x: clampedX,
+            y: clampedY,
+            text: selectedText,
+            placement: isMobileToolbar ? 'bottom' : 'floating',
+          });
+          requestAnimationFrame(restoreSelection);
         });
-        requestAnimationFrame(restoreSelection);
       } else {
         setSelectionPopover(null);
       }
     }, 10);
   }, [isTyping, restoreSelection]);
+
+  const handleSelectionStart = useCallback((event: React.MouseEvent | React.TouchEvent) => {
+    if ((event.target as HTMLElement).closest('button')) return;
+    selectionEndPointRef.current = getPointerPoint(event);
+    selectionStartedInsideRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    const handleDocumentSelectionEnd = (event: MouseEvent | TouchEvent) => {
+      if (!selectionStartedInsideRef.current) return;
+
+      selectionEndPointRef.current = getPointerPoint(event);
+      selectionStartedInsideRef.current = false;
+      handleSelectionEnd();
+    };
+
+    document.addEventListener('mouseup', handleDocumentSelectionEnd);
+    document.addEventListener('touchend', handleDocumentSelectionEnd);
+    return () => {
+      document.removeEventListener('mouseup', handleDocumentSelectionEnd);
+      document.removeEventListener('touchend', handleDocumentSelectionEnd);
+    };
+  }, [handleSelectionEnd]);
 
   useEffect(() => {
     if (!selectionPopover) return;
@@ -376,19 +506,28 @@ function ChatMessageComponent({ content, isUser, isTyping, onReplyWithSelection,
   };
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4 px-1 sm:px-0 relative group/animation w-full min-w-0 overflow-hidden`}>
-      <div className={`flex items-start gap-2 min-w-0 ${
-        isUser ? 'max-w-[92%] sm:max-w-[75%]' : 'w-full max-w-full sm:max-w-[75%]'
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-5 px-1 sm:px-0 relative group/animation w-full min-w-0 overflow-visible`}>
+      <div className={`flex items-start gap-3 min-w-0 ${
+        isUser ? 'max-w-[88%] sm:max-w-[72%]' : 'w-full max-w-full'
       }`}>
-        <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-          isUser ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
+        <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
+          isUser
+            ? 'order-2 bg-zinc-900 text-white dark:bg-white dark:text-zinc-950'
+            : 'bg-white text-zinc-600 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:text-zinc-300 dark:ring-zinc-800'
         }`}>
           {isUser ? <User size={18} /> : <Bot size={18} />}
         </div>
-        <div className={`relative rounded-2xl py-3 px-3 sm:px-4 ${
-          isUser ? 'bg-blue-100' : 'bg-gray-100'
-        } ${isTyping ? 'min-w-[120px]' : ''} ${!isUser ? 'flex-1' : ''} min-w-0 max-w-full overflow-hidden select-text break-words`} ref={contentRef} onMouseUp={handleSelectionEnd} onTouchEnd={handleSelectionEnd}>
-          {/* Copy button for AI messages */}
+        <div className={`relative py-3 px-3 sm:px-4 ${
+          isUser
+            ? 'rounded-2xl bg-zinc-900 text-white dark:bg-zinc-800'
+            : 'rounded-none bg-transparent'
+        } ${isTyping ? 'min-w-[120px]' : ''} ${!isUser ? 'flex-1' : ''} min-w-0 max-w-full overflow-visible select-text break-words`}
+          ref={contentRef}
+          onMouseDown={handleSelectionStart}
+          onTouchStart={handleSelectionStart}
+          onMouseUp={handleSelectionEnd}
+          onTouchEnd={handleSelectionEnd}
+        >
           {!isUser && !isTyping && content && (
             <button
               onClick={(event) => {
@@ -396,219 +535,28 @@ function ChatMessageComponent({ content, isUser, isTyping, onReplyWithSelection,
                 void copyToClipboard(content);
               }}
               onTouchEnd={(event) => event.stopPropagation()}
-              className="absolute -top-2 -right-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white dark:bg-zinc-700 shadow-md opacity-100 md:opacity-0 md:group-hover/animation:opacity-100 transition-opacity duration-200 hover:bg-gray-100 dark:hover:bg-zinc-600 touch-manipulation"
+              className="absolute -top-1 right-0 z-10 flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 shadow-sm opacity-100 transition-opacity duration-200 hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white md:opacity-0 md:group-hover/animation:opacity-100 touch-manipulation"
               aria-label={copied ? "Copied response" : "Copy response"}
               title={copied ? "Copied!" : "Copy response"}
             >
-              {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} className="text-gray-600 dark:text-gray-300" />}
+              {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
             </button>
           )}
-          {/* Reply preview - show above user's message */}
           {isUser && replyTo && (
-            <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/40 border-l-4 border-blue-500 rounded-r-lg">
-              <div className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">Replying to:</div>
-              <p className="text-sm text-gray-700 dark:text-gray-300 italic line-clamp-2">"{replyTo}"</p>
+            <div className="mb-3 rounded-lg border-l-4 border-zinc-400 bg-white/10 p-2 dark:border-zinc-500">
+              <div className="mb-1 text-xs font-medium text-zinc-200">Replying to</div>
+              <p className="line-clamp-2 text-sm italic text-zinc-100/85">{replyTo}</p>
             </div>
           )}
-          {/* Display image attachments */}
-          {safeAttachments.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-3">
-              {safeAttachments.map((att, idx) => (
-                att.contentType.startsWith('image/') ? (
-                  <img
-                    key={idx}
-                    src={att.url}
-                    alt={att.name || 'Attached image'}
-                    className="max-w-full sm:max-w-[300px] max-h-[300px] rounded-lg object-contain"
-                  />
-                ) : (
-                  <div key={idx} className="flex items-center gap-2 px-3 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg text-sm">
-                    <FileText size={16} />
-                    <span>{att.name}</span>
-                  </div>
-                )
-              ))}
-            </div>
-          )}
-          {isTyping ? (
-            <div className="flex flex-col gap-2 py-2">
-              <div className="flex space-x-1.5">
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '400ms' }} />
-              </div>
-              <span className="text-xs text-gray-400 italic">Thinking...</span>
-            </div>
-          ) : (
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              className="min-w-0 max-w-full overflow-hidden text-sm sm:text-base leading-relaxed [overflow-wrap:anywhere]"
-              components={{
-                code({ inline, className, children, ...props }) {
-                  const match = /language-(\w+)/.exec(className || '');
-                  const code = String(children).replace(/\n$/, '');
-                  
-                  if (!inline && match) {
-                    return (
-                      <div className="relative my-4 min-w-0 max-w-full overflow-x-auto">
-                        <button
-                          onClick={() => copyCode(code)}
-                          className="absolute top-2 right-2 p-1 rounded bg-gray-700 text-white hover:bg-gray-600 transition-colors z-10"
-                          title="Copy code"
-                        >
-                          <Copy size={16} />
-                        </button>
-                        <SyntaxHighlighter
-                          language={match[1]}
-                          style={vscDarkPlus}
-                          PreTag="div"
-                          className="rounded-md !mt-0 !max-w-full text-xs sm:text-sm"
-                          {...props}
-                        >
-                          {code}
-                        </SyntaxHighlighter>
-                      </div>
-                    );
-                  }
-                  return inline ? (
-                    <code className="bg-gray-200 dark:bg-gray-700 rounded px-1.5 py-0.5 text-sm font-mono" {...props}>
-                      {children}
-                    </code>
-                  ) : (
-                    <code {...props}>{children}</code>
-                  );
-                },
-                table({ children, ...props }) {
-                  return (
-                    <div className="max-w-full overflow-x-auto my-4">
-                      <table className="min-w-full w-max divide-y divide-gray-300 border border-gray-300 rounded-lg" {...props}>
-                        {children}
-                      </table>
-                    </div>
-                  );
-                },
-                thead({ children, ...props }) {
-                  return (
-                    <thead className="bg-gray-50 dark:bg-gray-800" {...props}>
-                      {children}
-                    </thead>
-                  );
-                },
-                tbody({ children, ...props }) {
-                  return (
-                    <tbody className="divide-y divide-gray-200 bg-white dark:bg-gray-900" {...props}>
-                      {children}
-                    </tbody>
-                  );
-                },
-                tr({ children, ...props }) {
-                  return (
-                    <tr className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" {...props}>
-                      {children}
-                    </tr>
-                  );
-                },
-                th({ children, ...props }) {
-                  return (
-                    <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-900 dark:text-gray-100 uppercase" {...props}>
-                      {children}
-                    </th>
-                  );
-                },
-                td({ children, ...props }) {
-                  return (
-                    <td className="px-3 sm:px-4 py-3 text-sm text-gray-700 dark:text-gray-300" {...props}>
-                      {children}
-                    </td>
-                  );
-                },
-                ul({ children, ...props }) {
-                  return (
-                    <ul className="list-disc list-inside space-y-1 my-2 ml-2" {...props}>
-                      {children}
-                    </ul>
-                  );
-                },
-                ol({ children, ...props }) {
-                  return (
-                    <ol className="list-decimal list-inside space-y-1 my-2 ml-2" {...props}>
-                      {children}
-                    </ol>
-                  );
-                },
-                li({ children, ...props }) {
-                  return (
-                    <li className="text-sm leading-relaxed" {...props}>
-                      {children}
-                    </li>
-                  );
-                },
-                p({ children, ...props }) {
-                  return (
-                    <p className="my-2 leading-relaxed break-words" {...props}>
-                      {children}
-                    </p>
-                  );
-                },
-                h1({ children, ...props }) {
-                  return (
-                    <h1 className="text-lg sm:text-2xl leading-snug font-bold mt-3 sm:mt-4 mb-2 break-words" {...props}>
-                      {children}
-                    </h1>
-                  );
-                },
-                h2({ children, ...props }) {
-                  return (
-                    <h2 className="text-base sm:text-xl leading-snug font-bold mt-3 mb-2 break-words" {...props}>
-                      {children}
-                    </h2>
-                  );
-                },
-                h3({ children, ...props }) {
-                  return (
-                    <h3 className="text-base sm:text-lg leading-snug font-semibold mt-3 mb-1 break-words" {...props}>
-                      {children}
-                    </h3>
-                  );
-                },
-                blockquote({ children, ...props }) {
-                  return (
-                    <blockquote className="border-l-4 border-gray-300 pl-4 italic my-2 text-gray-600 dark:text-gray-400" {...props}>
-                      {children}
-                    </blockquote>
-                  );
-                },
-                strong({ children, ...props }) {
-                  return (
-                    <strong className="font-semibold text-gray-900 dark:text-gray-100" {...props}>
-                      {children}
-                    </strong>
-                  );
-                },
-                em({ children, ...props }) {
-                  return (
-                    <em className="italic" {...props}>
-                      {children}
-                    </em>
-                  );
-                },
-                hr({ ...props }) {
-                  return (
-                    <hr className="my-4 border-t border-gray-300" {...props} />
-                  );
-                },
-              }}
-            >
-              {content}
-            </ReactMarkdown>
-          )}
+          <MessageAttachments attachments={safeAttachments} />
+          {isTyping ? <TypingIndicator /> : <MarkdownMessage content={content} onCopyCode={copyCode} isUser={isUser} />}
         </div>
       </div>
 
       {/* Selection popover */}
       {selectionPopover && (
         <div
-          className={`selection-popover fixed z-[80] bg-white dark:bg-zinc-800 shadow-xl rounded-lg border border-gray-200 dark:border-zinc-700 py-1 px-1 flex items-center gap-1 ${
+          className={`selection-popover fixed z-[80] bg-white dark:bg-zinc-900 shadow-xl rounded-lg border border-zinc-200 dark:border-zinc-800 py-1 px-1 flex items-center gap-1 ${
             selectionPopover.placement === 'bottom'
               ? 'left-1/2 bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] -translate-x-1/2'
               : ''
@@ -616,7 +564,7 @@ function ChatMessageComponent({ content, isUser, isTyping, onReplyWithSelection,
           style={selectionPopover.placement === 'floating' ? {
             left: `${selectionPopover.x}px`,
             top: `${selectionPopover.y}px`,
-            transform: 'translate(-50%, -100%)',
+            transform: 'translate(-50%, 0)',
           } : undefined}
           onMouseDown={keepSelectionActive}
           onTouchStart={keepSelectionActive}
@@ -625,7 +573,7 @@ function ChatMessageComponent({ content, isUser, isTyping, onReplyWithSelection,
             onClick={handleCopySelection}
             onMouseDown={keepSelectionActive}
             onTouchStart={keepSelectionActive}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-700 rounded-md transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors"
             title="Copy selected text"
           >
             {selectionPopover.copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
@@ -636,7 +584,7 @@ function ChatMessageComponent({ content, isUser, isTyping, onReplyWithSelection,
               onClick={handleReplyWithSelection}
               onMouseDown={keepSelectionActive}
               onTouchStart={keepSelectionActive}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded-md transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors"
               title="Reply with selected text"
             >
               <MessageSquare size={14} />

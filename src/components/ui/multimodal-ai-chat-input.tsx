@@ -13,7 +13,7 @@ import React, {
 
 import equal from 'fast-deep-equal';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Loader2 as LoaderIcon, X as XIcon } from 'lucide-react';
+import { ArrowUp, Image, Loader2 as LoaderIcon, Paperclip, Sparkles, Square, X as XIcon } from 'lucide-react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { twMerge } from 'tailwind-merge';
 
@@ -40,7 +40,7 @@ type VisibilityType = 'public' | 'private' | 'unlisted' | string;
 
 // Utility Functions
 const cn = (...inputs: ClassNameValue[]) => {
-  return twMerge(clsx(inputs));
+  return twMerge(clsx(...inputs));
 };
 
 // Button variants using cva
@@ -108,8 +108,7 @@ const Textarea = React.forwardRef<
   return (
     <textarea
       className={cn(
-        // Adjusted text color, placeholder color, and border/ring colors to grayscale
-        'flex min-h-[80px] w-full rounded-md border border-gray-400 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-3 py-2 text-base ring-offset-white dark:ring-offset-zinc-900 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-600 dark:focus-visible:ring-zinc-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm text-black dark:text-white', // Added dark mode classes
+        'flex min-h-[80px] w-full rounded-md border border-gray-400 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2 text-base ring-offset-white dark:ring-offset-zinc-900 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-600 dark:focus-visible:ring-zinc-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm text-black dark:text-white',
         className,
       )}
       ref={ref}
@@ -118,61 +117,6 @@ const Textarea = React.forwardRef<
   );
 });
 Textarea.displayName = 'Textarea';
-
-// Stop Icon SVG (uses currentColor)
-const StopIcon = ({ size = 16 }: { size?: number }) => {
-  return (
-    <svg height={size} viewBox="0 0 16 16" width={size} style={{ color: 'currentcolor' }}>
-      <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M3 3H13V13H3V3Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-};
-
-// Paperclip Icon SVG (uses currentColor)
-const PaperclipIcon = ({ size = 16 }: { size?: number }) => {
-  return (
-    <svg
-      height={size}
-      strokeLinejoin="round"
-      viewBox="0 0 16 16"
-      width={size}
-      style={{ color: 'currentcolor' }}
-      className="-rotate-45"
-    >
-      <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M10.8591 1.70735C10.3257 1.70735 9.81417 1.91925 9.437 2.29643L3.19455 8.53886C2.56246 9.17095 2.20735 10.0282 2.20735 10.9222C2.20735 11.8161 2.56246 12.6734 3.19455 13.3055C3.82665 13.9376 4.68395 14.2927 5.57786 14.2927C6.47178 14.2927 7.32908 13.9376 7.96117 13.3055L14.2036 7.06304L14.7038 6.56287L15.7041 7.56321L15.204 8.06337L8.96151 14.3058C8.06411 15.2032 6.84698 15.7074 5.57786 15.7074C4.30875 15.7074 3.09162 15.2032 2.19422 14.3058C1.29682 13.4084 0.792664 12.1913 0.792664 10.9222C0.792664 9.65305 1.29682 8.43592 2.19422 7.53852L8.43666 1.29609C9.07914 0.653606 9.95054 0.292664 10.8591 0.292664C11.7678 0.292664 12.6392 0.653606 13.2816 1.29609C13.9241 1.93857 14.2851 2.80997 14.2851 3.71857C14.2851 4.62718 13.9241 5.49858 13.2816 6.14106L13.2814 6.14133L7.0324 12.3835C7.03231 12.3836 7.03222 12.3837 7.03213 12.3838C6.64459 12.7712 6.11905 12.9888 5.57107 12.9888C5.02297 12.9888 4.49731 12.7711 4.10974 12.3835C3.72217 11.9959 3.50444 11.4703 3.50444 10.9222C3.50444 10.3741 3.72217 9.8484 4.10974 9.46084L4.11004 9.46054L9.877 3.70039L10.3775 3.20051L11.3772 4.20144L10.8767 4.70131L5.11008 10.4612C5.11005 10.4612 5.11003 10.4612 5.11 10.4613C4.98779 10.5835 4.91913 10.7493 4.91913 10.9222C4.91913 11.0951 4.98782 11.2609 5.11008 11.3832C5.23234 11.5054 5.39817 11.5741 5.57107 11.5741C5.74398 11.5741 5.9098 11.5054 6.03206 11.3832L6.03233 11.3829L12.2813 5.14072C12.2814 5.14063 12.2815 5.14054 12.2816 5.14045C12.6586 4.7633 12.8704 4.25185 12.8704 3.71857C12.8704 3.18516 12.6585 2.6736 12.2813 2.29643C11.9041 1.91925 11.3926 1.70735 10.8591 1.70735Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-};
-
-// Arrow Up Icon SVG (Send) (uses currentColor)
-const ArrowUpIcon = ({ size = 16 }: { size?: number }) => {
-    return (
-      <svg
-        height={size}
-        strokeLinejoin="round"
-        viewBox="0 0 16 16"
-        width={size}
-        style={{ color: 'currentcolor' }}
-      >
-        <path
-          fillRule="evenodd"
-          clipRule="evenodd"
-          d="M8.70711 1.39644C8.31659 1.00592 7.68342 1.00592 7.2929 1.39644L2.21968 6.46966L1.68935 6.99999L2.75001 8.06065L3.28034 7.53032L7.25001 3.56065V14.25V15H8.75001V14.25V3.56065L12.7197 7.53032L13.25 8.06065L14.3107 6.99999L13.7803 6.46966L8.70711 1.39644Z"
-          fill="currentColor"
-        />
-      </svg>
-    );
-  };
 
 // Sub-Components
 
@@ -187,24 +131,24 @@ function PureSuggestedActions({
 }: SuggestedActionsProps) {
   const suggestedActions = [
     {
-      title: 'How can I improve',
-      label: 'my time management skills?',
-      action: 'How can I improve my time management skills?',
+      title: 'Summarize my notes',
+      label: 'into clear revision bullets',
+      action: 'Summarize my uploaded notes into clear revision bullets.',
     },
     {
-      title: 'Suggest ideas for',
-      label: 'a creative writing project',
-      action: 'Suggest ideas for a creative writing project',
+      title: 'Create an image',
+      label: 'with /image cyber study desk',
+      action: '/image futuristic study desk with holographic notes, clean cinematic lighting',
     },
     {
-      title: 'What are some tips',
-      label: 'for staying motivated?',
-      action: 'What are some tips for staying motivated?',
+      title: 'Explain this concept',
+      label: 'like a friendly tutor',
+      action: 'Explain the hardest concept from my documents like a friendly tutor.',
     },
     {
-      title: 'Help me brainstorm',
-      label: 'ideas for a new hobby',
-      action: 'Help me brainstorm ideas for a new hobby',
+      title: 'Make a quiz',
+      label: 'from recent context',
+      action: 'Make a short quiz from this chat and include answers after each question.',
     },
   ];
 
@@ -226,11 +170,11 @@ function PureSuggestedActions({
           <Button
             variant="ghost"
             onClick={() => onSelectAction(suggestedAction.action)}
-            className="text-left border rounded-xl px-4 py-3.5 text-sm flex-1 gap-1 sm:flex-col w-full h-auto justify-start items-start
-                       border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-600 text-black dark:text-white hover:text-gray-900 dark:hover:text-gray-200"
+            className="text-left border rounded-lg px-4 py-3 text-sm flex-1 gap-1 sm:flex-col w-full h-auto justify-start items-start
+                       border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-950 dark:text-white hover:text-zinc-900 dark:hover:text-zinc-100"
           >
             <span className="font-medium">{suggestedAction.title}</span>
-            <span className="text-gray-500 dark:text-gray-400">
+            <span className="text-zinc-500 dark:text-zinc-400">
               {suggestedAction.label}
             </span>
           </Button>
@@ -263,16 +207,16 @@ const PreviewAttachment = ({
 
   return (
     <div data-testid="input-attachment-preview" className="flex flex-col gap-1">
-      <div className="w-20 h-16 aspect-video bg-gray-200 dark:bg-zinc-700 rounded-md relative flex flex-col items-center justify-center overflow-hidden border border-gray-300 dark:border-zinc-600">
+        <div className="w-20 h-16 aspect-video bg-zinc-100 dark:bg-zinc-800 rounded-lg relative flex flex-col items-center justify-center overflow-hidden border border-zinc-200 dark:border-zinc-700">
         {contentType?.startsWith('image/') && url ? (
           <img
             key={url}
             src={url}
             alt={name ?? 'An image attachment'}
-            className="rounded-md size-full object-cover grayscale"
+            className="rounded-lg size-full object-cover"
           />
         ) : (
-          <div className="flex items-center justify-center text-xs text-gray-600 text-center p-1">
+          <div className="flex items-center justify-center text-xs text-zinc-600 dark:text-zinc-300 text-center p-1">
              File: {name?.split('.').pop()?.toUpperCase() || 'Unknown'}
           </div>
         )}
@@ -280,13 +224,13 @@ const PreviewAttachment = ({
         {isUploading && (
           <div
             data-testid="input-attachment-loader"
-            className="animate-spin absolute text-gray-500"
+            className="animate-spin absolute text-zinc-500"
           >
             <LoaderIcon className="size-5" />
           </div>
         )}
       </div>
-      <div className="text-xs text-gray-600 max-w-20 truncate">
+      <div className="text-xs text-zinc-600 dark:text-zinc-400 max-w-20 truncate">
         {name}
       </div>
     </div>
@@ -303,16 +247,17 @@ function PureAttachmentsButton({
   return (
     <Button
       data-testid="attachments-button"
-      className="rounded-md rounded-bl-lg p-[7px] h-fit border border-gray-300 dark:border-zinc-600 hover:bg-gray-200 dark:hover:bg-zinc-600 dark:bg-zinc-700 dark:text-white"
+      className="h-9 w-9 rounded-lg border border-zinc-200 bg-white p-0 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
       onClick={(event) => {
         event.preventDefault();
         fileInputRef.current?.click();
       }}
       disabled={disabled}
-      variant="ghost" // ghost variant now has text-black
+      variant="ghost"
       aria-label="Attach files"
+      title="Attach files"
     >
-      <PaperclipIcon size={14} />
+      <Paperclip className="h-4 w-4" />
     </Button>
   );
 }
@@ -323,15 +268,15 @@ function PureStopButton({ onStop }: { onStop: () => void }) {
   return (
     <Button
       data-testid="stop-button"
-      // Using default variant (bg-black) and setting text color to white for the icon
-      className="rounded-full p-1.5 h-fit border border-black text-white" // Added text-white
+      className="h-9 w-9 rounded-lg border border-zinc-300 bg-white p-0 text-zinc-900 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white dark:hover:bg-zinc-800"
       onClick={(event) => {
         event.preventDefault();
         onStop();
       }}
       aria-label="Stop generating"
+      title="Stop generating"
     >
-      <StopIcon size={14} />
+      <Square className="h-3.5 w-3.5 fill-current" />
     </Button>
   );
 }
@@ -362,8 +307,7 @@ function PureSendButton({
   return (
     <Button
       data-testid="send-button"
-      // Grey/zinc color scheme instead of black
-      className="rounded-full p-1.5 h-fit bg-zinc-800 hover:bg-zinc-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-white"
+      className="h-9 w-9 rounded-lg bg-zinc-900 p-0 text-white hover:bg-zinc-700 disabled:bg-zinc-300 disabled:text-zinc-500 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
       onClick={(event) => {
         event.preventDefault();
         if (!isDisabled) {
@@ -372,8 +316,9 @@ function PureSendButton({
       }}
       disabled={isDisabled}
       aria-label="Send message"
+      title="Send message"
     >
-      <ArrowUpIcon size={14} />
+      <ArrowUp className="h-4 w-4" />
     </Button>
   );
 }
@@ -388,6 +333,13 @@ const SendButton = memo(PureSendButton, (prevProps, nextProps) => {
   return true;
 });
 
+const animatedPlaceholders = [
+  'Ask anything about your notes',
+  'Use /image to generate an image',
+  'Paste a screenshot for instant help',
+  'Attach an image and ask what it shows',
+  'Build a quiz from this chat',
+];
 
 // Main Component
 
@@ -424,6 +376,7 @@ function PureMultimodalInput({
   const [input, setInput] = useState(initialInput);
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
   const [shouldAutoFocus, setShouldAutoFocus] = useState(false);
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
 
   // Update input when initialInput changes (for reply context)
   useEffect(() => {
@@ -469,6 +422,16 @@ function PureMultimodalInput({
       textareaRef.current?.focus({ preventScroll: true });
     });
   }, [shouldAutoFocus]);
+
+  useEffect(() => {
+    if (input || attachments.length > 0 || uploadQueue.length > 0) return;
+
+    const interval = window.setInterval(() => {
+      setPlaceholderIndex((index) => (index + 1) % animatedPlaceholders.length);
+    }, 2600);
+
+    return () => window.clearInterval(interval);
+  }, [input, attachments.length, uploadQueue.length]);
 
   // Handle paste events for images and videos
   useEffect(() => {
@@ -652,7 +615,7 @@ function PureMultimodalInput({
   const isAttachmentDisabled = isGenerating || uploadQueue.length > 0;
 
   return (
-    <div className={cn("relative w-full flex flex-col gap-4", className)}>
+    <div className={cn("relative w-full flex flex-col gap-3", className)}>
 
       <AnimatePresence>
        {showSuggestedActions && (
@@ -694,7 +657,7 @@ function PureMultimodalInput({
       {(attachments.length > 0 || uploadQueue.length > 0) && (
         <div
           data-testid="attachments-preview"
-          className="flex pt-[10px] flex-row gap-3 overflow-x-auto items-end pb-2 pl-1"
+          className="flex flex-row gap-3 overflow-x-auto items-end pb-1 pl-1"
         >
           {attachments.map((attachment) => (
             <div key={attachment.url || attachment.name} className="relative group">
@@ -702,7 +665,7 @@ function PureMultimodalInput({
                 <Button
                   variant="destructive"
                   size="icon"
-                  className="absolute top-[-8px] right-[-8px] h-5 w-5 rounded-full p-0 flex items-center justify-center z-20 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-[-8px] right-[-8px] h-5 w-5 rounded-full p-0 flex items-center justify-center z-20 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={() => handleRemoveAttachment(attachment)}
                   aria-label={`Remove ${attachment.name}`}
                 >
@@ -720,57 +683,99 @@ function PureMultimodalInput({
         </div>
       )}
 
-      <Textarea
-        data-testid="multimodal-input"
-        ref={textareaRef}
-        placeholder="Send a message..."
-        value={input}
-        onChange={handleInput}
-        className={cn(
-          'min-h-[56px] max-h-48 overflow-y-auto resize-none rounded-2xl !text-base leading-6 pt-3 pb-11 transition-[height] duration-150 ease-out',
-          'bg-gray-100 dark:bg-zinc-700 border border-gray-300 dark:border-zinc-600 text-black dark:!text-white placeholder:text-gray-500 dark:placeholder:!text-gray-300', 
-          className,
-        )}
-        rows={1}
-        autoFocus={shouldAutoFocus}
-        disabled={!canSend || isGenerating || uploadQueue.length > 0}
-        onKeyDown={(event) => {
-          if (
-            event.key === 'Enter' &&
-            !event.shiftKey &&
-            !event.nativeEvent.isComposing
-          ) {
-            event.preventDefault();
+<div className="relative rounded-2xl border border-zinc-200 bg-white shadow-sm transition focus-within:border-zinc-300 focus-within:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:focus-within:border-zinc-700">
+          <Textarea
+            data-testid="multimodal-input"
+            ref={textareaRef}
+            placeholder=""
+            value={input}
+            onChange={handleInput}
+            className={cn(
+              'min-h-[56px] max-h-48 overflow-y-auto resize-none rounded-2xl !text-base leading-6 pt-3 pb-12 transition-[height] duration-150 ease-out shadow-none !bg-white dark:!bg-zinc-900 border-0 !text-zinc-950 dark:!text-white placeholder:!text-zinc-500 dark:placeholder:!text-zinc-400 focus-visible:ring-0 focus-visible:ring-offset-0',
+              className,
+            )}
+          rows={1}
+          autoFocus={shouldAutoFocus}
+          disabled={!canSend || isGenerating || uploadQueue.length > 0}
+          onKeyDown={(event) => {
+            if (
+              event.key === 'Enter' &&
+              !event.shiftKey &&
+              !event.nativeEvent.isComposing
+            ) {
+              event.preventDefault();
 
-            const canSubmit = canSend && !isGenerating && uploadQueue.length === 0 && (input.trim().length > 0 || attachments.length > 0);
+              const canSubmit = canSend && !isGenerating && uploadQueue.length === 0 && (input.trim().length > 0 || attachments.length > 0);
 
-            if (canSubmit) {
-              submitForm();
+              if (canSubmit) {
+                submitForm();
+              }
             }
-          }
-        }}
-      />
-
-      <div className="absolute bottom-0 left-0 p-2 w-fit flex flex-row justify-start z-10">
-        <AttachmentsButton
-          fileInputRef={fileInputRef}
-          disabled={isAttachmentDisabled}
+          }}
         />
-      </div>
 
-      <div className="absolute bottom-0 right-0 p-2 w-fit flex flex-row justify-end z-10">
-        {isGenerating ? (
-          <StopButton onStop={onStopGenerating} />
-        ) : (
-          <SendButton
-            submitForm={submitForm}
-            input={input}
-            uploadQueue={uploadQueue}
-            attachments={attachments}
-            canSend={canSend}
-            isGenerating={isGenerating}
-          />
+        {!input && attachments.length === 0 && uploadQueue.length === 0 && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 right-12 top-3 h-6 overflow-hidden text-base text-zinc-500 dark:text-zinc-400"
+          >
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span
+                key={animatedPlaceholders[placeholderIndex]}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.22, ease: 'easeOut' }}
+                className="block truncate"
+              >
+                {animatedPlaceholders[placeholderIndex]}
+              </motion.span>
+            </AnimatePresence>
+          </div>
         )}
+
+        <div className="absolute bottom-0 left-0 p-2 w-fit flex flex-row justify-start gap-1 z-10">
+          <AttachmentsButton
+            fileInputRef={fileInputRef}
+            disabled={isAttachmentDisabled}
+          />
+          <button
+            type="button"
+            onClick={(event) => {
+              event.preventDefault();
+              setInput((current) => current.trim().startsWith('/image') ? current : `/image ${current}`.trimEnd());
+              requestAnimationFrame(() => {
+                adjustHeight();
+                textareaRef.current?.focus();
+              });
+            }}
+            disabled={!canSend || isGenerating}
+            title="Image prompt"
+            aria-label="Image prompt"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
+          >
+            <Sparkles className="h-4 w-4" />
+          </button>
+          <span className="hidden h-9 items-center gap-1 rounded-lg px-2 text-xs font-medium text-zinc-500 dark:text-zinc-400 sm:flex">
+            <Image className="h-3.5 w-3.5" />
+            /image
+          </span>
+        </div>
+
+        <div className="absolute bottom-0 right-0 p-2 w-fit flex flex-row justify-end z-10">
+          {isGenerating ? (
+            <StopButton onStop={onStopGenerating} />
+          ) : (
+            <SendButton
+              submitForm={submitForm}
+              input={input}
+              uploadQueue={uploadQueue}
+              attachments={attachments}
+              canSend={canSend}
+              isGenerating={isGenerating}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

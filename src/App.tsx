@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Chat from './pages/Chat';
 import Documents from './pages/Documents';
 import ImageGen from './pages/ImageGen';
+import GeneratedImages from './pages/GeneratedImages';
 import Livecall from './pages/Livecall';
 import Landing from './pages/landing';
 import SSOCallback from './pages/SSOCallback';
@@ -117,6 +118,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <ImageGen />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/generated-images"
+                element={
+                  <ProtectedRoute>
+                    <GeneratedImages />
                   </ProtectedRoute>
                 }
               />

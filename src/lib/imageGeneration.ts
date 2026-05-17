@@ -10,6 +10,16 @@ export interface ImageGenerationOptions {
   nologo?: boolean;
 }
 
+export interface GeneratedImageRequest {
+  prompt: string;
+  enhancedPrompt: string;
+  imageUrl: string;
+  seed: number;
+  model: NonNullable<ImageGenerationOptions['model']>;
+  width: number;
+  height: number;
+}
+
 const DEFAULT_OPTIONS: ImageGenerationOptions = {
   width: 1024,
   height: 1024,
@@ -70,31 +80,30 @@ export function generateRandomSeed(): number {
 }
 
 /**
- * Enhance a prompt with more details if it's too short
+ * Build a complete generated image request using the same Pollinations endpoint
+ * options across chat and the image page.
  */
-export function enhancePrompt(prompt: string): string {
-  if (prompt.split(' ').length >= 10) {
-    return prompt;
-  }
-  
-  // Add some generic enhancements based on the prompt
-  const enhancements = [
-    'high quality',
-    'detailed',
-    'professional',
-    'vibrant colors',
-    'sharp focus',
-    'beautiful composition',
-    '4k resolution',
-    'trending on artstation',
-    'masterpiece'
-  ];
-  
-  // Select a few random enhancements
-  const selectedEnhancements = enhancements
-    .sort(() => 0.5 - Math.random())
-    .slice(0, 3)
-    .join(', ');
-  
-  return `${prompt}, ${selectedEnhancements}`;
+export function createGeneratedImageRequest(prompt: string): GeneratedImageRequest {
+  const cleanPrompt = prompt.trim();
+  const seed = generateRandomSeed();
+  const model: NonNullable<ImageGenerationOptions['model']> =
+    inferModelFromPrompt(cleanPrompt) ?? DEFAULT_OPTIONS.model ?? 'flux';
+  const width = DEFAULT_OPTIONS.width || 1024;
+  const height = DEFAULT_OPTIONS.height || 1024;
+
+  return {
+    prompt: cleanPrompt,
+    enhancedPrompt: cleanPrompt,
+    seed,
+    model,
+    width,
+    height,
+    imageUrl: generateImageUrl(cleanPrompt, {
+      width,
+      height,
+      seed,
+      model,
+      nologo: true,
+    }),
+  };
 }

@@ -4,9 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { generateRandomSeed } from '@/lib/imageGeneration';
+import { createGeneratedImageRequest, generateRandomSeed } from '@/lib/imageGeneration';
+import { saveGeneratedImageRecord } from '@/lib/generatedImages';
+import { useClerkAuth } from '@/contexts/ClerkAuthContext';
 
 export function SimplifiedAIImageGenerator() {
+  const { userId, supabase } = useClerkAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
@@ -36,24 +39,35 @@ export function SimplifiedAIImageGenerator() {
     setImageLoaded(false);
 
     try {
-      // Build enhanced prompt
-      const enhancedPrompt = buildEnhancedPrompt();
-      
-      // Use Pollinations API directly
-      const encodedPrompt = encodeURIComponent(enhancedPrompt);
-      const url = `https://image.pollinations.ai/prompt/${encodedPrompt}`;
-      
-      setGeneratedImage(url);
+      const generatedRequest = createGeneratedImageRequest(settings.prompt);
+
+      setSettings(prev => ({
+        ...prev,
+        seed: generatedRequest.seed,
+        model: generatedRequest.model,
+      }));
+      setGeneratedImage(generatedRequest.imageUrl);
+
+      if (userId && supabase) {
+        saveGeneratedImageRecord(supabase, {
+          user_id: userId,
+          prompt: generatedRequest.prompt,
+          enhanced_prompt: generatedRequest.enhancedPrompt,
+          image_url: generatedRequest.imageUrl,
+          model: generatedRequest.model,
+          seed: generatedRequest.seed,
+          width: generatedRequest.width,
+          height: generatedRequest.height,
+          source: 'image_page',
+        }).catch((saveError) => {
+          console.warn('Generated image history was not saved:', saveError);
+        });
+      }
     } catch (err) {
       console.error(err);
       setError('Failed to generate image. Please try again.');
       setIsLoading(false);
     }
-  };
-
-  const buildEnhancedPrompt = () => {
-    // Just return the prompt as-is, or add basic quality enhancers
-    return `${settings.prompt}, high quality, detailed`;
   };
 
   const handleDownload = async () => {
@@ -86,13 +100,26 @@ export function SimplifiedAIImageGenerator() {
     setImageLoaded(false);
 
     try {
-      const enhancedPrompt = buildEnhancedPrompt();
-      
-      // Use Pollinations API directly with a cache buster to get a new variation
-      const encodedPrompt = encodeURIComponent(enhancedPrompt);
-      const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?seed=${newSeed}`;
-      
+      const generatedRequest = createGeneratedImageRequest(settings.prompt);
+      const url = generatedRequest.imageUrl.replace(`seed=${generatedRequest.seed}`, `seed=${newSeed}`);
+
       setGeneratedImage(url);
+
+      if (userId && supabase) {
+        saveGeneratedImageRecord(supabase, {
+          user_id: userId,
+          prompt: generatedRequest.prompt,
+          enhanced_prompt: generatedRequest.enhancedPrompt,
+          image_url: url,
+          model: generatedRequest.model,
+          seed: newSeed,
+          width: generatedRequest.width,
+          height: generatedRequest.height,
+          source: 'image_page',
+        }).catch((saveError) => {
+          console.warn('Generated image history was not saved:', saveError);
+        });
+      }
     } catch (err) {
       console.error(err);
       setError('Failed to generate image. Please try again.');
