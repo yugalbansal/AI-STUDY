@@ -20,7 +20,8 @@ import { DarkModeToggle } from '../components/DarkModeToggle';
 import ChatSidebar from '../components/ui/chat-sidebar';
 import { PureMultimodalInput } from '../components/ui/multimodal-ai-chat-input';
 import { useClerkAuth } from '../contexts/ClerkAuthContext';
-import { captionImages, getChatResponse } from '../lib/gemini';
+import { captionImages, chatService } from '../lib/chatService';
+import { parseDocument } from '../lib/documentParser';
 import { saveGeneratedImageRecord } from '../lib/generatedImages';
 import { createGeneratedImageRequest } from '../lib/imageGeneration';
 import { vectorSearchService } from '../lib/vectorSearch';
@@ -564,9 +565,21 @@ export default function Chat() {
               });
 
             if (!uploadError) {
+              let parsedContent = `Chat upload: ${attachment.name}`;
+              
+              if (!attachment.contentType.startsWith('image/')) {
+                try {
+                  const file = new File([blob], attachment.name, { type: attachment.contentType || 'application/octet-stream' });
+                  parsedContent = await parseDocument(file);
+                } catch (parseError) {
+                  console.error('Error parsing document:', parseError);
+                  parsedContent = `Chat upload: ${attachment.name}`;
+                }
+              }
+
               await supabase.from('documents').insert({
                 title: attachment.name,
-                content: `Chat upload: ${attachment.name}`,
+                content: parsedContent,
                 type: 'file',
                 user_id: userId,
                 jsonl_file_path: filePath,
@@ -595,7 +608,13 @@ export default function Chat() {
               }
             }
           } else {
-            attachmentNotes.push(`Attached file: ${attachment.name} (${attachment.contentType || 'unknown type'}).`);
+            try {
+              const file = new File([blob!], attachment.name, { type: attachment.contentType || 'application/octet-stream' });
+              const parsedContent = await parseDocument(file);
+              attachmentNotes.push(`Document "${attachment.name}" content:\n${parsedContent}`);
+            } catch {
+              attachmentNotes.push(`Attached file: ${attachment.name} (${attachment.contentType || 'unknown type'}).`);
+            }
           }
         }
       }
@@ -618,12 +637,8 @@ export default function Chat() {
       }
 
       setStatusMessage('Generating response...');
-      const response = await getChatResponse(
+      const response = await chatService.generateResponse(
         enhancedPrompt,
-        '',
-        userId,
-        chatId,
-        supabase,
         (chunk: string) => {
           if (!isActive()) return;
           streamedResponse += chunk;
@@ -631,10 +646,11 @@ export default function Chat() {
             message.id === tempId ? { ...message, response: streamedResponse } : message
           )));
         },
-        true,
         (_stage, message) => {
           if (isActive()) setStatusMessage(message);
         },
+        userId,
+        chatId
       );
 
       if (!isActive()) return;
@@ -975,7 +991,7 @@ export default function Chat() {
             )}
 
             <footer className="shrink-0 border-t border-zinc-200 bg-white/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur-xl dark:border-zinc-800 dark:bg-zinc-950/95 sm:px-4">
-              <div className="mx-auto max-w-3xl">
+              <div className="mx-auto max-w-full sm:max-w-3xl">
                 {replyContext && (
                   <div className="mb-2 flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:border-blue-900/70 dark:bg-blue-950/30 dark:text-blue-100">
                     <MessageSquare className="mt-0.5 h-4 w-4 shrink-0" />

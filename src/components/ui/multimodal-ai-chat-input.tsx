@@ -683,7 +683,7 @@ function PureMultimodalInput({
         </div>
       )}
 
-<div className="relative rounded-2xl border border-zinc-200 bg-white shadow-sm transition focus-within:border-zinc-300 focus-within:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:focus-within:border-zinc-700">
+<div className="relative w-full rounded-2xl border border-zinc-200 bg-white shadow-sm transition focus-within:border-zinc-300 focus-within:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:focus-within:border-zinc-700">
           <Textarea
             data-testid="multimodal-input"
             ref={textareaRef}
