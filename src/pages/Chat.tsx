@@ -802,7 +802,7 @@ export default function Chat() {
         <meta name="robots" content="noindex, nofollow" />
       </Helmet>
 
-      <div className="fixed inset-0 z-50 flex h-screen h-[100dvh] overflow-hidden bg-white text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
+      <div className="fixed inset-0 z-50 flex h-[100dvh] w-full overflow-hidden bg-white text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
         <aside
           className={`fixed inset-y-0 left-0 z-50 flex h-full max-w-[88vw] transform-gpu transition-[width,transform] duration-200 ease-out lg:max-w-none ${
             isSidebarOpen
@@ -908,7 +908,7 @@ export default function Chat() {
             </div>
           </header>
 
-          <div className="relative flex min-h-0 flex-1 flex-col bg-zinc-50 dark:bg-zinc-950">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-zinc-50 dark:bg-zinc-950">
             <div
               ref={messagesContainerRef}
               onScroll={handleMessagesScroll}
@@ -982,7 +982,7 @@ export default function Chat() {
               <button
                 type="button"
                 onClick={() => scrollToBottom('smooth')}
-                className="absolute bottom-32 left-1/2 z-10 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-700 shadow-lg transition-colors hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className="absolute bottom-[calc(80px+env(safe-area-inset-bottom))] left-1/2 z-10 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-700 shadow-lg transition-colors hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 aria-label="Scroll to latest message"
                 title="Scroll to latest message"
               >
@@ -990,7 +990,7 @@ export default function Chat() {
               </button>
             )}
 
-            <footer className="shrink-0 border-t border-zinc-200 bg-white/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur-xl dark:border-zinc-800 dark:bg-zinc-950/95 sm:px-4">
+            <footer className="shrink-0 border-t border-zinc-200 bg-white/95 px-3 pb-[env(safe-area-inset-bottom)] pt-3 backdrop-blur-xl dark:border-zinc-800 dark:bg-zinc-950/95 sm:px-4">
               <div className="mx-auto max-w-full sm:max-w-3xl">
                 {replyContext && (
                   <div className="mb-2 flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:border-blue-900/70 dark:bg-blue-950/30 dark:text-blue-100">
