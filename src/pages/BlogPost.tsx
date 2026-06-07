@@ -18,6 +18,159 @@ const blogPosts: Record<string, {
   tags: string[];
   featured: boolean;
 }> = {
+  "supercharging-study-sessions-thinking-ai": {
+    title: "Supercharging Study Sessions with Advanced Thinking Models",
+    excerpt: "Learn how Vector Mind utilizes advanced thinking models to render live, collapsible reasoning traces—giving you a premium learning experience.",
+    content: `## The Dawn of Reasoning AI
+
+Until recently, interacting with conversational AI models felt like looking at a black box. You submit a prompt, wait for a few seconds, and the final answer appears. You had no way of knowing *how* the AI reached its conclusion, what assumptions it made, or if it corrected its own logic mid-flight.
+
+With the release of the latest family of reasoning models, **thinking paths** have become standard for premium AI platforms.
+
+Today, Vector Mind is thrilled to announce the integration of a state-of-the-art free thinking model, paired with a gorgeous, real-time collapsible reasoning interface designed to supercharge your study sessions.
+
+---
+
+## What is a "Thinking" Model?
+
+Traditional models try to predict the next word immediately, which often leads to errors on logical reasoning, math, and coding tasks.
+
+Reasoning models utilize a technique called **Chain-of-Thought (CoT)**. Before outputting a single word of the final answer, the model generates an internal thoughts log (enclosed within \`<think>...\` tags). During this thinking phase, the model:
+1. **Deconstructs the prompt**: Breaks down complex queries into steps.
+2. **Double-checks facts**: Cross-references its knowledge base.
+3. **Corrects mistakes**: Identifies logical flaws in its draft solutions and refines them.
+
+By showing this thinking trace, you don't just get the answer—you get a masterclass in problem-solving.
+
+---
+
+## How Vector Mind Displays AI Thinking
+
+We wanted to ensure that the internal reasoning path is easily readable without cluttering your chat stream. Drawing inspiration from premium interfaces (like ChatGPT and Claude), we built a dedicated, dynamic thinking block:
+
+### 1. Collapsible Thinking Box
+The thinking path is enclosed in a dedicated container with a subtle gray border, styled to match the dark/light mode setup. If you're focused only on the final output, you can collapse the thinking logs with a single click.
+
+### 2. Live Stream Support
+As the model is thinking, you'll see a live pulsing indicator ("Thinking..."). The internal thoughts stream word-by-word in real-time, letting you follow the AI's logic as it happens.
+
+### 3. Automatic Tag Parsing
+Vector Mind's frontend parser extracts the content between the \\\`<think>\\\` and \\\`</think>\\\` tags, rendering it inside the thinking block while cleanly formatting the actual response below.
+
+---
+
+## Why Thinking Models Are Game-Changers for Education
+
+For students and researchers, the reasoning process is far more valuable than a simple answer key.
+
+* **Math & Science**: Follow the exact formulas and derivations step-by-step.
+* **Code Debugging**: See why the AI chose a specific algorithm or library.
+* **Literature Analysis**: Understand how the AI parsed historical context before summarizing a theme.
+
+By making the AI's cognitive process transparent, Vector Mind acts as a collaborative tutor rather than a passive text generator.
+
+---
+
+## Try It Today
+
+To experience this yourself, open Vector Mind's chat interface, type a complex question (e.g., *"Explain why 0.999... is mathematically equal to 1, showing the proof"*), and watch the reasoning panel unfold.
+
+*Supercharge your learning today with Vector Mind's free, client-side reasoning engine!*`,
+    category: "AI Education",
+    author: "Yugal Bansal",
+    authorAvatar: "https://ktjpfkrmsjopiytvxkzm.supabase.co/storage/v1/object/sign/meetourteam/yugalprof.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NzBiYjJkYy0zMThiLTQwMGQtYmNkMC0wNTZmNzc0OWU4NzIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtZWV0b3VydGVhbS95dWdhbHByb2YucG5nIiwiaWF0IjoxNzc4NjU3MjgzLCJleHAiOjMxNzEwNzEyMTI4M30.SphQ0pfJE8OWbD9cgDerBuSrGJ75hyVkdagVH4cF8jo",
+    date: "2026-06-07",
+    readTime: "6 min read",
+    image: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=1200&q=80",
+    featured: true,
+    tags: ["thinking model", "reasoning trace", "vector mind", "ai education"]
+  },
+  "vectormind-puter-js-zero-cost-edge-ai": {
+    title: "How Vector Mind Integrates Puter.js for Zero-Cost, Edge-Side AI",
+    excerpt: "Discover how Vector Mind utilizes Puter.js to deliver fast, secure, and completely free AI completions directly from the client side without API keys or token limits.",
+    content: `## Introduction
+
+For modern AI platforms, the cost of hosting large language models and proxying completions represents the single greatest barrier to providing unlimited, free-to-use access to users. Traditional architectures force developers to route completions through a centralized server with expensive, pay-as-you-go API keys (like OpenAI or Anthropic).
+
+At Vector Mind, we took a radically different path: **we decentralized inference entirely.** 
+
+By integrating **Puter.js**, a client-side cloud OS SDK, Vector Mind executes state-of-the-art AI model calls directly from your browser. There is no middleman, no proxy server, and zero cost. Here's a deep dive into how we built this and why this architecture is the future of web-based AI tools.
+
+---
+
+## What is Puter.js?
+
+Puter.js is a client-side cloud service library built by Puter.com. It allows developers to access high-quality services—like key-value databases, file storage, hosting, and **unlimited AI completions**—directly from frontend JavaScript code. 
+
+Puter.js leverages a temporary user session generated on the fly. When a user first opens Vector Mind, a clean consent gate requests permission to authorize Puter.js. This creates a secure, sandboxed session key stored directly in the browser's context.
+
+---
+
+## How Vector Mind Integrates Puter.js
+
+In traditional AI apps, requests travel like this:
+\`\`\`
+[User Browser] -> [Vector Mind Backend (Clerk Auth)] -> [OpenAI/Anthropic API] -> [Response]
+\`\`\`
+Every token costs money, which is billed directly to the developer's server.
+
+With our Puter.js architecture, the request flow is entirely localized:
+1. **Consent & Verification**: Upon first visit, the user authorizes Puter.js via our custom \`PuterGate\` component.
+2. **Key Storage**: The temporary token is stored securely in the browser.
+3. **Direct Completion**: When you ask Vector Mind to summarize a document, convert a PDF to JSONL, or chat with a file, the browser directly imports \`puter.js\` and calls the endpoint:
+   \`\`\`javascript
+   // Running directly on the client browser!
+   const response = await window.puter.ai.chat(messageHistory, {
+       model: 'advanced-reasoning-model'
+   });
+   \`\`\`
+4. **Zero-Latency Streaming**: The stream response returns directly to the user's browser, eliminating middleman servers and reducing network latency by half.
+
+Here is the exact architectural sequence flow of how Vector Mind connects with Puter.js and saves user access tokens locally:
+
+![Puter Integration Flowchart](/images/puter-auth-flow.svg)
+
+---
+
+## Why This Structure is Extremely Good
+
+Decentralizing AI completes solves the biggest issues plaguing SaaS applications today:
+
+### 1. Absolute Cost Efficiency (Zero-Cost for All)
+Because the browser calls the free models via the user's local session, the server hosting costs for Vector Mind remain completely flat, regardless of whether we serve 10 or 10,000,000 active chat queries. This allows us to keep the platform **100% free** for students and researchers without requiring subscription upgrades.
+
+### 2. Complete Privacy & Anonymity
+Your documents, messages, and AI responses never touch Vector Mind's databases. The data is kept entirely between your browser and the Puter.js backend. For enterprise users and researchers working with sensitive data, this zero-trust layout provides unmatched compliance and privacy.
+
+### 3. Infinite Scalability & Rate Limits
+In centralized systems, if a single user abuses the API, the developer's entire API key gets rate-limited, breaking the site for everyone. With Puter.js, rate limits are enforced at the individual browser session level. If one user makes 500 requests a minute, only their session is throttled; everyone else continues to enjoy blazing-fast responses.
+
+### 4. Seamless Dark & Light UI Consent
+We designed a clean, non-obtrusive \`PuterGate\` popup using our custom \`LiquidGlassCard\`. It supports both light and dark themes beautifully, using neutral grayscale tones so it looks like a premium native system modal. It never blocks your view or ruins the website's clean frosted aesthetics.
+
+---
+
+## What Model Powers Vector Mind?
+
+Vector Mind utilizes a state-of-the-art free reasoning model via Puter's registry. This model includes:
+- **Thinking Tags**: Full reasoning traces similar to OpenAI's o1 and Claude 3.5, letting you see exactly how the AI thought about your query.
+- **Large Context Window**: Ideal for parsing large study guides and books.
+- **Multilingual Mastery**: Translates, summarizes, and answers in Hinglish, Spanish, French, and dozens of other languages natively.
+
+## Conclusion
+
+By using Puter.js, Vector Mind is redefining how students and researchers interact with AI study tools. Our architecture proves that AI platforms can be incredibly fast, privacy-focused, and completely free without compromise. 
+
+*Try uploading a PDF today and see the future of client-side AI processing in action!*`,
+    category: "Technical Guide",
+    author: "Yugal Bansal",
+    authorAvatar: "https://ktjpfkrmsjopiytvxkzm.supabase.co/storage/v1/object/sign/meetourteam/yugalprof.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NzBiYjJkYy0zMThiLTQwMGQtYmNkMC0wNTZmNzc0OWU4NzIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtZWV0b3VydGVhbS95dWdhbHByb2YucG5nIiwiaWF0IjoxNzc4NjU3MjgzLCJleHAiOjMxNzEwNzEyMTI4M30.SphQ0pfJE8OWbD9cgDerBuSrGJ75hyVkdagVH4cF8jo",
+    date: "2026-06-07",
+    readTime: "7 min read",
+    image: "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=1200&q=80",
+    featured: true,
+    tags: ["puter.js", "client-side ai", "zero cost completed", "edge ai completed", "vector mind"]
+  },
   "complete-guide-pdf-to-jsonl-conversion": {
     title: "Complete Guide to PDF to JSONL Conversion for AI Training",
     excerpt: "Learn how to transform PDF documents into high-quality JSONL datasets for training large language models. Step-by-step tutorial with best practices.",
@@ -700,6 +853,160 @@ Batch processing is essential for scalable JSONL generation. Start with simple p
   }
 };
 
+function parseInlineMarkdown(text: string): string {
+  let html = text;
+  
+  // Escape HTML tags to prevent XSS
+  html = html
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Bold (**text**)
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-zinc-900 dark:text-white">$1</strong>');
+  
+  // Inline code (`code`)
+  html = html.replace(/`(.*?)`/g, '<code class="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 rounded font-mono text-xs text-zinc-800 dark:text-zinc-200">$1</code>');
+
+  // Links ([text](url))
+  html = html.replace(/\[(.*?)\]\(([^"]+?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 hover:underline font-medium">$1</a>');
+
+  return html;
+}
+
+function parseMarkdown(text: string): React.ReactNode[] {
+  // Protect code blocks
+  const parts = text.split(/(```[\s\S]*?```)/g);
+  const elements: React.ReactNode[] = [];
+  let elKey = 0;
+
+  parts.forEach((part) => {
+    if (part.startsWith('```')) {
+      const match = part.match(/```(\w*)\n([\s\S]*?)```/);
+      const code = match ? match[2] : part.slice(3, -3);
+      elements.push(
+        <pre key={elKey++} className="bg-zinc-950 dark:bg-black text-zinc-100 p-4 rounded-xl font-mono text-xs md:text-sm overflow-x-auto my-6 border border-zinc-800 shadow-inner">
+          <code>{code.trim()}</code>
+        </pre>
+      );
+      return;
+    }
+    
+    // Process normal text block by lines
+    const lines = part.split('\n');
+    let inList = false;
+    let listItems: string[] = [];
+    let isOrdered = false;
+
+    const flushList = (key: string | number) => {
+      if (listItems.length > 0) {
+        if (isOrdered) {
+          elements.push(
+            <ol key={`list-${key}-${elKey++}`} className="list-decimal pl-6 my-4 space-y-2 text-zinc-750 dark:text-zinc-300">
+              {listItems.map((item, idx) => (
+                <li key={idx} dangerouslySetInnerHTML={{ __html: parseInlineMarkdown(item) }} />
+              ))}
+            </ol>
+          );
+        } else {
+          elements.push(
+            <ul key={`list-${key}-${elKey++}`} className="list-disc pl-6 my-4 space-y-2 text-zinc-750 dark:text-zinc-300">
+              {listItems.map((item, idx) => (
+                <li key={idx} dangerouslySetInnerHTML={{ __html: parseInlineMarkdown(item) }} />
+              ))}
+            </ul>
+          );
+        }
+        listItems = [];
+        inList = false;
+      }
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+
+      if (trimmed === '') {
+        flushList(i);
+        continue;
+      }
+
+      // Check headings
+      if (trimmed.startsWith('## ')) {
+        flushList(i);
+        elements.push(
+          <h2 key={elKey++} className="text-xl md:text-2xl font-bold text-zinc-900 dark:text-white mt-10 mb-5 tracking-tight border-b border-zinc-150 dark:border-zinc-800/80 pb-2">
+            {trimmed.replace('## ', '')}
+          </h2>
+        );
+        continue;
+      }
+
+      if (trimmed.startsWith('### ')) {
+        flushList(i);
+        elements.push(
+          <h3 key={elKey++} className="text-lg md:text-xl font-bold text-zinc-900 dark:text-white mt-8 mb-4 tracking-tight">
+            {trimmed.replace('### ', '')}
+          </h3>
+        );
+        continue;
+      }
+
+      // Check horizontal rule
+      if (trimmed === '---') {
+        flushList(i);
+        elements.push(<hr key={elKey++} className="my-8 border-t border-zinc-200 dark:border-zinc-800" />);
+        continue;
+      }
+
+      // Check images
+      const imgMatch = trimmed.match(/^!\[(.*?)\]\((.*?)\)$/);
+      if (imgMatch) {
+        flushList(i);
+        elements.push(
+          <div key={elKey++} className="my-8 flex flex-col items-center gap-2">
+            <img src={imgMatch[2]} alt={imgMatch[1]} className="rounded-2xl border border-zinc-250 dark:border-zinc-800 shadow-md max-w-full hover:scale-[1.01] transition-transform duration-300" />
+            {imgMatch[1] && <span className="text-xs text-zinc-500 dark:text-zinc-400">{imgMatch[1]}</span>}
+          </div>
+        );
+        continue;
+      }
+
+      // Check lists
+      const isUnorderedItem = trimmed.startsWith('- ') || trimmed.startsWith('* ');
+      const orderedMatch = trimmed.match(/^(\d+)\.\s(.*)/);
+
+      if (isUnorderedItem) {
+        if (!inList || isOrdered) {
+          flushList(i);
+          isOrdered = false;
+          inList = true;
+        }
+        listItems.push(trimmed.slice(2));
+      } else if (orderedMatch) {
+        if (!inList || !isOrdered) {
+          flushList(i);
+          isOrdered = true;
+          inList = true;
+        }
+        listItems.push(orderedMatch[2]);
+      } else {
+        flushList(i);
+        elements.push(
+          <p
+            key={elKey++}
+            className="text-zinc-700 dark:text-zinc-300 mb-5 leading-relaxed text-base md:text-lg font-normal"
+            dangerouslySetInnerHTML={{ __html: parseInlineMarkdown(trimmed) }}
+          />
+        );
+      }
+    }
+    flushList(lines.length);
+  });
+
+  return elements;
+}
+
 export default function BlogPost() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -833,27 +1140,7 @@ export default function BlogPost() {
 
           {/* Main Content */}
           <div className="prose prose-lg dark:prose-invert max-w-none">
-            {content.split('\n').map((line, i) => {
-              if (line.startsWith('## ')) {
-                return <h2 key={i} className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mt-12 mb-6">{line.replace('## ', '')}</h2>;
-              }
-              if (line.startsWith('### ')) {
-                return <h3 key={i} className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mt-8 mb-4">{line.replace('### ', '')}</h3>;
-              }
-              if (line.startsWith('- ')) {
-                return <li key={i} className="text-gray-700 dark:text-gray-300 ml-4 mb-2">{line.replace('- ', '')}</li>;
-              }
-              if (line.match(/^\d+\. /)) {
-                return <li key={i} className="text-gray-700 dark:text-gray-300 ml-4 mb-2 list-decimal">{line.replace(/^\d+\. /, '')}</li>;
-              }
-              if (line.startsWith('```')) {
-                return null;
-              }
-              if (line.trim() === '') {
-                return <br key={i} />;
-              }
-              return <p key={i} className="text-gray-700 dark:text-gray-300 mb-6 leading-relaxed text-lg">{line}</p>;
-            })}
+            {parseMarkdown(content)}
           </div>
 
           {/* All Tags */}

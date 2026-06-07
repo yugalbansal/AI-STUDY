@@ -1,0 +1,168 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 550" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#09090b" />
+      <stop offset="100%" stop-color="#18181b" />
+    </linearGradient>
+
+    <!-- Actor Box Gradients -->
+    <linearGradient id="actorGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#27272a" />
+      <stop offset="100%" stop-color="#18181b" />
+    </linearGradient>
+    
+    <linearGradient id="highlightGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#8b5cf6" />
+    </linearGradient>
+
+    <!-- Drop Shadows -->
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.5" />
+    </filter>
+
+    <!-- Arrow Markers -->
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#a1a1aa" />
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#3b82f6" />
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981" />
+    </marker>
+  </defs>
+
+  <style>
+    .title { font-family: 'Inter', system-ui, sans-serif; font-weight: 700; font-size: 20px; fill: #ffffff; }
+    .subtitle { font-family: 'Inter', system-ui, sans-serif; font-size: 13px; fill: #a1a1aa; }
+    .actor-text { font-family: 'Inter', system-ui, sans-serif; font-weight: 600; font-size: 13px; fill: #ffffff; }
+    .lifeline { stroke: #27272a; stroke-dasharray: 4 4; stroke-width: 1.5; }
+    .arrow-line { fill: none; stroke: #52525b; stroke-width: 1.5; marker-end: url(#arrow); }
+    .arrow-line-dashed { fill: none; stroke: #52525b; stroke-width: 1.5; stroke-dasharray: 4 3; marker-end: url(#arrow); }
+    .arrow-line-blue { fill: none; stroke: #3b82f6; stroke-width: 2; marker-end: url(#arrow-blue); }
+    .arrow-line-green { fill: none; stroke: #10b981; stroke-width: 2; marker-end: url(#arrow-green); }
+    .label-text { font-family: 'Inter', system-ui, sans-serif; font-size: 11px; fill: #e4e4e7; font-weight: 500; }
+    .label-text-blue { font-family: 'Inter', system-ui, sans-serif; font-size: 11px; fill: #60a5fa; font-weight: 600; }
+    .label-text-green { font-family: 'Inter', system-ui, sans-serif; font-size: 11px; fill: #34d399; font-weight: 600; }
+    .step-circle { fill: #27272a; stroke: #3f3f46; stroke-width: 1; }
+    .step-circle-active { fill: #3b82f6; stroke: #60a5fa; stroke-width: 1; }
+    .step-circle-success { fill: #10b981; stroke: #34d399; stroke-width: 1; }
+    .step-num { font-family: 'Inter', system-ui, sans-serif; font-size: 10px; font-weight: 700; fill: #ffffff; text-anchor: middle; dominant-baseline: central; }
+    .box-rect { fill: url(#actorGrad); stroke: #3f3f46; stroke-width: 1.5; rx: 8; ry: 8; filter: url(#shadow); }
+    .box-rect-highlight { fill: url(#highlightGrad); stroke: #60a5fa; stroke-width: 1.5; rx: 8; ry: 8; filter: url(#shadow); }
+  </style>
+
+  <!-- Canvas Background -->
+  <rect width="100%" height="100%" fill="url(#bgGrad)" rx="16" />
+
+  <!-- Diagram Title / Header -->
+  <text x="30" y="35" class="title">Decentralized Puter.js AI Session Flow</text>
+  <text x="30" y="55" class="subtitle">Secure Edge AI Authentication &amp; Token Caching Schema</text>
+
+  <!-- Lifelines -->
+  <line x1="100" y1="90" x2="100" y2="510" class="lifeline" />
+  <line x1="300" y1="90" x2="300" y2="510" class="lifeline" />
+  <line x1="500" y1="90" x2="500" y2="510" class="lifeline" />
+  <line x1="700" y1="90" x2="700" y2="510" class="lifeline" />
+
+  <!-- Lifeline Header Actor Boxes -->
+  <g>
+    <rect x="40" y="75" width="120" height="36" class="box-rect" />
+    <text x="100" y="97" class="actor-text" text-anchor="middle">User Browser</text>
+  </g>
+  <g>
+    <rect x="235" y="75" width="130" height="36" class="box-rect" />
+    <text x="300" y="97" class="actor-text" text-anchor="middle">Consent/PuterGate</text>
+  </g>
+  <g>
+    <rect x="435" y="75" width="130" height="36" class="box-rect-highlight" />
+    <text x="500" y="97" class="actor-text" text-anchor="middle">Puter Popup</text>
+  </g>
+  <g>
+    <rect x="640" y="75" width="120" height="36" class="box-rect" />
+    <text x="700" y="97" class="actor-text" text-anchor="middle">Supabase DB</text>
+  </g>
+
+  <!-- STEP 1: User -> Gate -->
+  <g>
+    <line x1="100" y1="140" x2="292" y2="140" class="arrow-line" />
+    <circle cx="196" cy="130" r="8" class="step-circle" />
+    <text x="196" y="130" class="step-num">1</text>
+    <text x="105" y="152" class="label-text">Request protected study route</text>
+  </g>
+
+  <!-- STEP 2: Gate -> Supabase -->
+  <g>
+    <line x1="300" y1="180" x2="692" y2="180" class="arrow-line" />
+    <circle cx="496" cy="170" r="8" class="step-circle" />
+    <text x="496" y="170" class="step-num">2</text>
+    <text x="310" y="192" class="label-text">Check puter_tokens table for current user</text>
+  </g>
+
+  <!-- STEP 3: Supabase -> Gate (Dashed return) -->
+  <g>
+    <line x1="700" y1="220" x2="308" y2="220" class="arrow-line-dashed" />
+    <circle cx="504" cy="210" r="8" class="step-circle" />
+    <text x="504" y="210" class="step-num">3</text>
+    <text x="320" y="232" class="label-text">No active token found / session expired</text>
+  </g>
+
+  <!-- STEP 4: Gate -> User (Show Gate) -->
+  <g>
+    <line x1="300" y1="260" x2="108" y2="260" class="arrow-line" />
+    <circle cx="204" cy="250" r="8" class="step-circle" />
+    <text x="204" y="250" class="step-num">4</text>
+    <text x="115" y="272" class="label-text">Display glassmorphic overlay</text>
+  </g>
+
+  <!-- STEP 5: User -> Gate (Click button) -->
+  <g>
+    <line x1="100" y1="300" x2="292" y2="300" class="arrow-line-blue" />
+    <circle cx="196" cy="290" r="step-circle-active" class="step-circle-active" />
+    <text x="196" y="290" class="step-num">5</text>
+    <text x="105" y="315" class="label-text-blue">Click "Activate AI" button</text>
+  </g>
+
+  <!-- STEP 6: Gate -> Puter Popup -->
+  <g>
+    <line x1="300" y1="340" x2="492" y2="340" class="arrow-line-blue" />
+    <circle cx="396" cy="330" r="8" class="step-circle-active" />
+    <text x="396" y="330" class="step-num">6</text>
+    <text x="305" y="355" class="label-text-blue">Trigger puter.auth.signIn()</text>
+  </g>
+
+  <!-- STEP 7: Puter Loop (Auto create) -->
+  <g>
+    <path d="M 500 370 C 530 370, 530 395, 505 395" fill="none" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrow-blue)" />
+    <circle cx="540" cy="382" r="8" class="step-circle-active" />
+    <text x="540" y="382" class="step-num">7</text>
+    <text x="545" y="398" class="label-text-blue" text-anchor="start">Auto-creates temp user (2s)</text>
+  </g>
+
+  <!-- STEP 8: Puter -> Gate -->
+  <g>
+    <line x1="500" y1="420" x2="308" y2="420" class="arrow-line-green" />
+    <circle cx="404" cy="410" r="8" class="step-circle-success" />
+    <text x="404" y="410" class="step-num">8</text>
+    <text x="315" y="435" class="label-text-green">Return token via postMessage</text>
+  </g>
+
+  <!-- STEP 9: Gate -> Supabase -->
+  <g>
+    <line x1="300" y1="460" x2="692" y2="460" class="arrow-line-green" />
+    <circle cx="496" cy="450" r="8" class="step-circle-success" />
+    <text x="496" y="450" class="step-num">9</text>
+    <text x="310" y="475" class="label-text-green">Save token securely to public.puter_tokens</text>
+  </g>
+
+  <!-- STEP 10: Gate -> User (Success!) -->
+  <g>
+    <line x1="300" y1="500" x2="108" y2="500" class="arrow-line-green" />
+    <circle cx="204" cy="490" r="8" class="step-circle-success" />
+    <text x="204" y="490" class="step-num">10</text>
+    <text x="115" y="515" class="label-text-green">Dismiss overlay, proceed to study app! 🎉</text>
+  </g>
+
+</svg>

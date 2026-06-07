@@ -239,7 +239,6 @@ export default function ConsentGate({ children }: ConsentGateProps) {
               )}
             </button>
             <p className="text-center text-[10px] text-zinc-400 dark:text-zinc-500 mt-3">
-              Consent is logged with a secure timestamp.c-400 dark:text-zinc-550 mt-3">
               Consent is logged with a secure timestamp.
             </p>
           </div>

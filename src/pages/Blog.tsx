@@ -7,6 +7,32 @@ import { Clock, Calendar, ArrowRight, Search, BookOpen, FileJson, Brain, Zap, Li
 
 const blogPosts = [
   {
+    id: 10,
+    slug: "supercharging-study-sessions-thinking-ai",
+    title: "Supercharging Study Sessions with Advanced Thinking Models",
+    excerpt: "Learn how Vector Mind utilizes advanced thinking models to render live, collapsible reasoning traces—giving you a premium learning experience.",
+    category: "AI Education",
+    categoryIcon: Brain,
+    date: "2026-06-07",
+    readTime: "6 min read",
+    image: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800&q=80",
+    featured: true,
+    tags: ["thinking model", "reasoning trace", "vector mind", "ai education"]
+  },
+  {
+    id: 9,
+    slug: "vectormind-puter-js-zero-cost-edge-ai",
+    title: "How Vector Mind Integrates Puter.js for Zero-Cost, Edge-Side AI",
+    excerpt: "Discover how Vector Mind utilizes Puter.js to deliver fast, secure, and completely free AI completions directly from the client side without API keys or token limits.",
+    category: "Technical Guide",
+    categoryIcon: FileJson,
+    date: "2026-06-07",
+    readTime: "7 min read",
+    image: "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=800&q=80",
+    featured: true,
+    tags: ["puter.js", "client-side ai", "zero cost completed", "edge ai completed", "vector mind"]
+  },
+  {
     id: 1,
     slug: "complete-guide-pdf-to-jsonl-conversion",
     title: "Complete Guide to PDF to JSONL Conversion for AI Training",
@@ -113,12 +139,12 @@ const blogPosts = [
 ];
 
 const categories = [
-  { name: "All", count: 8, icon: BookOpen },
-  { name: "Technical Guide", count: 2, icon: FileJson },
+  { name: "All", count: 10, icon: BookOpen },
+  { name: "Technical Guide", count: 3, icon: FileJson },
   { name: "Tutorial", count: 1, icon: Brain },
   { name: "Study Tips", count: 1, icon: Zap },
   { name: "Tools Review", count: 1, icon: Lightbulb },
-  { name: "AI Education", count: 2, icon: BookOpen },
+  { name: "AI Education", count: 3, icon: BookOpen },
   { name: "Machine Learning", count: 1, icon: TrendingUp },
 ];
 
