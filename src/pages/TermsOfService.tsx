@@ -24,7 +24,7 @@ export default function TermsOfService() {
             Terms of Service
           </h1>
           <p className="text-gray-600 dark:text-gray-400 text-lg">
-            Last updated: January 11, 2026
+            Last updated: June 7, 2026
           </p>
           <Link
             to="/settings"
@@ -117,16 +117,19 @@ export default function TermsOfService() {
               </div>
             </div>
             <p className="text-gray-700 dark:text-gray-300 mb-3">
-              Vector Mind AI uses advanced AI models (Google Gemini, Groq, and others) to provide intelligent responses. However, we <strong>do not guarantee</strong>:
-            </p>
+               Vector Mind AI uses advanced AI models via <strong>Puter.js client-side processing</strong> (including GPT, Claude, Gemini, and others) to provide intelligent responses. AI requests are processed through anonymous browser sessions — no Puter account is created on your behalf. However, we <strong>do not guarantee</strong>:
+             </p>
             <ul className="space-y-2 text-gray-700 dark:text-gray-300">
               <li>• Accuracy or completeness of AI-generated content</li>
               <li>• Suitability for professional, medical, legal, or financial decisions</li>
               <li>• Freedom from errors, biases, or outdated information</li>
             </ul>
-            <p className="text-gray-700 dark:text-gray-300 mt-3">
-              <strong>Use AI outputs responsibly</strong> and verify critical information independently.
-            </p>
+             <p className="text-gray-700 dark:text-gray-300 mt-3">
+               <strong>Use AI outputs responsibly</strong> and verify critical information independently.
+             </p>
+             <p className="text-gray-700 dark:text-gray-300 mt-3">
+               AI chat processing uses a <strong>session-based free quota</strong> provided by Puter.js. If the free quota is exhausted, you can refresh the page or use an incognito window to obtain a new session. This is by design and not a platform limitation.
+             </p>
           </div>
 
           {/* Intellectual Property */}
@@ -176,7 +179,7 @@ export default function TermsOfService() {
               <li>• AI inaccuracies, errors, or misleading outputs</li>
               <li>• Service downtime, interruptions, or performance issues</li>
               <li>• Indirect, incidental, consequential, or punitive damages</li>
-              <li>• Third-party service failures (Clerk, Supabase, Google, etc.)</li>
+               <li>• Third-party service failures (Clerk, Supabase, Google, Puter.js, etc.)</li>
               <li>• Loss of profits, revenue, or business opportunities</li>
             </ul>
           </div>

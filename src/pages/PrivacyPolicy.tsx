@@ -24,7 +24,7 @@ export default function PrivacyPolicy() {
             Privacy Policy
           </h1>
           <p className="text-gray-600 dark:text-gray-400 text-lg">
-            Last updated: January 11, 2026
+            Last updated: June 7, 2026
           </p>
           <Link
             to="/settings"
@@ -154,13 +154,41 @@ export default function PrivacyPolicy() {
                   <strong>Google AI Studio</strong>
                 </p>
               </div>
+              <div className="bg-gradient-to-br from-cyan-50 to-blue-50 dark:from-cyan-950/20 dark:to-blue-950/20 rounded-xl p-5 border border-cyan-200 dark:border-cyan-800">
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">⚡ Client-Side AI Processing</h4>
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  <strong>Puter.js</strong> — Anonymous AI chat sessions processed entirely in your browser
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Client-Side AI Processing */}
+          <div className="bg-white dark:bg-zinc-800/50 backdrop-blur rounded-2xl p-8 border border-gray-200 dark:border-zinc-700/50 shadow-lg">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+              5. Client-Side AI Processing (Puter.js)
+            </h2>
+            <div className="space-y-3 text-gray-700 dark:text-gray-300 leading-relaxed">
+              <p>
+                Vector Mind uses <strong>Puter.js</strong> to process AI chat completions directly in your browser. This means:
+              </p>
+              <ul className="space-y-2">
+                <li>• Your chat messages are sent to Puter's AI infrastructure for processing</li>
+                <li>• An <strong>anonymous temporary session</strong> is created automatically — no Puter account is created on your behalf</li>
+                <li>• No personal data, login credentials, or identifying information is shared with Puter</li>
+                <li>• Each browser session receives a free usage quota; refreshing the page resets this quota</li>
+                <li>• Chat content is processed in real-time and is not stored permanently by Puter</li>
+              </ul>
+              <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 mt-3">
+                You are never required to create a Puter account. All AI processing happens transparently behind the scenes.
+              </p>
             </div>
           </div>
 
           {/* Data Security */}
           <div className="bg-white dark:bg-zinc-800/50 backdrop-blur rounded-2xl p-8 border border-gray-200 dark:border-zinc-700/50 shadow-lg">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-              5. Data Security
+              6. Data Security
             </h2>
             <p className="text-gray-700 dark:text-gray-300 mb-4">
               We take reasonable measures to protect your data:
@@ -180,7 +208,7 @@ export default function PrivacyPolicy() {
           {/* Your Rights */}
           <div className="bg-white dark:bg-zinc-800/50 backdrop-blur rounded-2xl p-8 border border-gray-200 dark:border-zinc-700/50 shadow-lg">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-              6. Your Rights
+              7. Your Rights
             </h2>
             <p className="text-gray-700 dark:text-gray-300 mb-3">You have the right to:</p>
             <ul className="space-y-2 text-gray-700 dark:text-gray-300">

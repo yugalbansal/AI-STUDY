@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Copy, Bot, User, FileText, Check, MessageSquare, Download, Loader2 } from 'lucide-react';
+import { Copy, Bot, User, FileText, Check, MessageSquare, Download, Loader2, ChevronDown, Brain } from 'lucide-react';
 
 type CodeProps = React.ComponentProps<'code'> & {
   inline?: boolean;
@@ -62,6 +62,94 @@ const TypingIndicator = memo(function TypingIndicator() {
         <div className="w-2 h-2 bg-zinc-500 rounded-full animate-pulse" style={{ animationDelay: '400ms' }} />
       </div>
       <span className="text-xs text-zinc-400 italic">Thinking...</span>
+    </div>
+  );
+});
+
+/* ------------------------------------------------------------------ */
+/* Thinking Block — Collapsible reasoning display                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Parse <think>...</think> tags from model output.
+ * Returns { thinking, response } where thinking is the content inside
+ * the tags and response is everything outside.
+ */
+function parseThinkingContent(content: string): { thinking: string; response: string } {
+  // Match <think>...</think> (possibly with newlines inside)
+  const thinkRegex = /<think>([\s\S]*?)<\/think>/gi;
+  let thinking = '';
+  let match;
+
+  while ((match = thinkRegex.exec(content)) !== null) {
+    thinking += (thinking ? '\n\n' : '') + match[1].trim();
+  }
+
+  // Remove all <think>...</think> blocks from the response
+  const response = content.replace(thinkRegex, '').trim();
+
+  // Also handle incomplete/streaming think tags (still open)
+  // e.g., "<think>partial thinking..." with no closing tag
+  const openThinkMatch = response.match(/<think>([\s\S]*)$/i);
+  if (openThinkMatch) {
+    const partialThinking = openThinkMatch[1].trim();
+    const cleanResponse = response.replace(/<think>[\s\S]*$/i, '').trim();
+    return {
+      thinking: (thinking ? thinking + '\n\n' : '') + partialThinking,
+      response: cleanResponse,
+    };
+  }
+
+  return { thinking, response };
+}
+
+const ThinkingBlock = memo(function ThinkingBlock({
+  thinking,
+  isStreaming,
+}: {
+  thinking: string;
+  isStreaming?: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  if (!thinking) return null;
+
+  return (
+    <div className="mb-3 rounded-xl border border-violet-200/60 dark:border-violet-800/40 bg-violet-50/50 dark:bg-violet-950/20 overflow-hidden transition-all duration-200">
+      {/* Toggle header */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left transition-colors hover:bg-violet-100/50 dark:hover:bg-violet-900/20"
+      >
+        <div className="flex h-5 w-5 items-center justify-center rounded-md bg-violet-100 dark:bg-violet-900/50">
+          {isStreaming ? (
+            <div className="h-2.5 w-2.5 rounded-full bg-violet-500 animate-pulse" />
+          ) : (
+            <Brain className="h-3 w-3 text-violet-600 dark:text-violet-400" />
+          )}
+        </div>
+        <span className="flex-1 text-xs font-semibold text-violet-700 dark:text-violet-300">
+          {isStreaming ? 'Thinking...' : 'Thought Process'}
+        </span>
+        <ChevronDown
+          className={`h-3.5 w-3.5 text-violet-400 transition-transform duration-200 ${
+            isOpen ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
+
+      {/* Collapsible content */}
+      <div
+        className={`overflow-hidden transition-all duration-300 ease-in-out ${
+          isOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
+        }`}
+      >
+        <div className="border-t border-violet-200/40 dark:border-violet-800/30 px-3.5 py-3 max-h-[500px] overflow-y-auto scrollbar-thin">
+          <div className="text-xs leading-relaxed text-violet-800/80 dark:text-violet-300/70 whitespace-pre-wrap font-mono">
+            {thinking}
+          </div>
+        </div>
+      </div>
     </div>
   );
 });
@@ -532,7 +620,8 @@ function ChatMessageComponent({ content, isUser, isTyping, onReplyWithSelection,
             <button
               onClick={(event) => {
                 event.stopPropagation();
-                void copyToClipboard(content);
+                const { response } = parseThinkingContent(content);
+                void copyToClipboard(response || content);
               }}
               onTouchEnd={(event) => event.stopPropagation()}
               className="absolute -top-1 right-0 z-10 flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 shadow-sm opacity-100 transition-opacity duration-200 hover:bg-zinc-100 hover:text-zinc-950 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white md:opacity-0 md:group-hover/animation:opacity-100 touch-manipulation"
@@ -549,7 +638,17 @@ function ChatMessageComponent({ content, isUser, isTyping, onReplyWithSelection,
             </div>
           )}
           <MessageAttachments attachments={safeAttachments} />
-          {isTyping ? <TypingIndicator /> : <MarkdownMessage content={content} onCopyCode={copyCode} isUser={isUser} />}
+          {isTyping ? (
+            <TypingIndicator />
+          ) : (() => {
+            const { thinking, response } = parseThinkingContent(content);
+            return (
+              <>
+                {thinking && <ThinkingBlock thinking={thinking} />}
+                <MarkdownMessage content={response || content} onCopyCode={copyCode} isUser={isUser} />
+              </>
+            );
+          })()}
         </div>
       </div>
 

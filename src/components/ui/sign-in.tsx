@@ -36,6 +36,8 @@ interface SignInPageProps {
   isLoading?: boolean;
   isSignUpMode?: boolean;
   showNavbar?: boolean;
+  /** Called when signup-mode user ticks both consent checkboxes (for logging) */
+  onConsentChanged?: (accepted: { terms: boolean; privacy: boolean }) => void;
 }
 
 // --- SUB-COMPONENTS ---
@@ -71,8 +73,24 @@ export const SignInPage: React.FC<SignInPageProps> = ({
   isLoading = false,
   showNavbar = false,
   isSignUpMode = false,
+  onConsentChanged,
 }) => {
   const [showPassword, setShowPassword] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+
+  // Whether consent is fully given (only enforced for sign-up)
+  const consentGiven = !isSignUpMode || (termsAccepted && privacyAccepted);
+
+  // Notify parent whenever consent changes
+  const handleTermsChange = (checked: boolean) => {
+    setTermsAccepted(checked);
+    onConsentChanged?.({ terms: checked, privacy: privacyAccepted });
+  };
+  const handlePrivacyChange = (checked: boolean) => {
+    setPrivacyAccepted(checked);
+    onConsentChanged?.({ terms: termsAccepted, privacy: checked });
+  };
 
   const buttonText = isSignUpMode 
     ? (isLoading ? 'Creating Account...' : 'Create Account')
@@ -155,13 +173,48 @@ export const SignInPage: React.FC<SignInPageProps> = ({
                 <a href="#" onClick={(e) => { e.preventDefault(); onResetPassword?.(); }} className="hover:underline text-violet-600 dark:text-violet-400 transition-colors">{resetPasswordText}</a>
               </div>
 
+              {/* ── Terms & Privacy consent (sign-up only) ── */}
+              {isSignUpMode && (
+                <div className="animate-element animate-delay-500 space-y-3 rounded-xl border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800/50 p-3">
+                  <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Required to create an account:</p>
+                  <label className="flex items-start gap-2.5 cursor-pointer" id="signup-terms-label">
+                    <input
+                      id="signup-terms-checkbox"
+                      type="checkbox"
+                      checked={termsAccepted}
+                      onChange={(e) => handleTermsChange(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-zinc-600 text-violet-600 focus:ring-violet-500 accent-violet-600 cursor-pointer"
+                      disabled={isLoading}
+                    />
+                    <span className="text-xs text-gray-700 dark:text-gray-300">
+                      I agree to the{' '}
+                      <Link to="/terms" target="_blank" className="text-violet-600 dark:text-violet-400 hover:underline">Terms of Service</Link>
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2.5 cursor-pointer" id="signup-privacy-label">
+                    <input
+                      id="signup-privacy-checkbox"
+                      type="checkbox"
+                      checked={privacyAccepted}
+                      onChange={(e) => handlePrivacyChange(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-zinc-600 text-violet-600 focus:ring-violet-500 accent-violet-600 cursor-pointer"
+                      disabled={isLoading}
+                    />
+                    <span className="text-xs text-gray-700 dark:text-gray-300">
+                      I agree to the{' '}
+                      <Link to="/privacy" target="_blank" className="text-violet-600 dark:text-violet-400 hover:underline">Privacy Policy</Link>
+                    </span>
+                  </label>
+                </div>
+              )}
+
               {/* Clerk CAPTCHA container - required for bot protection */}
               <div id="clerk-captcha" className="animate-element animate-delay-550"></div>
 
               <button 
                 type="submit" 
                 className="animate-element animate-delay-600 w-full rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 py-3 font-medium text-sm text-white hover:from-indigo-700 hover:to-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isLoading}
+                disabled={isLoading || !consentGiven}
               >
                 {buttonText}
               </button>
@@ -175,7 +228,7 @@ export const SignInPage: React.FC<SignInPageProps> = ({
             <button 
               onClick={onGoogleSignIn} 
               className="animate-element animate-delay-800 w-full flex items-center justify-center gap-2 border border-gray-300 dark:border-zinc-700 rounded-2xl py-3 text-sm hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
-              disabled={isLoading}
+              disabled={isLoading || !consentGiven}
             >
                 <GoogleIcon />
                 Continue with Google

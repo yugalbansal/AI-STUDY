@@ -20,6 +20,7 @@ import { DarkModeToggle } from '../components/DarkModeToggle';
 import ChatSidebar from '../components/ui/chat-sidebar';
 import { PureMultimodalInput } from '../components/ui/multimodal-ai-chat-input';
 import { useClerkAuth } from '../contexts/ClerkAuthContext';
+import { usePuterToken } from '../components/PuterGate';
 import { captionImages, chatService } from '../lib/chatService';
 import { parseDocument } from '../lib/documentParser';
 import { saveGeneratedImageRecord } from '../lib/generatedImages';
@@ -227,6 +228,7 @@ export default function Chat() {
   const [searchParams] = useSearchParams();
   const requestedChatId = searchParams.get('chat');
   const { user, userId, supabase, loading: authLoading } = useClerkAuth();
+  const { puterToken } = usePuterToken();
 
   const [chatHistory, setChatHistory] = useState<Message[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
@@ -650,7 +652,9 @@ export default function Chat() {
           if (isActive()) setStatusMessage(message);
         },
         userId,
-        chatId
+        chatId,
+        undefined,
+        puterToken || undefined,
       );
 
       if (!isActive()) return;

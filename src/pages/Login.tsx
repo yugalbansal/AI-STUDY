@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { useSignIn, useSignUp, useAuth } from '@clerk/clerk-react';
 import { SignInPage, Testimonial } from '../components/ui/sign-in';
+import { CURRENT_POLICY_VERSION } from '../components/ConsentGate';
 import { toast } from 'sonner';
 
 const testimonials: Testimonial[] = [
@@ -33,6 +34,9 @@ export default function Login() {
   const { signUp, isLoaded: signUpLoaded, setActive: setActiveSignUp } = useSignUp();
   const { isSignedIn, isLoaded: authLoaded } = useAuth();
   const navigate = useNavigate();
+
+  // Track consent checkbox state for sign-up
+  const consentRef = useRef({ terms: false, privacy: false });
 
   // Redirect if already signed in
   useEffect(() => {
@@ -135,6 +139,10 @@ export default function Login() {
         // Account created without verification required
         await setActiveSignUp({ session: result.createdSessionId });
         toast.success('Account created! Redirecting...');
+
+        // Record consent for new user (fire-and-forget)
+        recordSignupConsent(result.createdUserId || '').catch(() => {});
+
         setTimeout(() => {
           navigate('/dashboard');
         }, 1000);
@@ -211,6 +219,39 @@ export default function Login() {
     setIsSignUp(false);
   };
 
+  // ─── Record consent to Supabase (for new sign-ups) ────────────────
+  async function recordSignupConsent(clerkUserId: string) {
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !supabaseAnonKey) return;
+
+      const now = new Date().toISOString();
+      await fetch(`${supabaseUrl}/rest/v1/consent_logs`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseAnonKey,
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'Prefer': 'return=minimal',
+        },
+        body: JSON.stringify({
+          user_id: clerkUserId,
+          consent_type: 'terms_and_privacy',
+          policy_version: CURRENT_POLICY_VERSION,
+          terms_accepted: true,
+          privacy_accepted: true,
+          terms_accepted_at: now,
+          privacy_accepted_at: now,
+          ip_address: null,
+          user_agent: navigator.userAgent,
+        }),
+      });
+    } catch (err) {
+      console.warn('Failed to record signup consent:', err);
+    }
+  }
+
   if (isSignUp) {
     return (
       <>
@@ -226,6 +267,7 @@ export default function Login() {
           isLoading={isLoading}
           isSignUpMode={true}
           showNavbar={true}
+          onConsentChanged={(consent) => { consentRef.current = consent; }}
         />
       </>
     );

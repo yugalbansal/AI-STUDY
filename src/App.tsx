@@ -29,6 +29,8 @@ import API from './pages/API';
 import Status from './pages/Status';
 import CookiePolicy from './pages/CookiePolicy';
 import { ClerkAuthProvider } from './contexts/ClerkAuthContext';
+import ConsentGate from './components/ConsentGate';
+import PuterGate from './components/PuterGate';
 import { Toaster } from 'sonner';
 
 
@@ -51,7 +53,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  return <>{children}</>;
+  return (
+    <ConsentGate>
+      <PuterGate>
+        <>{children}</>
+      </PuterGate>
+    </ConsentGate>
+  );
 }
 
 function App() {
