@@ -17,18 +17,44 @@ export async function createClerkSupabaseClient(session: SessionResource | null)
     throw new Error('Missing Supabase environment variables');
   }
 
-  // Get the token ONCE when creating the client
-  let token: string | null = null;
-  if (session) {
-    try {
-      token = await session.getToken({ template: jwtTemplate });
-    } catch (err) {
+  // Define custom fetch implementation to dynamically retrieve fresh token from Clerk session
+  const customFetch = async (url: RequestInfo | URL, options?: RequestInit): Promise<Response> => {
+    const requestOptions = options || {};
+    requestOptions.headers = requestOptions.headers || {};
+
+    if (session) {
+      try {
+        // Retrieve fresh token (Clerk automatically handles refreshing if expired/nearing expiration)
+        const freshToken = await session.getToken({ template: jwtTemplate });
+        if (freshToken) {
+          // Set or overwrite the Authorization header
+          if (requestOptions.headers instanceof Headers) {
+            requestOptions.headers.set('Authorization', `Bearer ${freshToken}`);
+          } else if (Array.isArray(requestOptions.headers)) {
+            const authIndex = requestOptions.headers.findIndex(([key]) => key.toLowerCase() === 'authorization');
+            if (authIndex !== -1) {
+              requestOptions.headers[authIndex] = ['Authorization', `Bearer ${freshToken}`];
+            } else {
+              requestOptions.headers.push(['Authorization', `Bearer ${freshToken}`]);
+            }
+          } else {
+            requestOptions.headers = {
+              ...requestOptions.headers,
+              'Authorization': `Bearer ${freshToken}`,
+            };
+          }
+        }
+      } catch (err) {
+        console.warn('Supabase customFetch: Failed to get Clerk session token:', err);
+      }
     }
-  }
+
+    return fetch(url, requestOptions);
+  };
 
   return createClient(supabaseUrl, supabaseAnonKey, {
     global: {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      fetch: customFetch,
     },
     auth: {
       // Disable Supabase auth completely (we use Clerk now)

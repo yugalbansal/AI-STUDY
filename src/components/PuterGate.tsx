@@ -47,6 +47,28 @@ declare const puter: {
   authToken?: string;
 };
 
+// Polling utility to wait for Puter SDK to load via CDN
+function waitForPuter(timeout = 4000): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (typeof puter !== 'undefined') {
+      try { (puter as any).quiet = true; } catch (e) {}
+      resolve(true);
+      return;
+    }
+    const start = Date.now();
+    const interval = setInterval(() => {
+      if (typeof puter !== 'undefined') {
+        clearInterval(interval);
+        try { (puter as any).quiet = true; } catch (e) {}
+        resolve(true);
+      } else if (Date.now() - start > timeout) {
+        clearInterval(interval);
+        resolve(false);
+      }
+    }, 50);
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* Component                                                           */
 /* ------------------------------------------------------------------ */
@@ -83,8 +105,10 @@ export default function PuterGate({ children }: { children: React.ReactNode }) {
           // User already activated — pass through immediately, NEVER show overlay
           setPuterToken(data.puter_token);
           setTokenStatus('active');
+          // Silently trigger polling to disable logs once loaded
+          waitForPuter().catch(() => {});
         } else {
-          // Never activated — show overlay
+          // Never activated — show overlay so the user can activate manually
           setTokenStatus('missing');
         }
       } catch {

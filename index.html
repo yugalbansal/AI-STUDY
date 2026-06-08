@@ -274,6 +274,14 @@
 
     <!-- Puter.js SDK — used for AI auth via PuterGate (popup-based temp user) -->
     <script src="https://js.puter.com/v2/"></script>
+    <script>
+      try {
+        window.onload = function() {
+          if (window.puter) window.puter.quiet = true;
+        };
+        if (window.puter) window.puter.quiet = true;
+      } catch (e) {}
+    </script>
   </head>
 
   <body>
