@@ -165,21 +165,25 @@ export class EmbeddingService {
   }
 
   /**
-   * Chunk large text into smaller pieces for embedding
+   * Chunk large text into smaller pieces for embedding with overlapping windows
    */
-  chunkText(text: string, maxTokens: number = 500): string[] {
-    // Simple word-based chunking (you can make this more sophisticated)
-    const words = text.split(' ');
+  chunkText(text: string, maxTokens: number = 500, overlap: number = 100): string[] {
+    const words = text.split(/\s+/);
     const chunks: string[] = [];
     
-    for (let i = 0; i < words.length; i += maxTokens) {
+    if (words.length === 0) return [text];
+    if (words.length <= maxTokens) return [text.trim()];
+
+    const step = maxTokens - overlap > 0 ? maxTokens - overlap : maxTokens;
+    
+    for (let i = 0; i < words.length; i += step) {
       const chunk = words.slice(i, i + maxTokens).join(' ');
       if (chunk.trim().length > 0) {
         chunks.push(chunk.trim());
       }
     }
     
-    return chunks.length > 0 ? chunks : [text];
+    return chunks;
   }
 
   /**

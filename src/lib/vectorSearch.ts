@@ -645,13 +645,11 @@ export class VectorSearchService {
     // Relevant documents
     if (context.relevant_documents.length > 0) {
       formattedContext += '\n=== RELEVANT DOCUMENTS ===\n';
-      const truncate = (text: string, maxChars: number) =>
-        text.length <= maxChars ? text : text.slice(0, maxChars) + '…';
 
       context.relevant_documents.forEach((doc: any, index) => {
         const title = doc.document_title ? ` | ${doc.document_title}` : '';
         const link = doc.document_url ? ` | ${doc.document_url}` : '';
-        formattedContext += `${index + 1}. (${(doc.similarity * 100).toFixed(1)}% relevant)${title}${link}: ${truncate(doc.content_chunk, 650)}\n`;
+        formattedContext += `${index + 1}. (${(doc.similarity * 100).toFixed(1)}% relevant)${title}${link}:\n${doc.content_chunk}\n\n`;
       });
       formattedContext += '\n';
     }
