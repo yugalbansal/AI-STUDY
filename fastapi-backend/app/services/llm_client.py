@@ -107,6 +107,46 @@ def detect_dataset_mode(text: str) -> DatasetMode:
     return DatasetMode.THEORY_QA
 
 # ---------------------------------------------------------------------------
+# Token Bucket Rate Limiter
+# ---------------------------------------------------------------------------
+
+class TokenBucketLimiter:
+    """Manages tokens per minute per API key using a token bucket algorithm"""
+    def __init__(self, capacity: int, refill_rate_per_sec: float):
+        self.capacity = capacity
+        self.tokens = float(capacity)
+        self.refill_rate = refill_rate_per_sec
+        self.updated_at = time.monotonic()
+        self.lock = asyncio.Lock()
+
+    def update_limits(self, capacity: int):
+        """Dynamically update capacity and refill rate (e.g. when model shifts)"""
+        self.capacity = capacity
+        self.refill_rate = capacity / 60.0
+        self.tokens = min(self.tokens, float(capacity))
+
+    async def consume(self, amount: int) -> bool:
+        async with self.lock:
+            now = time.monotonic()
+            elapsed = now - self.updated_at
+            self.tokens = min(self.capacity, self.tokens + elapsed * self.refill_rate)
+            self.updated_at = now
+            
+            if self.tokens >= amount:
+                self.tokens -= amount
+                return True
+            return False
+
+    async def wait_for_tokens(self, amount: int):
+        while True:
+            if await self.consume(amount):
+                break
+            needed = amount - self.tokens
+            wait_time = needed / self.refill_rate
+            sleep_duration = max(0.5, min(wait_time, 2.0))
+            await asyncio.sleep(sleep_duration)
+
+# ---------------------------------------------------------------------------
 # Pipeline Configuration & Key Pooling
 # ---------------------------------------------------------------------------
 
@@ -151,9 +191,13 @@ class APIKeyClient:
         self.provider_name = provider_name
         self.api_key = api_key
         self.base_url = base_url
-        self.semaphore = asyncio.Semaphore(3)  # Max 3 concurrent requests per key
+        self.semaphore = asyncio.Semaphore(2)  # Max 2 concurrent requests per key
         self.cooldown_until = 0.0
         self.rate_limit_count = 0
+        
+        # Safe default capacity (11,000 for Groq llama-3.3-70b, 10,000 for OpenRouter)
+        capacity = 11000 if provider_name == "groq" else 10000
+        self.limiter = TokenBucketLimiter(capacity=capacity, refill_rate_per_sec=capacity / 60.0)
         
         if provider_name == "openrouter":
             self.openai_client = AsyncOpenAI(
@@ -267,13 +311,15 @@ class ModelManager:
                     continue
                 filtered.append(m)
                 
-            # Sort: Prefer llama-3.3 or llama-3.1, then by context length if available
+            # Sort: strictly prefer llama-3.3-70b-versatile, then other llama-3.3 or llama-3.1 models
             def groq_sort_key(m):
                 m_id = m.get("id", "").lower()
                 # Groq doesn't always send context_window, default to 0
                 context = m.get("context_window", 0)
                 boost = 0
-                if "llama-3.3" in m_id or "llama-3.1" in m_id:
+                if "llama-3.3-70b-versatile" in m_id:
+                    boost += 5000000
+                elif "llama-3.3" in m_id or "llama-3.1" in m_id:
                     boost += 1000000
                 return boost + context
                 
@@ -462,6 +508,17 @@ class LLMOrchestrator:
                 try:
                     model = await self.model_manager.get_best_model(client.provider_name)
                     
+                    # Dynamically adjust capacity based on selected model
+                    if client.provider_name == "groq":
+                        if "llama-3.3-70b" in model.lower():
+                            client.limiter.update_limits(11000)
+                        elif "llama-3.1-8b" in model.lower():
+                            client.limiter.update_limits(5500)
+                        else:
+                            client.limiter.update_limits(11000)
+                    else:
+                        client.limiter.update_limits(10000)
+
                     system_prompt = MODE_SYSTEM_PROMPTS[mode]
                     if stricter_prompt:
                         system_prompt += (
@@ -471,6 +528,13 @@ class LLMOrchestrator:
                         )
                         
                     user_prompt = self._build_user_prompt(chunk, mode, examples_per_chunk)
+                    
+                    # Pacing request: Estimate token count (chars / 4) + 500 estimated output tokens
+                    prompt_len = len(system_prompt) + len(user_prompt)
+                    estimated_tokens = int(prompt_len / 4) + 500
+                    
+                    logger.info(f"Waiting for rate limiter tokens ({estimated_tokens}) on key {client.api_key[:8]}... (Current tokens: {client.limiter.tokens:.1f})")
+                    await client.limiter.wait_for_tokens(estimated_tokens)
                     
                     response = await client.openai_client.chat.completions.create(
                         model=model,
@@ -524,9 +588,23 @@ class LLMOrchestrator:
                         
                 except openai.RateLimitError as e:
                     client.rate_limit_count += 1
-                    backoff = 5 if client.rate_limit_count == 1 else 10 if client.rate_limit_count == 2 else 20
-                    logger.warning(f"429 Rate Limit on {client.provider_name} (key: {client.api_key[:8]}...). Retrying in {backoff}s. Error: {e}")
-                    await asyncio.sleep(backoff)
+                    
+                    # Try to parse OpenRouter metadata.retry_after_seconds
+                    retry_after = None
+                    if client.provider_name == "openrouter" and hasattr(e, "response") and e.response:
+                        try:
+                            err_data = e.response.json()
+                            retry_after = err_data.get("error", {}).get("metadata", {}).get("retry_after_seconds")
+                        except Exception as parse_err:
+                            logger.warning(f"Could not parse OpenRouter retry_after_seconds: {parse_err}")
+                            
+                    if retry_after is not None:
+                        logger.warning(f"429 Rate Limit on OpenRouter. Upstream retry instruction: sleep for {retry_after}s.")
+                        await asyncio.sleep(float(retry_after))
+                    else:
+                        backoff = 15 if client.provider_name == "groq" else 10
+                        logger.warning(f"429 Rate Limit on {client.provider_name} (key: {client.api_key[:8]}...). Retrying in {backoff}s. Error: {e}")
+                        await asyncio.sleep(backoff)
                     
                     if client.rate_limit_count >= 3:
                         logger.warning(f"Rate-limiting threshold exceeded for key {client.api_key[:8]}... putting on 60s cooldown.")

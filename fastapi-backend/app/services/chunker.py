@@ -14,16 +14,19 @@ class Chunker:
     def clean_text(self, text: str) -> str:
         """
         Clean the text prior to chunking:
-        - Remove excessive newlines (max 2 consecutive)
         - Resolve soft-hyphenations (hyphen followed by newline and optional whitespace)
+        - Remove multiple consecutive spaces/tabs
+        - Remove excessive newlines (max 2 consecutive)
         """
         # Fix broken hyphenations: e.g., "hyphen-\nation" -> "hyphenation"
         text = re.sub(r'(\w+)-\r?\n\s*(\w+)', r'\1\2', text)
+        # Replace multiple spaces/tabs with a single space
+        text = re.sub(r'[ \t]+', ' ', text)
         # Replace 3 or more consecutive newlines with exactly 2 newlines
         text = re.sub(r'\n{3,}', '\n\n', text)
         return text.strip()
 
-    def split_text(self, content: str, chunk_size: int = 3000, chunk_overlap: int = 300) -> List[str]:
+    def split_text(self, content: str, chunk_size: int = 2500, chunk_overlap: int = 200) -> List[str]:
         """
         Split document into chunks for LLM processing.
         Uses a recursive character text splitting strategy similar to LangChain's.
