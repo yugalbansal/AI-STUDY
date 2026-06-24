@@ -70,9 +70,11 @@ app.add_middleware(CORSMiddleware, **cors_kwargs)
 app.include_router(jsonl.router, prefix="/api/jsonl", tags=["JSONL Generation"])
 
 @app.get("/")
+@app.head("/")
 async def root():
     return {"status": "ok"}
 
 @app.get("/health")
+@app.head("/health")
 async def health_check():
     return {"status": "healthy"}
