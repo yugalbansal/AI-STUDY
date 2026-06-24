@@ -44,3 +44,7 @@ services:
         value: documents
       - key: STORAGE_BUCKET_JSONL
         value: jsonl-datasets
+      # --- UptimeRobot ---
+      - key: UPTIMEROBOT_API_KEY
+        sync: false
+

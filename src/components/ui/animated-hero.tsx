@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { MoveRight, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@clerk/clerk-react";
 
 interface HeroProps {
   onKnowMore?: () => void;
@@ -10,6 +11,8 @@ interface HeroProps {
 
 function Hero({ onKnowMore, onSignUp }: HeroProps) {
   const [titleNumber, setTitleNumber] = useState(0);
+  const { isSignedIn } = useAuth();
+
   const titles = useMemo(
     () => ["AI Tutoring", "Voice Learning", "Smart Documents", "Personalized Education", "Interactive Study"],
     []
@@ -88,10 +91,10 @@ function Hero({ onKnowMore, onSignUp }: HeroProps) {
             <Button 
               type="button"
               size="lg" 
-              className="gap-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg"
+              className="gap-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg font-medium"
               onClick={onSignUp}
             >
-              Sign Up <UserPlus className="w-4 h-4" />
+              {isSignedIn ? "Back to Dashboard" : "Sign Up"} <UserPlus className="w-4 h-4" />
             </Button>
           </div>
         </div>

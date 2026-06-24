@@ -272,13 +272,36 @@
       });
     </script>
 
+    <!-- Silence Puter.js console banner by overriding console.log during script load -->
+    <script>
+      (function() {
+        const originalLog = console.log;
+        console.log = function(...args) {
+          const str = args.map(a => String(a)).join(' ');
+          if (
+            str.includes('PUTER.JS') || 
+            str.includes('puter.quiet') || 
+            str.includes('apps.puter.com') || 
+            str.includes('Puter App Store') ||
+            (str.includes('__') && str.includes('|'))
+          ) {
+            return;
+          }
+          originalLog.apply(console, args);
+        };
+        window.__restore_console = function() {
+          console.log = originalLog;
+          delete window.__restore_console;
+        };
+      })();
+    </script>
     <!-- Puter.js SDK — used for AI auth via PuterGate (popup-based temp user) -->
     <script src="https://js.puter.com/v2/"></script>
     <script>
+      if (window.__restore_console) {
+        window.__restore_console();
+      }
       try {
-        window.onload = function() {
-          if (window.puter) window.puter.quiet = true;
-        };
         if (window.puter) window.puter.quiet = true;
       } catch (e) {}
     </script>

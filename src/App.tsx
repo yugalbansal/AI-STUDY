@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -28,10 +28,36 @@ import BlogPost from './pages/BlogPost';
 import API from './pages/API';
 import Status from './pages/Status';
 import CookiePolicy from './pages/CookiePolicy';
+import NotFound from './pages/NotFound';
 import { ClerkAuthProvider } from './contexts/ClerkAuthContext';
 import ConsentGate from './components/ConsentGate';
 import PuterGate from './components/PuterGate';
 import { Toaster } from 'sonner';
+
+// Scroll to top/hash on route change
+function ScrollToTop() {
+  const { pathname, hash } = useLocation();
+
+  useEffect(() => {
+    if (hash) {
+      const id = hash.replace('#', '');
+      const timer = setTimeout(() => {
+        const element = document.getElementById(id);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        } else {
+          window.scrollTo(0, 0);
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    } else {
+      window.scrollTo(0, 0);
+    }
+  }, [pathname, hash]);
+
+  return null;
+}
+
 
 
 // Component to handle protected routes
@@ -65,6 +91,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <ClerkAuthProvider>
         <div className="min-h-screen bg-slate-900 relative overflow-hidden">
           {/* Background */}
@@ -163,7 +190,7 @@ function App() {
               />
 
               {/* Fallback */}
-              <Route path="*" element={<Navigate to="/" />} />
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </div>
         </div>

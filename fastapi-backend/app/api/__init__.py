@@ -2,6 +2,6 @@
 API package initialization
 """
 
-from . import jsonl
+from . import jsonl, status
 
-__all__ = ["jsonl"]
+__all__ = ["jsonl", "status"]

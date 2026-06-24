@@ -221,9 +221,11 @@ doc = client.documents.upload("file.pdf")</pre>
               <h3 className="text-white font-bold mb-4">Node.js</h3>
               <code className="text-green-400 text-sm">npm install vectormind-sdk</code>
               <div className="mt-4">
-                <pre className="text-gray-400 text-xs font-mono">import { VectorMind } from 'vectormind-sdk';
+                <pre className="text-gray-400 text-xs font-mono">
+                  {`import { VectorMind } from 'vectormind-sdk';
 const client = new VectorMind('YOUR_API_KEY');
-const doc = await client.documents.upload('file.pdf');</pre>
+const doc = await client.documents.upload('file.pdf');`}
+                </pre>
               </div>
             </div>
           </div>

@@ -1,5 +1,6 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Github, Linkedin, Mail, ArrowUp, Heart, MessageCircle } from 'lucide-react';
+import { useAuth } from '@clerk/clerk-react';
 
 function handleScrollTop() {
   window.scroll({
@@ -33,8 +34,8 @@ const navigation = {
       items: [
         { name: "FAQ", href: "/faq" },
         { name: "Documentation", href: "/how-to-use" },
-        { name: "API", href: "#api" },
-        { name: "Status", href: "#status" },
+        { name: "API", href: "/api-docs" },
+        { name: "Status", href: "/status" },
       ],
     },
     {
@@ -60,10 +61,14 @@ const navigation = {
 const Underline = `hover:-translate-y-1 border border-dotted rounded-xl p-2.5 transition-transform dark:border-zinc-700 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400`;
 
 export function Footer() {
+  const { isSignedIn } = useAuth();
+  const navigate = useNavigate();
+
   return (
     <footer id="contact" className="border-gray-200 dark:border-zinc-700 mx-auto w-full border-t">
       <div className="relative mx-auto grid max-w-7xl items-center justify-center gap-6 p-10 pb-0 md:flex">
-        <Link to="/">
+        <Link to={isSignedIn ? "/?allowHome=true" : "/"}>
+
           <div className="flex items-center justify-center rounded-full">
             <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-blue-400 rounded-full flex items-center justify-center">
               <span className="text-white font-bold text-xl">AI</span>
@@ -95,11 +100,12 @@ export function Footer() {
                         <a
                           href={item.href}
                           onClick={(e) => {
-                            if (window.location.pathname !== '/') {
-                              e.preventDefault();
-                              window.location.href = '/' + item.href;
-                            }
-                          }}
+                             if (window.location.pathname !== '/') {
+                               e.preventDefault();
+                               const target = isSignedIn ? `/?allowHome=true${item.href}` : `/${item.href}`;
+                               navigate(target);
+                             }
+                           }}
                           className="text-sm text-slate-600 hover:text-black dark:text-slate-400 hover:dark:text-white md:text-xs"
                         >
                           {item.name}

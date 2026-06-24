@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 if os.getenv("ENV") != "production":
     load_dotenv()
 
-from app.api import jsonl
+from app.api import jsonl, status
 from app.services.job_manager import recover_stuck_jobs, start_background_worker, stop_background_worker
 
 logging.basicConfig(
@@ -68,6 +68,7 @@ logger.info(f"CORS configured with origins: {origins}")
 app.add_middleware(CORSMiddleware, **cors_kwargs)
 
 app.include_router(jsonl.router, prefix="/api/jsonl", tags=["JSONL Generation"])
+app.include_router(status.router, prefix="/api", tags=["Status Dashboard"])
 
 @app.get("/")
 @app.head("/")
@@ -78,3 +79,8 @@ async def root():
 @app.head("/health")
 async def health_check():
     return {"status": "healthy"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+
