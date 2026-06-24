@@ -64,6 +64,12 @@ function ScrollToTop() {
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isSignedIn, isLoaded } = useAuth();
 
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      sessionStorage.setItem('hasRedirected', 'true');
+    }
+  }, [isLoaded, isSignedIn]);
+
   if (!isLoaded) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">

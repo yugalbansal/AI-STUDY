@@ -45,7 +45,7 @@ export default function Navbar({ isFixed = true, className = '', compactMobile =
         compactMobile ? 'px-4 py-2 sm:px-6 sm:py-3' : 'px-6 py-3'
       }`}>
         {/* Logo */}
-        <Link to="/dashboard" className="flex items-center mr-4">
+        <Link to="/?allowHome=true" className="flex items-center mr-4">
           <motion.div
             className={`${compactMobile ? 'w-9 h-9 sm:w-10 sm:h-10' : 'w-10 h-10'} mr-2 overflow-hidden`}
             initial={{ scale: 0.8 }}

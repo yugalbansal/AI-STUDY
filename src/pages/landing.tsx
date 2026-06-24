@@ -19,10 +19,12 @@ export default function Landing() {
   const navigate = useNavigate();
   const { isSignedIn, isLoaded } = useAuth();
 
-  // Redirect authenticated users to dashboard unless allowHome is set
+  // Redirect authenticated users to dashboard unless they have already been redirected in this session or allowHome is set
   useEffect(() => {
     const allowHome = new URLSearchParams(window.location.search).get('allowHome') === 'true';
-    if (isLoaded && isSignedIn && !allowHome) {
+    const hasRedirected = sessionStorage.getItem('hasRedirected') === 'true';
+    if (isLoaded && isSignedIn && !allowHome && !hasRedirected) {
+      sessionStorage.setItem('hasRedirected', 'true');
       navigate('/dashboard', { replace: true });
     }
   }, [isLoaded, isSignedIn, navigate]);
