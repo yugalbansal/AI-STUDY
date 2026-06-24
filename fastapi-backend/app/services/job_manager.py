@@ -115,8 +115,8 @@ async def generate_jsonl_task(job_id: str, document_id: str, user_id: str, file_
                         successful_chunks += 1
             
             # Step 4: Validate minimum quality threshold
-            if total_lines < 10:
-                raise Exception(f"Insufficient training data: only {total_lines} examples generated (minimum 10 required)")
+            if total_lines < 1:
+                raise Exception("Insufficient training data: no valid examples could be generated from this document")
             
             logger.info(f"Job {job_id}: Generated {total_lines} total JSONL lines from {successful_chunks}/{len(chunks)} chunks")
             

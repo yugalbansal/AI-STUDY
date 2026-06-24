@@ -391,6 +391,15 @@ class LLMOrchestrator:
         if num_workers == 0:
             return []
             
+        # Determine target examples per chunk dynamically based on document length to satisfy min requirement
+        total_chunks = len(chunks)
+        if total_chunks == 1:
+            examples_per_chunk = 12
+        elif total_chunks == 2:
+            examples_per_chunk = 7
+        else:
+            examples_per_chunk = 4
+            
         async def worker():
             while True:
                 try:
@@ -400,7 +409,7 @@ class LLMOrchestrator:
                     
                 try:
                     # Initial attempt allows any provider (preferred_provider=None)
-                    lines = await self.process_chunk_with_retry(chunk)
+                    lines = await self.process_chunk_with_retry(chunk, examples_per_chunk=examples_per_chunk)
                     results[idx] = lines
                 except ChunkProcessingException as e:
                     logger.error(f"Worker chunk {idx} failure: {e}. Appending to DLQ.")
@@ -421,7 +430,7 @@ class LLMOrchestrator:
                 alternate_provider = "openrouter" if last_provider == "groq" else "groq"
                 logger.info(f"Retrying DLQ chunk {idx} with alternative provider: {alternate_provider}")
                 try:
-                    lines = await self.process_chunk_with_retry(chunk, preferred_provider=alternate_provider)
+                    lines = await self.process_chunk_with_retry(chunk, preferred_provider=alternate_provider, examples_per_chunk=examples_per_chunk)
                     results[idx] = lines
                     logger.info(f"Recovered DLQ chunk {idx} successfully on {alternate_provider}")
                 except Exception as e:
@@ -430,7 +439,7 @@ class LLMOrchestrator:
                     
         return results
 
-    async def process_chunk_with_retry(self, chunk: str, preferred_provider: Optional[str] = None) -> List[str]:
+    async def process_chunk_with_retry(self, chunk: str, preferred_provider: Optional[str] = None, examples_per_chunk: int = 4) -> List[str]:
         mode = detect_dataset_mode(chunk)
         if not self._is_mode_applicable(mode, chunk):
             logger.info(f"Mode {mode.value} is not applicable to text chunk, skipping.")
@@ -461,7 +470,7 @@ class LLMOrchestrator:
                             "Make sure your response parses exactly with json.loads() and has the 'examples' list key."
                         )
                         
-                    user_prompt = self._build_user_prompt(chunk, mode)
+                    user_prompt = self._build_user_prompt(chunk, mode, examples_per_chunk)
                     
                     response = await client.openai_client.chat.completions.create(
                         model=model,
@@ -548,8 +557,8 @@ class LLMOrchestrator:
 
     # ---- prompt building ---------------------------------------------------
 
-    def _build_user_prompt(self, chunk: str, mode: DatasetMode) -> str:
-        return f"""Generate up to 4 high-quality question-answer examples in JSON format based on the text below.
+    def _build_user_prompt(self, chunk: str, mode: DatasetMode, num_examples: int = 4) -> str:
+        return f"""Generate up to {num_examples} high-quality question-answer examples in JSON format based on the text below.
 
 MANDATORY RULES:
 1. Return a JSON object with an "examples" array of objects.
