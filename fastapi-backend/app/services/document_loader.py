@@ -5,6 +5,7 @@ Document loader - downloads and extracts text from documents
 import os
 import logging
 import asyncio
+import tempfile
 from typing import Optional
 from concurrent.futures import ThreadPoolExecutor
 
@@ -43,7 +44,7 @@ class DocumentLoader:
         ext = ext.lower()
         
         # Create temp directory if not exists
-        temp_dir = "/tmp/jsonl_generator"
+        temp_dir = os.path.join(tempfile.gettempdir(), "jsonl_generator")
         os.makedirs(temp_dir, exist_ok=True)
         
         # Download to temp file

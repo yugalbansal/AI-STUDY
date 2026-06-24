@@ -98,33 +98,12 @@ async def generate_jsonl_task(job_id: str, document_id: str, user_id: str, file_
             
             logger.info(f"Job {job_id}: Split into {len(chunks)} chunks")
             
-            # Step 3: Generate JSONL lines from chunks in parallel (with concurrency limit)
+            # Step 3: Generate JSONL lines from chunks concurrently using LLM client
             total_lines = 0
             successful_chunks = 0
             
-            # Process chunks in parallel: 5 API keys × 2 parallel requests each = 10 concurrent
-            max_concurrent = 10  # Process 10 chunks at a time
-            semaphore = asyncio.Semaphore(max_concurrent)
-            
-            async def process_chunk_with_semaphore(i, chunk):
-                async with semaphore:
-                    try:
-                        logger.info(f"Job {job_id}: Processing chunk {i + 1}/{len(chunks)}")
-                        jsonl_lines = await llm_client.generate_jsonl_from_chunk(chunk)
-                        
-                        if jsonl_lines:
-                            logger.info(f"Job {job_id}: Generated {len(jsonl_lines)} lines from chunk {i + 1}")
-                            return jsonl_lines
-                        else:
-                            logger.warning(f"Job {job_id}: No lines generated from chunk {i + 1}")
-                            return []
-                    except Exception as chunk_error:
-                        logger.error(f"Job {job_id}: Error on chunk {i + 1}: {chunk_error}")
-                        return []
-            
-            # Process all chunks in parallel (controlled by semaphore)
-            logger.info(f"Job {job_id}: Processing {len(chunks)} chunks in parallel (max {max_concurrent} concurrent)")
-            results = await asyncio.gather(*[process_chunk_with_semaphore(i, chunk) for i, chunk in enumerate(chunks)])
+            logger.info(f"Job {job_id}: Processing {len(chunks)} chunks with resilient multi-provider pipeline")
+            results = await llm_client.generate_jsonl_for_chunks(chunks)
             
             # Write all results to file
             async with aiofiles.open(temp_file_path, 'w', encoding='utf-8') as f:

@@ -1,0 +1,46 @@
+services:
+  - type: web
+    name: vectormind-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: ENV
+        value: production
+      # --- LLM Providers (Multi-Key Setup) ---
+      - key: GROQ_API_KEY_1
+        sync: false
+      - key: GROQ_API_KEY_2
+        sync: false
+      - key: GROQ_API_KEY_3
+        sync: false
+      - key: GROQ_BASE_URL
+        value: "https://api.groq.com/openai/v1"
+      - key: OPENROUTER_API_KEY_1
+        sync: false
+      - key: OPENROUTER_API_KEY_2
+        sync: false
+      - key: OPENROUTER_API_KEY_3
+        sync: false
+      - key: OPENROUTER_BASE_URL
+        value: "https://openrouter.ai/api/v1"
+      # --- Supabase (set in Render dashboard) ---
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      # --- CORS & Auth ---
+      - key: ALLOWED_ORIGINS
+        value: "https://vectormind.site,https://www.vectormind.site"
+      - key: CLERK_JWKS_URL
+        value: "https://clerk.vectormind.site/.well-known/jwks.json"
+      - key: CLERK_ALLOWED_ORIGINS
+        value: "https://vectormind.site,https://www.vectormind.site"
+      # --- Storage ---
+      - key: STORAGE_BUCKET_DOCUMENTS
+        value: documents
+      - key: STORAGE_BUCKET_JSONL
+        value: jsonl-datasets
